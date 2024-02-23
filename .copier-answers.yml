@@ -1,0 +1,10 @@
+# Changes here will be overwritten by Copier
+_commit: v1.5.3
+_src_path: gh:lincc-frameworks/python-project-template
+author_email: joe_ontheflex@hotmail.fr
+author_name: Joseph Chevalier
+custom_install: false
+package_name: process_fors2
+project_license: MIT
+project_name: process_fors2
+project_organization: JospehCeh

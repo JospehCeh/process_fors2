@@ -1,0 +1,8 @@
+sphinx
+sphinx-rtd-theme
+sphinx-autoapi
+sphinx-copybutton
+nbsphinx
+ipython
+jupytext
+jupyter
