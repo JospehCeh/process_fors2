@@ -20,7 +20,7 @@ import numpy as np
 import pandas as pd
 from astropy.table import Table
 
-from process_fors2.fetchData import queryGalexMast, readKids
+from .queries import queryGalexMast, readKids
 
 FORS2DATALOC = os.path.abspath(os.environ["FORS2DATALOC"])
 FORS2_TABLE = "fors2_catalogue.fits"
