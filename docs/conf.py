@@ -56,3 +56,6 @@ autoapi_add_toc_tree_entry = False
 autoapi_member_order = "bysource"
 
 html_theme = "sphinx_rtd_theme"
+
+# Custom settings
+nbsphinx_allow_errors = True
