@@ -20,9 +20,9 @@ import numpy as np
 import pandas as pd
 from astropy.table import Table
 
-from .queries import _defaults, queryGalexMast, readKids
+from .queries import FORS2DATALOC, _defaults, queryGalexMast, readKids
 
-FORS2DATALOC = os.path.abspath(os.environ["FORS2DATALOC"])
+# FORS2DATALOC = os.path.abspath(os.environ["FORS2DATALOC"])
 # FORS2_TABLE = "fors2_catalogue.fits"
 # GALEX_TABLE = "queryMAST_GALEXDR6_RXJ0054.0-2823_11arcmin.fits"
 # KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_12arcmin.fits"

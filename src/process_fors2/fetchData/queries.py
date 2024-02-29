@@ -17,14 +17,23 @@ from astroquery.mast import Catalogs
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
 
-FORS2DATALOC = os.environ["FORS2DATALOC"]
+_script_dir = os.path.dirname(os.path.abspath(__file__))
+
+try:
+    FORS2DATALOC = os.environ["FORS2DATALOC"]
+except KeyError:
+    try:
+        FORS2DATALOC = input("Please type in the path to FORS2 data, e.g. /home/usr/process_fors2/src/data")
+        os.environ["FORS2DATALOC"] = FORS2DATALOC
+    except OSError:
+        FORS2DATALOC = os.path.join(_script_dir, "..", "data")
+        os.environ["FORS2DATALOC"] = FORS2DATALOC
 
 TARGET = "RXJ0054.0-2823"
 AUTHOR = "GIRAUD"
 OBJ_SIMBAD = "BAX 013.5117-28.3994"
 CATALOG_VIZIER = "J/other/RAA/11.245"
 OUTFILENAME = "fors2_catalogue.fits"
-_script_dir = os.path.dirname(os.path.abspath(__file__))
 TABLE_PATH = os.path.abspath(os.path.join(FORS2DATALOC, "fors2", OUTFILENAME))
 
 BOX_SIZE = (11 * u.arcmin).to(u.deg)
