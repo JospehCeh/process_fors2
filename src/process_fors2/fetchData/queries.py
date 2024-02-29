@@ -34,6 +34,8 @@ GLXTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", GALEX_TABLE)
 KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_12arcmin.fits"
 KIDSTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", KIDS_TABLE)
 
+_defaults = {"Target": TARGET, "Simbad name": OBJ_SIMBAD, "Vizier catalog": CATALOG_VIZIER, "FITS location": TABLE_PATH, "GALEX FITS": GLXTBL_PATH, "KiDS FITS": KIDSTBL_PATH, "Box size": BOX_SIZE}
+
 
 def queryTargetInSimbad(target=TARGET):
     """
@@ -67,7 +69,12 @@ def getFors2FitsTable(catalog=CATALOG_VIZIER, outpath=TABLE_PATH):
         res_query = Vizier.get_catalogs(catalog)
         tabl = Table(res_query[0])
         Vizier.ROW_LIMIT = 50
-        tabl.write(outpath, format="fits")
+        try:
+            tabl.write(outpath, format="fits")
+        except ValueError:
+            print(tabl.meta["description"])
+            tabl.meta["description"] = input("Summarise the above in fewer than 80 characters:")
+            tabl.write(outpath, format="fits")
     return tabl
 
 
@@ -107,7 +114,12 @@ def queryGalexMast(target=OBJ_SIMBAD, outpath=GLXTBL_PATH, boxsize=BOX_SIZE.valu
         catalog_data = Catalogs.query_object(target, catalog="Galex", data_release="DR6", radius=boxsize * np.sqrt(2.0))
         catalog_data.rename_column("ra", "ra_galex")
         catalog_data.rename_column("dec", "dec_galex")
-        catalog_data.write(outpath, format="fits")
+        try:
+            catalog_data.write(outpath, format="fits")
+        except ValueError:
+            print(catalog_data.meta["description"])
+            catalog_data.meta["description"] = input("Summarise the above in fewer than 80 characters:")
+            catalog_data.write(outpath, format="fits")
     return catalog_data
 
 
@@ -124,4 +136,6 @@ def readKids(path=KIDSTBL_PATH):
     assert os.path.isfile(path), "Please query appropriate data from ESO archives and save it as a FITS file, prior to execute this function."
     catalog_data = Table.read(path)
     catalog_data.rename_column("ID", "KiDS_ID")
+    catalog_data.rename_column("RAJ2000", "ra_kids")
+    catalog_data.rename_column("DECJ2000", "dec_kids")
     return catalog_data
