@@ -25,7 +25,7 @@ except KeyError:
     try:
         FORS2DATALOC = input("Please type in the path to FORS2 data, e.g. /home/usr/process_fors2/src/data")
         os.environ["FORS2DATALOC"] = FORS2DATALOC
-    except OSError:
+    except Exception:
         FORS2DATALOC = os.path.join(_script_dir, "..", "data")
         os.environ["FORS2DATALOC"] = FORS2DATALOC
 
