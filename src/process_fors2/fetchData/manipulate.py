@@ -85,51 +85,51 @@ def fors2ToH5(infile=FORS2_FITS, inspecs=FORS2_SPECS, outfile=FORS2_H5):
     """
     # if os.path.isfile(outfile):
     #    os.remove(outfile)
-    hf_outfile = h5py.File(outfile, "w")
     spec_list = sorted(os.listdir(inspecs))
     if "IMG" in spec_list:
         spec_list.remove("IMG")
     all_numbers = [int(re.findall("^SPEC(.*)n[.]txt$", fn)[0]) for fn in spec_list]
     tabl = Table.read(infile)
 
-    for idgal in tabl["ID"]:
-        if idgal not in all_numbers:
-            pass
-        else:
-            # print(f"DEBUG: {idgal}")
-            wl, fl, msk = np.loadtxt(os.path.join(inspecs, f"SPEC{idgal}n.txt"), unpack=True)
-            _sel = tabl["ID"] == idgal
-            redshift = tabl[_sel]["z"].value[0]
-            lines = tabl[_sel]["Lines"].value[0]
-            ra = tabl[_sel]["RAJ2000"].value[0]
-            dec = tabl[_sel]["DEJ2000"].value[0]
-            Rmag = tabl[_sel]["Rmag"].value[0]
-            RV = tabl[_sel]["RV"].value[0]
-            e_RV = tabl[_sel]["e_RV"].value[0]
-            RT = tabl[_sel]["RT"].value[0]
-            Nsp = tabl[_sel]["Nsp"].value[0]
-
-            try:
-                h5group = hf_outfile.create_group(f"SPEC{idgal}")
-                h5group.attrs["num"] = idgal
-                h5group.attrs["redshift"] = redshift
-                h5group.attrs["lines"] = lines
-                h5group.attrs["ra"] = ra
-                h5group.attrs["dec"] = dec
-                h5group.attrs["Rmag"] = Rmag
-                h5group.attrs["RV"] = RV
-                h5group.attrs["eRV"] = e_RV
-                h5group.attrs["RT"] = RT
-                h5group.attrs["Nsp"] = Nsp
-
-                h5group.create_dataset("wl", data=wl, compression="gzip", compression_opts=9)
-                h5group.create_dataset("fl", data=fl, compression="gzip", compression_opts=9)
-                h5group.create_dataset("fnu", data=convertFlambdaToFnu(wl, fl), compression="gzip", compression_opts=9)
-                h5group.create_dataset("mask", data=msk, compression="gzip", compression_opts=9)
-            except ValueError:
-                print(f"Galaxy ID.{idgal} appears to be duplicated in the table.\nPlease consider checking input data.")
+    with h5py.File(outfile, "w") as hf_outfile:
+        for idgal in tabl["ID"]:
+            if idgal not in all_numbers:
                 pass
-    hf_outfile.close()
+            else:
+                # print(f"DEBUG: {idgal}")
+
+                wl, fl, msk = np.loadtxt(os.path.join(inspecs, f"SPEC{idgal}n.txt"), unpack=True)
+                _sel = tabl["ID"] == idgal
+                redshift = tabl[_sel]["z"].value[0]
+                lines = tabl[_sel]["Lines"].value[0]
+                ra = tabl[_sel]["RAJ2000"].value[0]
+                dec = tabl[_sel]["DEJ2000"].value[0]
+                Rmag = tabl[_sel]["Rmag"].value[0]
+                RV = tabl[_sel]["RV"].value[0]
+                e_RV = tabl[_sel]["e_RV"].value[0]
+                RT = tabl[_sel]["RT"].value[0]
+                Nsp = tabl[_sel]["Nsp"].value[0]
+
+                try:
+                    h5group = hf_outfile.create_group(f"SPEC{idgal}")
+                    h5group.attrs["num"] = idgal
+                    h5group.attrs["redshift"] = redshift
+                    h5group.attrs["lines"] = lines
+                    h5group.attrs["ra"] = ra
+                    h5group.attrs["dec"] = dec
+                    h5group.attrs["Rmag"] = Rmag
+                    h5group.attrs["RV"] = RV
+                    h5group.attrs["eRV"] = e_RV
+                    h5group.attrs["RT"] = RT
+                    h5group.attrs["Nsp"] = Nsp
+
+                    h5group.create_dataset("wl", data=wl, compression="gzip", compression_opts=9)
+                    h5group.create_dataset("fl", data=fl, compression="gzip", compression_opts=9)
+                    h5group.create_dataset("fnu", data=convertFlambdaToFnu(wl, fl), compression="gzip", compression_opts=9)
+                    h5group.create_dataset("mask", data=msk, compression="gzip", compression_opts=9)
+                except ValueError:
+                    print(f"Galaxy ID.{idgal} appears to be duplicated in the table.\nPlease consider checking input data.")
+                    pass
     return None
 
 
@@ -149,52 +149,51 @@ def starlightToH5(infile=FORS2_FITS, inspecs=STARLIGHT_SPECS, outfile=SL_H5):
     sl_nodust = os.path.join(inspecs, "full_spectra")
     sl_dust = os.path.join(inspecs, "full_spectra_ext")
 
-    hf_outfile = h5py.File(outfile, "w")
     spec_list = sorted(os.listdir(sl_nodust))
     all_numbers = [int(re.findall("^SPEC(.*)_HZ4_BC[.]txt$", fn)[0]) for fn in spec_list]
     tabl = Table.read(infile)
 
-    for idgal in tabl["ID"]:
-        if idgal not in all_numbers:
-            pass
-        else:
-            wl, fl = np.loadtxt(os.path.join(sl_nodust, f"SPEC{idgal}_HZ4_BC.txt"), unpack=True)
-            wl_ext, fl_ext = np.loadtxt(os.path.join(sl_dust, f"SPEC{idgal}_HZ4_BC_ext_full.txt"), unpack=True)
-            fl_ext_interp = np.interp(wl, wl_ext, fl_ext, left=0.0, right=0.0)
-
-            _sel = tabl["ID"] == idgal
-            redshift = tabl[_sel]["z"].value[0]
-            lines = tabl[_sel]["Lines"].value[0]
-            ra = tabl[_sel]["RAJ2000"].value[0]
-            dec = tabl[_sel]["DEJ2000"].value[0]
-            Rmag = tabl[_sel]["Rmag"].value[0]
-            RV = tabl[_sel]["RV"].value[0]
-            e_RV = tabl[_sel]["e_RV"].value[0]
-            RT = tabl[_sel]["RT"].value[0]
-            Nsp = tabl[_sel]["Nsp"].value[0]
-
-            try:
-                h5group = hf_outfile.create_group(f"SPEC{idgal}_SL")
-                h5group.attrs["num"] = idgal
-                h5group.attrs["redshift"] = redshift
-                h5group.attrs["lines"] = lines
-                h5group.attrs["ra"] = ra
-                h5group.attrs["dec"] = dec
-                h5group.attrs["Rmag"] = Rmag
-                h5group.attrs["RV"] = RV
-                h5group.attrs["eRV"] = e_RV
-                h5group.attrs["RT"] = RT
-                h5group.attrs["Nsp"] = Nsp
-
-                h5group.create_dataset("wl", data=wl, compression="gzip", compression_opts=9)
-                h5group.create_dataset("fl", data=fl, compression="gzip", compression_opts=9)
-                h5group.create_dataset("fnu", data=convertFlambdaToFnu(wl, fl), compression="gzip", compression_opts=9)
-                h5group.create_dataset("fl_ext", data=fl_ext_interp, compression="gzip", compression_opts=9)
-                h5group.create_dataset("fnu_ext", data=convertFlambdaToFnu(wl, fl_ext_interp), compression="gzip", compression_opts=9)
-            except ValueError:
-                print(f"Galaxy ID.{idgal} appears to be duplicated in the table.\nPlease consider checking input data.")
+    with h5py.File(outfile, "w") as hf_outfile:
+        for idgal in tabl["ID"]:
+            if idgal not in all_numbers:
                 pass
-    hf_outfile.close()
+            else:
+                wl, fl = np.loadtxt(os.path.join(sl_nodust, f"SPEC{idgal}_HZ4_BC.txt"), unpack=True)
+                wl_ext, fl_ext = np.loadtxt(os.path.join(sl_dust, f"SPEC{idgal}_HZ4_BC_ext_full.txt"), unpack=True)
+                fl_ext_interp = np.interp(wl, wl_ext, fl_ext, left=0.0, right=0.0)
+
+                _sel = tabl["ID"] == idgal
+                redshift = tabl[_sel]["z"].value[0]
+                lines = tabl[_sel]["Lines"].value[0]
+                ra = tabl[_sel]["RAJ2000"].value[0]
+                dec = tabl[_sel]["DEJ2000"].value[0]
+                Rmag = tabl[_sel]["Rmag"].value[0]
+                RV = tabl[_sel]["RV"].value[0]
+                e_RV = tabl[_sel]["e_RV"].value[0]
+                RT = tabl[_sel]["RT"].value[0]
+                Nsp = tabl[_sel]["Nsp"].value[0]
+
+                try:
+                    h5group = hf_outfile.create_group(f"SPEC{idgal}_SL")
+                    h5group.attrs["num"] = idgal
+                    h5group.attrs["redshift"] = redshift
+                    h5group.attrs["lines"] = lines
+                    h5group.attrs["ra"] = ra
+                    h5group.attrs["dec"] = dec
+                    h5group.attrs["Rmag"] = Rmag
+                    h5group.attrs["RV"] = RV
+                    h5group.attrs["eRV"] = e_RV
+                    h5group.attrs["RT"] = RT
+                    h5group.attrs["Nsp"] = Nsp
+
+                    h5group.create_dataset("wl", data=wl, compression="gzip", compression_opts=9)
+                    h5group.create_dataset("fl", data=fl, compression="gzip", compression_opts=9)
+                    h5group.create_dataset("fnu", data=convertFlambdaToFnu(wl, fl), compression="gzip", compression_opts=9)
+                    h5group.create_dataset("fl_ext", data=fl_ext_interp, compression="gzip", compression_opts=9)
+                    h5group.create_dataset("fnu_ext", data=convertFlambdaToFnu(wl, fl_ext_interp), compression="gzip", compression_opts=9)
+                except ValueError:
+                    print(f"Galaxy ID.{idgal} appears to be duplicated in the table.\nPlease consider checking input data.")
+                    pass
     return None
 
 
@@ -228,27 +227,26 @@ def readH5FileAttributes(input_file_h5):
     return
         The Pandas DataFrame of attributes for all groups in the file.
     """
-    hf = h5py.File(input_file_h5, "r")
-    list_of_keys = list(hf.keys())
+    with h5py.File(input_file_h5, "r") as hf:
+        list_of_keys = list(hf.keys())
 
-    # pick one key
-    key_sel = list_of_keys[0]
+        # pick one key
+        key_sel = list_of_keys[0]
 
-    # pick one group
-    group = hf.get(key_sel)
+        # pick one group
+        group = hf.get(key_sel)
 
-    # pickup all attribute names
-    all_subgroup_keys = []
-    for k in group.attrs.keys():
-        all_subgroup_keys.append(k)
+        # pickup all attribute names
+        all_subgroup_keys = []
+        for k in group.attrs.keys():
+            all_subgroup_keys.append(k)
 
-    # create info
-    df_info = pd.DataFrame()
-    for key in all_subgroup_keys:
-        arr = GetColumnHfData(hf, list_of_keys, key)
-        df_info[key] = arr
+        # create info
+        df_info = pd.DataFrame()
+        for key in all_subgroup_keys:
+            arr = GetColumnHfData(hf, list_of_keys, key)
+            df_info[key] = arr
     df_info = df_info.sort_values(by="num", ascending=True)
-    hf.close()
     df_info_num = df_info["num"].values
     key_tags = [f"SPEC{num}" for num in df_info_num]
     df_info["name"] = key_tags
@@ -354,7 +352,7 @@ def crossmatchFors2KidsGalex(outfile, fors2=FORS2_H5, starlight=SL_H5, kids=KIDS
         all_d2d_k.append(coord.Angle(d2d_k[0]).arcsec)
         all_d2d_g.append(coord.Angle(d2d_g[0]).arcsec)
         df_photometry.loc[index, SelectedColumns_kids] = df_kids.iloc[idx_k]
-        df_photometry.loc[index, SelectedColumns_galex] = df_kids.iloc[idx_g]
+        df_photometry.loc[index, SelectedColumns_galex] = df_galex.iloc[idx_g]
 
     all_idx_k = np.array(all_idx_k, dtype=int)
     all_idx_g = np.array(all_idx_g, dtype=int)

@@ -40,7 +40,7 @@ BOX_SIZE = (11 * u.arcmin).to(u.deg)
 
 GALEX_TABLE = "queryMAST_GALEXDR6_RXJ0054.0-2823_11arcmin.fits"
 GLXTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", GALEX_TABLE)
-KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_12arcmin.fits"
+KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_rad15arcmin_SG1.fits"
 KIDSTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", KIDS_TABLE)
 
 _defaults = {"Target": TARGET, "Simbad name": OBJ_SIMBAD, "Vizier catalog": CATALOG_VIZIER, "FITS location": TABLE_PATH, "GALEX FITS": GLXTBL_PATH, "KiDS FITS": KIDSTBL_PATH, "Box size": BOX_SIZE}
