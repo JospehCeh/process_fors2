@@ -21,7 +21,10 @@ dependencies = [
     "astropy",
     "h5py",
     "astroquery",
-    "pandas"
+    "pandas",
+    "astro-sedpy",
+    "scipy",
+    "scikit-learn"
 ]
 
 [project.urls]
@@ -62,15 +65,15 @@ testpaths = [
 ]
 
 [tool.black]
-line-length = 300
+line-length = 200
 target-version = ["py39"]
 
 [tool.isort]
 profile = "black"
-line_length = 300
+line_length = 200
 
 [tool.ruff]
-line-length = 300
+line-length = 200
 target-version = "py39"
 
 [tool.ruff.lint]
