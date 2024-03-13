@@ -153,7 +153,7 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
 
     # Initialize the gaussian process to plausible parameters
     fl_smooth = gaussian_filter1d(fl[sel], nsigma)
-    fl_dev = np.abs(fl_smooth - fl[sel]) / nsigma
+    fl_dev = np.abs(fl_smooth - fl[sel])  # / nsigma
     # rbf = kernels.RBF(55., (10., 100.))
     # gpr = GaussianProcessRegressor(kernel = rbf)
 
@@ -216,7 +216,7 @@ def tableForGelato(wl, fl, std, mask=None):
     # Transform data
     wl_gel = np.log10(wl[sel])
     flam_gel = fl[sel]
-    inv_var = np.power(std[sel], -2)
+    inv_var = np.power(std[sel], -1)
 
     # Create table
     t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])
@@ -301,7 +301,8 @@ def crossmatchToGelato(input_file, output_dir):
             a.set_ylabel("Spectral flux [arbitrary units]")
             aa.set_ylabel("Filter transmission")
             f.legend(loc="lower left", bbox_to_anchor=(1.01, 0.0))
-            f.show()
+            # plt.show()
+            plt.pause(15)
             filt_id = int(input("Type 1 for 'sdss_u0', 2 for 'sdss_g0', 3 for 'sdss_r0', or 4 for 'sdss_i0':")) - 1
             flux2phot = scalingToBand(wlf2, flf2, mags[filt_id], magserr[filt_id], mask=maskf2, band=filts[filt_id].name)
         scaled_flux = flux2phot * flf2

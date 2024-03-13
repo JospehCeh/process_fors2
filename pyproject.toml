@@ -25,7 +25,8 @@ dependencies = [
     "astro-sedpy",
     "scipy",
     "scikit-learn",
-    "tqdm"
+    "tqdm",
+    "ipympl"
 ]
 
 [project.urls]
