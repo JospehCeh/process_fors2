@@ -24,7 +24,8 @@ dependencies = [
     "pandas",
     "astro-sedpy",
     "scipy",
-    "scikit-learn"
+    "scikit-learn",
+    "tqdm"
 ]
 
 [project.urls]
@@ -119,7 +120,8 @@ ignore = [
     "N802",
     "B007",
     "D417",
-    "SIM118"
+    "SIM118",
+    "SIM105"
 ]
 
 [tool.coverage.run]

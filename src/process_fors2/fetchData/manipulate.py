@@ -19,6 +19,7 @@ import h5py
 import numpy as np
 import pandas as pd
 from astropy.table import Table
+from tqdm import tqdm
 
 from .queries import FORS2DATALOC, _defaults, queryGalexMast, readKids
 
@@ -343,7 +344,7 @@ def crossmatchFors2KidsGalex(outfile, fors2=FORS2_H5, starlight=SL_H5, kids=KIDS
     all_d2d_g = []  # distance in arcsec
 
     df_photometry = pd.DataFrame(index=df_fors2.index, columns=SelectedColumns_kids + SelectedColumns_galex)
-    for index, row in df_fors2.iterrows():
+    for index, row in tqdm(df_fors2.iterrows()):
         c = coord.SkyCoord(row["ra"] * u.degree, row["dec"] * u.degree)
         idx_k, d2d_k, _ = c.match_to_catalog_sky(radec_kids)
         idx_g, d2d_g, _ = c.match_to_catalog_sky(radec_galex)
@@ -365,20 +366,29 @@ def crossmatchFors2KidsGalex(outfile, fors2=FORS2_H5, starlight=SL_H5, kids=KIDS
 
     df_concatenated = pd.concat((df_fors2, df_photometry), axis=1)
 
+    for col in df_concatenated.columns:
+        try:
+            df_concatenated[col] = pd.to_numeric(df_concatenated[col])
+        except ValueError:
+            pass
+
     f2in = h5py.File(fors2, "r")
-    tags = list(f2in.keys())
+    tags = np.array(list(f2in.keys()))
     f2in.close()
 
     slin = h5py.File(starlight, "r")
-    tags_sl = list(slin.keys())
+    tags_sl = np.array(list(slin.keys()))
     slin.close()
 
     # print(f"DEBUG : {tags[:10]}")
     with h5py.File(outfile, "w") as h5out:
-        for idx, row in df_concatenated.iterrows():
-            tag = tags[idx]
-            tag_sl = tags_sl[idx]
-            # print(f"DEBUG : {tag}")
+        for idx, row in tqdm(df_concatenated.iterrows()):
+            _sel = [f"SPEC{row['num']}" in t for t in tags]
+            tag = tags[_sel][0]
+            _sel = [f"SPEC{row['num']}" in t for t in tags_sl]
+            tag_sl = tags_sl[_sel][0]
+            # print(f"DEBUG : tag {tag}, tagSL {tag_sl}, num {row['num']}")
+
             h5group_out = h5out.create_group(tag)
 
             parameter_names = list(row.index)

@@ -1,3 +1,3 @@
-from .photomtools import estimateErrors, loadDataInH5, scalingToBand
+from .photomtools import crossmatchToGelato, estimateErrors, loadDataInH5, scalingToBand
 
-__all__ = ["loadDataInH5", "scalingToBand", "estimateErrors"]
+__all__ = ["loadDataInH5", "scalingToBand", "estimateErrors", "crossmatchToGelato"]
