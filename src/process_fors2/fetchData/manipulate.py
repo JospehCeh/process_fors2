@@ -11,6 +11,7 @@ Created on Tue Feb 27 11:34:33 2024
 
 import os
 import re
+import sys
 
 import astropy.constants as const
 import astropy.coordinates as coord
@@ -252,6 +253,13 @@ def readH5FileAttributes(input_file_h5):
     key_tags = [f"SPEC{num}" for num in df_info_num]
     df_info["name"] = key_tags
     df_info.reset_index(drop=True, inplace=True)
+
+    for col in df_info.columns:
+        try:
+            df_info[col] = pd.to_numeric(df_info[col])
+        except ValueError:
+            pass
+
     return df_info
 
 
@@ -415,3 +423,146 @@ def crossmatchFors2KidsGalex(outfile, fors2=FORS2_H5, starlight=SL_H5, kids=KIDS
                 h5group_out.create_dataset("fnu_sl_ext", data=np.array(slgroup_in.get("fnu_ext")), compression="gzip", compression_opts=9)
 
     return df_concatenated
+
+
+def filterCrossMatch(input_file, asep_max, z_bias=None, asep_galex=None):
+    """
+    Returns a subset of the input table that matches the criteria in angular separation (spectra vs. photometry catalogs) and redshift (spectroscopic vs. photometric from KiDS).
+
+    Parameters
+    ----------
+        input_file : path or str
+            Path to HDF5 file resulting from cross-match between spectroscopic dataset and photometry catalogs. Must contain data from KiDs.
+        asep_max : int or float
+            Maximum angular separation in arcseconds to accept a match.
+        z_bias : int or float, optional
+            If not None, filters out matches that do not respect $\frac{ \\left| z_{photo} - z_{spectro} \right| }{1+z_{spectro}} < $ `z_bias`. An indicative good value is 0.1. The default is None.
+        asep_galex : int or float, optional
+            If not None, value used specifically for the angular separation criterion with GALEX matches, which tend to be less close than KiDS. Else, no filtering. The default is None.
+
+    Returns
+    -------
+    DataFrame
+        Pandas DataFrame containing only objects that match defined criteria. Corresponding HDF5 file written to disk as `[original name]_filtered.h5`.
+    """
+    xmatchfile = os.path.abspath(input_file)
+    if not os.path.isfile(xmatchfile):
+        print(f"ABORTED : {xmatchfile} is a not valid HDF5 file.")
+        sys.exit(1)
+
+    dicts_to_keep = {}
+    with h5py.File(xmatchfile, "r") as xfile:
+        for tag in xfile:
+            group = xfile.get(tag)
+
+            # Gather all spectral data in a dictionary
+            datadict = {key: np.array(group.get(key)) for key in group}
+
+            # Add attributes in the dictionary
+            for key in group.attrs:
+                datadict.update({f"attrs.{key}": group.attrs.get(key)})
+
+            sel_asep_kids = datadict["attrs.asep_kids"] < asep_max
+
+            sel_asep_galex = True
+            if asep_galex is not None:
+                sel_asep_galex = datadict["attrs.asep_galex"] < asep_galex
+
+            sel_z = True
+            if z_bias is not None:
+                zs, zb, zml = datadict["attrs.redshift"], datadict["attrs.Z_B"], datadict["attrs.redshift"] - datadict["attrs.Z_ML"]
+                bias_b = np.abs(zs - zb) / (1 + zs)
+                bias_ml = np.abs(zs - zml) / (1 + zs)
+                sel_z = min(bias_b, bias_ml) < z_bias
+
+            if sel_asep_kids and sel_asep_galex and sel_z:
+                dicts_to_keep.update({tag: datadict})
+
+    rep, fn = os.path.split(xmatchfile)
+    fn, ext = os.path.splitext(fn)
+    new_fn = f"{fn}_filtered{ext}"
+    outpath = os.path.join(rep, new_fn)
+
+    with h5py.File(outpath, "w") as outfile:
+        for tag, dico in dicts_to_keep.items():
+            h5group_out = outfile.create_group(tag)
+
+            for key, val in dico.items():
+                if "attrs." in key:
+                    attr = key.split(".")[-1]
+                    h5group_out.attrs[attr] = val
+                else:
+                    h5group_out.create_dataset(key, data=np.array(val), compression="gzip", compression_opts=9)
+
+    return readH5FileAttributes(outpath)
+
+
+def cleanGalexData(input_file, asep_galex):
+    """
+    Removes GALEX data from entries with an angular separation larger than `asep_max`. This seems more sensible than removing the whole entry (valuable photometry mostly comes from KiDS).
+
+    Parameters
+    ----------
+        input_file : path or str
+            Path to HDF5 file resulting from cross-match between spectroscopic dataset and photometry catalogs. Must contain data from GALEX.
+        asep_galex : int or float
+            Maximum angular separation in arcseconds to keep GALEX data.
+
+    Returns
+    -------
+    DataFrame
+        Pandas DataFrame cleaned from GALEX data for bad matches. Corresponding HDF5 file written to disk as `[original name]_cleanGALEX.h5`.
+    """
+    xmatchfile = os.path.abspath(input_file)
+    if not os.path.isfile(xmatchfile):
+        print(f"ABORTED : {xmatchfile} is a not valid HDF5 file.")
+        sys.exit(1)
+
+    SelectedColumns_galex = [
+        "fuv_mag",
+        "nuv_mag",
+        "fuv_magerr",
+        "nuv_magerr",
+        "fuv_flux",
+        "nuv_flux",
+        "fuv_fluxerr",
+        "nuv_fluxerr",
+    ]
+
+    clean_dicts = {}
+    with h5py.File(xmatchfile, "r") as xfile:
+        for tag in xfile:
+            group = xfile.get(tag)
+
+            # Gather all spectral data in a dictionary
+            datadict = {key: np.array(group.get(key)) for key in group}
+
+            # Add attributes in the dictionary
+            for key in group.attrs:
+                datadict.update({f"attrs.{key}": group.attrs.get(key)})
+
+            if datadict["attrs.asep_galex"] > asep_galex:
+                for galkey in SelectedColumns_galex:
+                    datadict.update({f"attrs.{galkey}": np.nan})
+                datadict.update({"attrs.id_galex": "CLEANED"})
+
+            clean_dicts.update({tag: datadict})
+
+    rep, fn = os.path.split(xmatchfile)
+    fn, ext = os.path.splitext(fn)
+    new_fn = f"{fn}_cleanGALEX{ext}"
+    outpath = os.path.join(rep, new_fn)
+
+    with h5py.File(outpath, "w") as outfile:
+        for tag, dico in clean_dicts.items():
+            h5group_out = outfile.create_group(tag)
+
+            for key, val in dico.items():
+                # print(f"DEBUG {key}, {val}")
+                if "attrs." in key:
+                    attr = key.split(".")[-1]
+                    h5group_out.attrs[attr] = val
+                else:
+                    h5group_out.create_dataset(key, data=val, compression="gzip", compression_opts=9)
+
+    return readH5FileAttributes(outpath)

@@ -26,7 +26,8 @@ dependencies = [
     "scipy",
     "scikit-learn",
     "tqdm",
-    "ipympl"
+    "ipympl",
+    "seaborn"
 ]
 
 [project.urls]
