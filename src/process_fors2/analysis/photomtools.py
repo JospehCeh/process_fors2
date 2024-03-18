@@ -153,7 +153,7 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
 
     # Initialize the gaussian process to plausible parameters
     fl_smooth = gaussian_filter1d(fl[sel], nsigma)
-    fl_dev = np.abs(fl_smooth - fl[sel])  # / nsigma
+    fl_dev = np.abs(fl_smooth - fl[sel]) / nsigma
     # rbf = kernels.RBF(55., (10., 100.))
     # gpr = GaussianProcessRegressor(kernel = rbf)
 
@@ -223,7 +223,7 @@ def tableForGelato(wl, fl, std, mask=None):
     return t
 
 
-def crossmatchToGelato(input_file, output_dir):
+def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
     """
     Reads data from input file, makes it compatible with GELATO and writes necessary files.
 
@@ -233,6 +233,11 @@ def crossmatchToGelato(input_file, output_dir):
         Path to the `HDF5` file resulting from the crossmatch between FORS2 spectra and photometric catalogs.
     output_dir : str or path
         Path to the output directory where to store `FITS` tables for GELATO.
+    smoothe : bool, optional
+        Whether to use the smoothed spectrum in the `FITS` tables for GELATO or the raw one. The default is False.
+    nsigma : int, optional
+        Number of sigma to use at smoothing during noise estimation.\
+        If `smoothe` is `True`, this also impacts the spectrum that is exported for GELATO. The default is 3.
 
     Returns
     -------
@@ -278,7 +283,7 @@ def crossmatchToGelato(input_file, output_dir):
         good_filts = []
         good_mags = []
         good_magserr = []
-        for f, m, err in zip(filts, mags, magserr):
+        for f, m, err in zip(filts, mags, magserr, strict=False):
             if (f.blue_edge > min(wlf2[sel])) and (f.red_edge < max(wlf2[sel])) and np.isfinite(m) and np.isfinite(err):
                 good_filts.append(f)
                 good_mags.append(m)
@@ -291,7 +296,7 @@ def crossmatchToGelato(input_file, output_dir):
             print("CAUTION : no filter encompasses the full spectra. Review graph and select one as a reference for scaling.")
             f, a = plt.subplots(1, 1)
             aa = a.twinx()
-            for filt, c in zip(filts, ["b", "g", "y", "r"]):
+            for filt, c in zip(filts, ["b", "g", "y", "r"], strict=False):
                 aa.fill_between(filt.wavelength, filt.transmission, color=c, alpha=0.4, label=filt.name)
                 aa.axvline(filt.blue_edge, lw=0.5, c=c, ls=":")
                 aa.axvline(filt.red_edge, lw=0.5, c=c, ls=":")
@@ -308,10 +313,10 @@ def crossmatchToGelato(input_file, output_dir):
         scaled_flux = flux2phot * flf2
 
         # Eyeball estimate of noise in flux data
-        fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=3, makeplots=False)
+        fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=nsigma, makeplots=False)
 
         # Conversion to GELATO format
-        t = tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2)
+        t = tableForGelato(wlf2, fl_signal, fl_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2)
 
         # Write data
         outdir = os.path.abspath(output_dir)
