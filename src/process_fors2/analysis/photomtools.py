@@ -216,7 +216,7 @@ def tableForGelato(wl, fl, std, mask=None):
     # Transform data
     wl_gel = np.log10(wl[sel])
     flam_gel = fl[sel]
-    inv_var = np.power(std[sel], -1)
+    inv_var = np.power(std[sel], -2)
 
     # Create table
     t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])

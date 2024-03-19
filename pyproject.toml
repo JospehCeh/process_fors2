@@ -42,6 +42,7 @@ dev = [
     "sphinx", # Used to automatically generate documentation
     "sphinx-rtd-theme", # Used to render documentation
     "sphinx-autoapi", # Used to automatically generate api documentation
+    "sphin_copybutton", # necessary at commit time
     "ruff", # Used for static linting of files
     # if you add dependencies here while experimenting in a notebook and you
     # want that notebook to render in your documentation, please add the
