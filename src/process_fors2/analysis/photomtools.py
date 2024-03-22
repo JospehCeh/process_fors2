@@ -314,9 +314,10 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
 
         # Eyeball estimate of noise in flux data
         fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=nsigma, makeplots=False)
+        sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
 
         # Conversion to GELATO format
-        t = tableForGelato(wlf2, fl_signal, fl_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2)
+        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, sm_noise, mask=maskf2)
 
         # Write data
         outdir = os.path.abspath(output_dir)
