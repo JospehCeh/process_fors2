@@ -359,23 +359,24 @@ def gelatoToH5(outfilename, gelato_run_dir):
         Absolute path to the written file - if successful.
     """
     gelatout = os.path.abspath(os.path.join(gelato_run_dir, "resultsGELATO"))
-
     fileout = os.path.abspath(outfilename)
 
     if os.path.isdir(gelatout):
         res_tab_path = os.path.join(gelatout, "GELATO-results.fits")
-        res_table = (Table.read(res_tab_path)).to_pandas()
-        for col in res_table.columns:
+        res_table = Table.read(res_tab_path)
+        res_df = res_table.to_pandas()
+        res_df["Name"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
+        for col in res_df.columns:
             try:
-                res_table[col] = pd.to_numeric(res_table[col])
+                res_df[col] = pd.to_numeric(res_df[col])
             except ValueError:
                 pass
-
         with h5py.File(fileout, "w") as h5out:
-            for i, row in res_table.iterrows():
+            for i, row in res_df.iterrows():
                 specin = row["Name"]
+                fn, ext = os.path.splitext(specin)
                 specn = specin.split("_")[0]
-                spec_path = os.path.join(gelatout, specin)
+                spec_path = os.path.join(gelatout, f"{fn}-results{ext}")
                 spec_tab = Table.read(spec_path)
                 wlang = np.power(10, spec_tab["loglam"])
                 flam = np.array(spec_tab["flux"])
@@ -390,5 +391,5 @@ def gelatoToH5(outfilename, gelato_run_dir):
                 groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
                 groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
 
-    ret = fileout if os.isfile(fileout) else f"Unable to write data to {outfilename}"
+    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
     return ret
