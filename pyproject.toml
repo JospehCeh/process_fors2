@@ -27,7 +27,10 @@ dependencies = [
     "scikit-learn",
     "tqdm",
     "ipympl",
-    "seaborn"
+    "seaborn",
+    "diffstar",
+    "jax",
+    "jaxlib"
 ]
 
 [project.urls]

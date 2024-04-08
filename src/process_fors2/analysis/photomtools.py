@@ -12,6 +12,7 @@ import sys
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from astropy.table import Table
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import minimize_scalar
@@ -19,6 +20,8 @@ from sedpy import observate
 from tqdm import tqdm
 
 from process_fors2.fetchData import DEFAULTS_DICT
+
+C = 299792.458  # km/s
 
 
 def loadDataInH5(specid, h5file=DEFAULTS_DICT["FORS2 HDF5"]):
@@ -337,3 +340,55 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
     print(f"Done ! List of objects written in {writepath}.")
 
     return objlist, writepath
+
+
+def gelatoToH5(outfilename, gelato_run_dir):
+    """
+    Gathers data from GELATO inputs and outputs and writes them to a HDF5 file to be used as input for Stellar Population Synthesis.
+
+    Parameters
+    ----------
+    outfilename : str or path
+        Name of the `HDF5` file that will be written.
+    gelato_run_dir : str or path
+        Path to the output directory of the GELATO run to consider.
+
+    Returns
+    -------
+    path
+        Absolute path to the written file - if successful.
+    """
+    gelatout = os.path.abspath(os.path.join(gelato_run_dir, "resultsGELATO"))
+
+    fileout = os.path.abspath(outfilename)
+
+    if os.path.isdir(gelatout):
+        res_tab_path = os.path.join(gelatout, "GELATO-results.fits")
+        res_table = (Table.read(res_tab_path)).to_pandas()
+        for col in res_table.columns:
+            try:
+                res_table[col] = pd.to_numeric(res_table[col])
+            except ValueError:
+                pass
+
+        with h5py.File(fileout, "w") as h5out:
+            for i, row in res_table.iterrows():
+                specin = row["Name"]
+                specn = specin.split("_")[0]
+                spec_path = os.path.join(gelatout, specin)
+                spec_tab = Table.read(spec_path)
+                wlang = np.power(10, spec_tab["loglam"])
+                flam = np.array(spec_tab["flux"])
+                flamerr = np.power(spec_tab["ivar"], -0.5)
+                groupout = h5out.create_group(specn)
+                for key, val in row.items():
+                    groupout.attrs[key] = val
+                groupout.create_dataset("wl_ang", data=wlang, compression="gzip", compression_opts=9)
+                groupout.create_dataset("flam", data=flam, compression="gzip", compression_opts=9)
+                groupout.create_dataset("flam_err", data=flamerr, compression="gzip", compression_opts=9)
+                groupout.create_dataset("gelato_mod", data=np.array(spec_tab["MODEL"]), compression="gzip", compression_opts=9)
+                groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
+                groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
+
+    ret = fileout if os.isfile(fileout) else f"Unable to write data to {outfilename}"
+    return ret
