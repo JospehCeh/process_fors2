@@ -30,7 +30,8 @@ dependencies = [
     "seaborn",
     "diffstar",
     "jax",
-    "jaxlib"
+    "jaxlib",
+    "jaxopt"
 ]
 
 [project.urls]

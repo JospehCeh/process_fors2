@@ -24,6 +24,50 @@ from process_fors2.fetchData import DEFAULTS_DICT
 C = 299792.458  # km/s
 
 
+def convert_flux_torestframe(wl, fl, redshift=0.0):
+    """
+    Shifts the flux values to restframe wavelengths and scales them accordingly.
+
+    Parameters
+    ----------
+    wl : array
+        Wavelengths (unit unimportant) in the observation frame.
+    fl : array
+        Flux density (unit unimportant).
+    redshift : int or float, optional
+        Redshift of the object. The default is 0.
+
+    Returns
+    -------
+    tuple(array, array)
+        The spectrum blueshifted to restframe wavelengths.
+    """
+    factor = 1.0 + redshift
+    return wl / factor, fl * factor
+
+
+def convert_flux_toobsframe(wl, fl, redshift=0.0):
+    """
+    Shifts the flux values to observed wavelengths and scales them accordingly.
+
+    Parameters
+    ----------
+    wl : array
+        Wavelengths (unit unimportant) in the restframe.
+    fl : array
+        Flux density (unit unimportant).
+    redshift : int or float, optional
+        Redshift of the object. The default is 0.
+
+    Returns
+    -------
+    tuple(array, array)
+        The spectrum redshifted to observed wavelengths.
+    """
+    factor = 1.0 + redshift
+    return wl * factor, fl / factor
+
+
 def loadDataInH5(specid, h5file=DEFAULTS_DICT["FORS2 HDF5"]):
     """
     Returns chosen spectra and associated data from the cross-matched catalog file.
@@ -39,7 +83,6 @@ def loadDataInH5(specid, h5file=DEFAULTS_DICT["FORS2 HDF5"]):
     -------
     dict
         All datasets (as numpy arrays) and attributes associated to the specID in a single dictionary.
-
     """
     with h5py.File(h5file, "r") as catin:
         # Get available keys
@@ -365,7 +408,12 @@ def gelatoToH5(outfilename, gelato_run_dir):
         res_tab_path = os.path.join(gelatout, "GELATO-results.fits")
         res_table = Table.read(res_tab_path)
         res_df = res_table.to_pandas()
-        res_df["Name"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
+        res_df["FITS"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
+        # res_df["name"] = np.array([n.split('_')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
+        specs = np.array([n.split("_")[0] for n in res_df["FITS"]])
+        nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
+        res_df["num"] = nums
+        res_df.drop(columns="Name", inplace=True)
         for col in res_df.columns:
             try:
                 res_df[col] = pd.to_numeric(res_df[col])
@@ -373,9 +421,9 @@ def gelatoToH5(outfilename, gelato_run_dir):
                 pass
         with h5py.File(fileout, "w") as h5out:
             for i, row in res_df.iterrows():
-                specin = row["Name"]
+                specin = row["FITS"]
                 fn, ext = os.path.splitext(specin)
-                specn = specin.split("_")[0]
+                specn = fn.split("_")[0]
                 spec_path = os.path.join(gelatout, f"{fn}-results{ext}")
                 spec_tab = Table.read(spec_path)
                 wlang = np.power(10, spec_tab["loglam"])

@@ -104,6 +104,10 @@ def fors2ToH5(infile=FORS2_FITS, inspecs=FORS2_SPECS, outfile=FORS2_H5):
                 _sel = tabl["ID"] == idgal
                 redshift = tabl[_sel]["z"].value[0]
                 lines = tabl[_sel]["Lines"].value[0]
+                try:
+                    lines = lines.decode("UTF-8")
+                except AttributeError:
+                    print(f"Gal. {idgal}, has  no detected lines (Lines = {lines})")
                 ra = tabl[_sel]["RAJ2000"].value[0]
                 dec = tabl[_sel]["DEJ2000"].value[0]
                 Rmag = tabl[_sel]["Rmag"].value[0]
@@ -167,6 +171,10 @@ def starlightToH5(infile=FORS2_FITS, inspecs=STARLIGHT_SPECS, outfile=SL_H5):
                 _sel = tabl["ID"] == idgal
                 redshift = tabl[_sel]["z"].value[0]
                 lines = tabl[_sel]["Lines"].value[0]
+                try:
+                    lines = lines.decode("UTF-8")
+                except AttributeError:
+                    print(f"Gal. {idgal}, has  no detected lines (Lines = {lines})")
                 ra = tabl[_sel]["RAJ2000"].value[0]
                 dec = tabl[_sel]["DEJ2000"].value[0]
                 Rmag = tabl[_sel]["Rmag"].value[0]
@@ -244,10 +252,12 @@ def readH5FileAttributes(input_file_h5):
             all_subgroup_keys.append(k)
 
         # create info
-        df_info = pd.DataFrame()
+        dico_to_pd = {}
         for key in all_subgroup_keys:
             arr = GetColumnHfData(hf, list_of_keys, key)
-            df_info[key] = arr
+            dico_to_pd.update({key: arr})
+
+        df_info = pd.DataFrame(dico_to_pd)
     df_info = df_info.sort_values(by="num", ascending=True)
     df_info_num = df_info["num"].values
     key_tags = [f"SPEC{num}" for num in df_info_num]
@@ -402,7 +412,7 @@ def crossmatchFors2KidsGalex(outfile, fors2=FORS2_H5, starlight=SL_H5, kids=KIDS
             parameter_names = list(row.index)
             parameter_values = row.values
 
-            for name, val in zip(parameter_names, parameter_values):
+            for name, val in zip(parameter_names, parameter_values, strict=False):
                 h5group_out.attrs[name] = val
 
             with h5py.File(fors2, "r") as f2in:
