@@ -7,21 +7,33 @@ Created on Mon Mar 11 09:56:42 2024
 @author: joseph
 """
 import os
-import sys
 
+import astropy.constants as const
+import astropy.units as u
 import h5py
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-from astropy.table import Table
+from dsps.cosmology import DEFAULT_COSMOLOGY, luminosity_distance_to_z  # in Mpc
 from scipy.ndimage import gaussian_filter1d
 from scipy.optimize import minimize_scalar
 from sedpy import observate
-from tqdm import tqdm
 
-from process_fors2.fetchData import DEFAULTS_DICT
+C_KMS = (const.c).to("km/s").value  # km/s
+C_CMS = (const.c).to("cm/s").value  # cm/s
+C_AAS = (const.c).to("AA/s").value  # AA/s
+C_MS = const.c  # m/s
+LSUN = const.L_sun  # Watts
+parsec = const.pc  # m
+AB0_Lum = (3631.0 * u.Jy * (4 * np.pi * np.power(10 * parsec, 2))).to("W/Hz")
 
-C = 299792.458  # km/s
+U_LSUNperHz = u.def_unit("Lsun . Hz^{-1}", LSUN * u.Hz**-1)
+AB0 = AB0_Lum.to(U_LSUNperHz)  # 3631 Jansky placed at 10 pc in units of Lsun/Hz
+U_LSUNperm2perHz = u.def_unit("Lsun . m^{-2} . Hz^{-1}", U_LSUNperHz * u.m**-2)
+jy_to_lsun = (1 * u.Jy).to(U_LSUNperm2perHz)
+
+U_FNU = u.def_unit("erg . cm^{-2} . s^{-1} . Hz^{-1}", u.erg / (u.cm**2 * u.s * u.Hz))
+U_FL = u.def_unit("erg . cm^{-2} . s^{-1} . AA^{-1}", u.erg / (u.cm**2 * u.s * u.AA))
 
 
 def convert_flux_torestframe(wl, fl, redshift=0.0):
@@ -43,7 +55,7 @@ def convert_flux_torestframe(wl, fl, redshift=0.0):
         The spectrum blueshifted to restframe wavelengths.
     """
     factor = 1.0 + redshift
-    return wl / factor, fl * factor
+    return wl / factor, fl  # * factor
 
 
 def convert_flux_toobsframe(wl, fl, redshift=0.0):
@@ -65,55 +77,91 @@ def convert_flux_toobsframe(wl, fl, redshift=0.0):
         The spectrum redshifted to observed wavelengths.
     """
     factor = 1.0 + redshift
-    return wl * factor, fl / factor
+    return wl * factor, fl  # / factor
 
 
-def loadDataInH5(specid, h5file=DEFAULTS_DICT["FORS2 HDF5"]):
+def convertFlambdaToFnu(wl, flambda):
     """
-    Returns chosen spectra and associated data from the cross-matched catalog file.
+    Convert spectra density flambda to fnu.
+    parameters:
 
-    Parameters
-    ----------
-    specID : int or str
-        Spectrum number in FORS2 dataset.
-    h5file : str or path, optional
-        Path to the HDF5 file containing the data to extract. The default is the FORS2 data file.
+    :param wl: wavelength array
+    :type wl: float in Angstrom
 
-    Returns
-    -------
-    dict
-        All datasets (as numpy arrays) and attributes associated to the specID in a single dictionary.
+    :param flambda: flux density in erg/s/cm2 /AA or W/cm2/AA
+    :type flambda: float
+
+    :return: fnu, flux density in erg/s/cm2/Hz or W/cm2/Hz
+    :rtype: float
+
+    Compute Fnu = wl**2/c Flambda
+    check the conversion units with astropy units and constants
     """
-    with h5py.File(h5file, "r") as catin:
-        # Get available keys
-        taglist = np.array(list(catin.keys()))
+    fnu = (flambda * U_FL * (wl * u.AA) ** 2 / const.c).to(U_FNU) / (1 * U_FNU)
+    return fnu
 
-        # Get the key that matches the specified IDs
-        tagbools = [f"SPEC{specid}" in tag for tag in catin]
-        tagsel = taglist[tagbools]
-        if f"SPEC{specid}" in tagsel:
-            tag = f"SPEC{specid}"
-        else:
-            try:
-                assert len(tagsel) <= 1
-                tag = tagsel[0]
-            except AssertionError:
-                tag = input(f"Several entries found : {tagsel}. Pease type in the one to use.")
-            except IndexError:
-                print("No entry for the given ID, please review your data")
-                sys.exit(1)
 
-        # Get the corresponding data group
-        group = catin.get(tag)
+def convertFnuToFlambda(wl, fnu):
+    """
+    Convert spectra density fnu to flambda.
+    parameters:
 
-        # Gather all spectral data in a dictionary
-        datadict = {key: np.array(group.get(key)) for key in group}
+    :param wl: wavelength array
+    :type wl: float in Angstrom
 
-        # Add attributes in the dictionary
-        for key in group.attrs:
-            datadict.update({key: group.attrs.get(key)})
+    :param fnu: flux density in erg/s/cm2/Hz or W/cm2/Hz
+    :type fnu: float
 
-    return datadict
+    :return: flambda, flux density in erg/s/cm2 /AA or W/cm2/AA
+    :rtype: float
+
+    Compute Flambda = Fnu / (wl**2/c)
+    check the conversion units with astropy units and constants
+    """
+    flambda = (fnu * U_FNU * const.c / ((wl * u.AA) ** 2)).to(U_FL) / (1 * U_FL)
+    return flambda
+
+
+def convertFlambdaToFnu_noU(wl, flambda):
+    """
+    Convert spectra density flambda to fnu.
+    parameters:
+
+    :param wl: wavelength array
+    :type wl: float in Angstrom
+
+    :param flambda: flux density in erg/s/cm2 /AA or W/cm2/AA
+    :type flambda: float
+
+    :return: fnu, flux density in erg/s/cm2/Hz or W/cm2/Hz
+    :rtype: float
+
+    Compute Fnu = wl**2/c Flambda
+    check the conversion units with astropy units and constants
+    """
+    fnu = flambda * jnp.power(wl, 2) / C_AAS
+    return fnu
+
+
+def convertFnuToFlambda_noU(wl, fnu):
+    """
+    Convert spectra density fnu to flambda.
+    parameters:
+
+    :param wl: wavelength array
+    :type wl: float in Angstrom
+
+    :param fnu: flux density in erg/s/cm2/Hz or W/cm2/Hz
+    :type fnu: float
+
+    :return: flambda, flux density in erg/s/cm2 /AA or W/cm2/AA
+    :rtype: float
+
+    Compute Flambda = Fnu / (wl**2/c)
+    check the conversion units with astropy units and constants
+    """
+    flambda = fnu * C_AAS / jnp.power(wl, 2)
+    return flambda
 
 
 def scalingToBand(wl, fl, mab, mab_err, mask=None, band="sdss_r0"):
@@ -226,218 +274,115 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
     return fl_mean, fl_std
 
 
-def tableForGelato(wl, fl, std, mask=None):
-    r"""
-    Returns a table that contains spectral data formatted for GELATO, *i.e* the log10 of the wavelength in Angstroms,
-    the spectral flux density per unit wavelength (flam) and the inverse variance of the fluxes, in corresponding units.
+def get_fnu_clean(gelatoh5, tag, nsigs=8):
+    """
+    Computes the clean spectrum in appropriate units for SPS-fitting with DSPS.
 
     Parameters
     ----------
-    wl : array
-        Wavelengths in Angstrom.
-    fl : array
-        Spectral flux CGS units $erg . cm^{-2} . s^{-1} . \AA^{-1}$.
-    std : array
-        Spectral flux errors (as standard deviation, or $\sigma$) in units $erg . cm^{-2} . s^{-1} . \AA^{-1}$.
-    mask : array, optional
-        Where the spectral flux is masked. 0 or False = valid flux. The default is None.
+    gelatoh5 : str or path
+        Name or path to the `HDF5` file that contains GELATO outputs.
+    tag : str
+        Name of the FORS2 spectrum to be considered, normally in the form f"SPEC{number}".
 
     Returns
     -------
-    Table
-        Astropy Table containing the formatted data, to be saved as a `FITS` file for use with GELATO. It contains :
-        1. The log10 of the wavelengths in Angstroms, column name: "loglam"
-        2. The spectral flux density in flam units, column name: "flux"
-        3. The inverse variances of the data points, column name: "ivar"
+    dict
+        Dictionary containing wavelengths, flux in Lsun/Hz cleaned of spectral lines (smoothed), and corresponding errors, along with background estimations.
     """
-    # Manage mask
-    if mask is None:
-        mask = np.zeros_like(fl)
-    nomask = np.where(mask > 0, False, True)
-    sel = np.logical_and(nomask, np.isfinite(fl))
-    sel = np.logical_and(sel, fl > 0.0)
-    sel = np.logical_and(sel, np.isfinite(std))
-    sel = np.logical_and(sel, std > 0.0)
+    gelatoh5file = os.path.abspath(gelatoh5)
+    spec_dict = {}
+    with h5py.File(gelatoh5file, "r") as gel5:
+        group = gel5.get(tag)
+        wls = np.array(group.get("wl_ang"))
+        flam = np.array(group.get("flam"))
+        flamerr = np.array(group.get("flam_err"))
+        zob = group.attrs.get("redshift")
+        dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
+        fnu = ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        # gpr.fit(wls.reshape(-1, 1), fnu)
+        # sm_fnu = gpr.predict(wls.reshape(-1, 1), return_std=False)
+        sm_fnu = gaussian_filter1d(fnu, sigma=nsigs)
+        deltaY = np.abs(fnu - sm_fnu)
+        bkg = np.sqrt(np.median(deltaY**2))
+        sel = np.logical_and(deltaY <= nsigs * bkg, fnu > 0)
 
-    # Transform data
-    wl_gel = np.log10(wl[sel])
-    flam_gel = fl[sel]
-    inv_var = np.power(std[sel], -2)
-
-    # Create table
-    t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])
-    return t
+        spec_dict["wl_cl"] = wls[sel]
+        spec_dict["fnu_cl"] = fnu[sel]
+        spec_dict["fnuerr_cl"] = fnuerr[sel]
+        spec_dict["bg"] = deltaY[sel]
+        spec_dict["bg_med"] = bkg
+    return spec_dict
 
 
-def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
+def get_fnu(gelatoh5, tag):
     """
-    Reads data from input file, makes it compatible with GELATO and writes necessary files.
+    Computes the spectrum in appropriate units for SPS-fitting with DSPS.
 
     Parameters
     ----------
-    input_file : str or path
-        Path to the `HDF5` file resulting from the crossmatch between FORS2 spectra and photometric catalogs.
-    output_dir : str or path
-        Path to the output directory where to store `FITS` tables for GELATO.
-    smoothe : bool, optional
-        Whether to use the smoothed spectrum in the `FITS` tables for GELATO or the raw one. The default is False.
-    nsigma : int, optional
-        Number of sigma to use at smoothing during noise estimation.\
-        If `smoothe` is `True`, this also impacts the spectrum that is exported for GELATO. The default is 3.
+    gelatoh5 : str or path
+        Name or path to the `HDF5` file that contains GELATO outputs.
+    tag : str
+        Name of the FORS2 spectrum to be considered, normally in the form f"SPEC{number}".
 
     Returns
     -------
-    tuple(Table, path)
-        Astropy Table of the list of objects to be passed to GELATO. It is also saved in `output_dir`.
+    dict
+        Dictionary containing wavelengths, flux in Lsun/Hz and corresponding errors.
     """
-    xmatchfile = os.path.abspath(input_file)
-    if not os.path.isfile(xmatchfile):
-        print(f"ABORTED : {xmatchfile} is a not valid HDF5 file.")
-        sys.exit(1)
-
-    with h5py.File(xmatchfile, "r") as xfile:
-        tags = np.array(list(xfile.keys()))
-        nums = []
-        for tag in tags:
-            group = xfile.get(tag)
-            num = group.attrs.get("num")
-            nums.append(num)
-    nums = np.array(nums)
-
-    # Create filters to scale the photometry. Creation is redondant scalingToBand function, could be improved.
-    filts = observate.load_filters(["sdss_u0", "sdss_g0", "sdss_r0", "sdss_i0"])
-    sdss_u, sdss_g, sdss_r, sdss_i = filts
-
-    all_paths = []
-    all_zs = []
-
-    for specid in tqdm(nums):
-        # Load data in input file
-        datadict = loadDataInH5(specid, h5file=xmatchfile)
-        try:
-            mags = [datadict["MAG_GAAP_u"], datadict["MAG_GAAP_g"], datadict["MAG_GAAP_r"], datadict["MAG_GAAP_i"]]
-            magserr = [datadict["MAGERR_GAAP_u"], datadict["MAGERR_GAAP_g"], datadict["MAGERR_GAAP_r"], datadict["MAGERR_GAAP_i"]]
-        except KeyError:
-            print(f"ABORTED : {xmatchfile} appears not to contain KiDS photometry.")
-
-        wlf2 = datadict["wl_f2"]
-        flf2 = datadict["fl_f2"]
-        maskf2 = datadict["mask_f2"]
-
-        # Identify good photometry for scaling
-        sel = np.where(maskf2 > 0, False, True)
-        good_filts = []
-        good_mags = []
-        good_magserr = []
-        for f, m, err in zip(filts, mags, magserr, strict=False):
-            if (f.blue_edge > min(wlf2[sel])) and (f.red_edge < max(wlf2[sel])) and np.isfinite(m) and np.isfinite(err):
-                good_filts.append(f)
-                good_mags.append(m)
-                good_magserr.append(err)
-
-        # Scale flux on photometry
-        try:
-            flux2phot = scalingToBand(wlf2, flf2, good_mags, good_magserr, mask=maskf2, band=[f.name for f in good_filts])
-        except IndexError:
-            print("CAUTION : no filter encompasses the full spectra. Review graph and select one as a reference for scaling.")
-            f, a = plt.subplots(1, 1)
-            aa = a.twinx()
-            for filt, c in zip(filts, ["b", "g", "y", "r"], strict=False):
-                aa.fill_between(filt.wavelength, filt.transmission, color=c, alpha=0.4, label=filt.name)
-                aa.axvline(filt.blue_edge, lw=0.5, c=c, ls=":")
-                aa.axvline(filt.red_edge, lw=0.5, c=c, ls=":")
-                aa.axvline(filt.wave_effective, lw=0.5, c=c, ls="-")
-            a.plot(wlf2[sel], flf2[sel], lw=0.5, c="k", label=datadict["name"])
-            a.set_xlabel(r"Wavelength $[ \AA ]$")
-            a.set_ylabel("Spectral flux [arbitrary units]")
-            aa.set_ylabel("Filter transmission")
-            f.legend(loc="lower left", bbox_to_anchor=(1.01, 0.0))
-            # plt.show()
-            plt.pause(15)
-            filt_id = int(input("Type 1 for 'sdss_u0', 2 for 'sdss_g0', 3 for 'sdss_r0', or 4 for 'sdss_i0':")) - 1
-            flux2phot = scalingToBand(wlf2, flf2, mags[filt_id], magserr[filt_id], mask=maskf2, band=filts[filt_id].name)
-        scaled_flux = flux2phot * flf2
-
-        # Eyeball estimate of noise in flux data
-        fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=nsigma, makeplots=False)
-        sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
-
-        # Conversion to GELATO format
-        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, sm_noise, mask=maskf2)
-
-        # Write data
-        outdir = os.path.abspath(output_dir)
-        if not os.path.isdir(os.path.join(outdir, "SPECS")):
-            os.makedirs(os.path.join(outdir, "SPECS"))
-
-        redz = datadict["redshift"]
-        fpath = os.path.join(outdir, "SPECS", f"{datadict['name']}_z{redz:.3f}_GEL.fits")
-        t.write(fpath, format="fits", overwrite=True)
-        all_paths.append(fpath)
-        all_zs.append(redz)
-
-    # Create list of objects
-    objlist = Table([all_paths, all_zs], names=["Path", "z"])
-    writepath = os.path.join(outdir, "specs_for_GELATO.fits")
-    objlist.write(writepath, format="fits", overwrite=True)
-    print(f"Done ! List of objects written in {writepath}.")
-
-    return objlist, writepath
+    gelatoh5file = os.path.abspath(gelatoh5)
+    spec_dict = {}
+    with h5py.File(gelatoh5file, "r") as gel5:
+        group = gel5.get(tag)
+        wls = np.array(group.get("wl_ang"))
+        flam = np.array(group.get("flam"))
+        flamerr = np.array(group.get("flam_err"))
+        zob = group.attrs.get("redshift")
+        dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
+        fnu = ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        spec_dict["wl"] = wls
+        spec_dict["fnu"] = fnu
+        spec_dict["fnuerr"] = fnuerr
+    return spec_dict
 
 
-def gelatoToH5(outfilename, gelato_run_dir):
+def get_gelmod(gelatoh5, tag):
     """
-    Gathers data from GELATO inputs and outputs and writes them to a HDF5 file to be used as input for Stellar Population Synthesis.
+    Computes the spectrum in appropriate units for SPS-fitting with DSPS.
 
     Parameters
     ----------
-    outfilename : str or path
-        Name of the `HDF5` file that will be written.
-    gelato_run_dir : str or path
-        Path to the output directory of the GELATO run to consider.
+    gelatoh5 : str or path
+        Name or path to the `HDF5` file that contains GELATO outputs.
+    tag : str
+        Name of the FORS2 spectrum to be considered, normally in the form f"SPEC{number}".
 
     Returns
     -------
-    path
-        Absolute path to the written file - if successful.
+    dict
+        Dictionary containing wavelengths and several fluxes (in Lsun/Hz) corresponding to each output from GELATO : full model, SSP contribution and spectral lines contributions, as well as errors.
     """
-    gelatout = os.path.abspath(os.path.join(gelato_run_dir, "resultsGELATO"))
-    fileout = os.path.abspath(outfilename)
-
-    if os.path.isdir(gelatout):
-        res_tab_path = os.path.join(gelatout, "GELATO-results.fits")
-        res_table = Table.read(res_tab_path)
-        res_df = res_table.to_pandas()
-        res_df["FITS"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
-        # res_df["name"] = np.array([n.split('_')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
-        specs = np.array([n.split("_")[0] for n in res_df["FITS"]])
-        nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
-        res_df["num"] = nums
-        res_df.drop(columns="Name", inplace=True)
-        for col in res_df.columns:
-            try:
-                res_df[col] = pd.to_numeric(res_df[col])
-            except ValueError:
-                pass
-        with h5py.File(fileout, "w") as h5out:
-            for i, row in res_df.iterrows():
-                specin = row["FITS"]
-                fn, ext = os.path.splitext(specin)
-                specn = fn.split("_")[0]
-                spec_path = os.path.join(gelatout, f"{fn}-results{ext}")
-                spec_tab = Table.read(spec_path)
-                wlang = np.power(10, spec_tab["loglam"])
-                flam = np.array(spec_tab["flux"])
-                flamerr = np.power(spec_tab["ivar"], -0.5)
-                groupout = h5out.create_group(specn)
-                for key, val in row.items():
-                    groupout.attrs[key] = val
-                groupout.create_dataset("wl_ang", data=wlang, compression="gzip", compression_opts=9)
-                groupout.create_dataset("flam", data=flam, compression="gzip", compression_opts=9)
-                groupout.create_dataset("flam_err", data=flamerr, compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_mod", data=np.array(spec_tab["MODEL"]), compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
-
-    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
-    return ret
+    gelatoh5file = os.path.abspath(gelatoh5)
+    spec_dict = {}
+    with h5py.File(gelatoh5file, "r") as gel5:
+        group = gel5.get(tag)
+        wls = np.array(group.get("wl_ang"))
+        mod_fl = np.array(group.get("gelato_mod"))
+        line_fl = np.array(group.get("gelato_line"))
+        ssp_fl = np.array(group.get("gelato_ssp"))
+        flamerr = np.array(group.get("flam_err"))
+        zob = group.attrs.get("redshift")
+        dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
+        mod_fnu = ((convertFlambdaToFnu(wls, mod_fl) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        line_fnu = ((convertFlambdaToFnu(wls, line_fl) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        ssp_fnu = ((convertFlambdaToFnu(wls, ssp_fl) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        spec_dict["wl"] = wls
+        spec_dict["mod"] = mod_fnu
+        spec_dict["ssp"] = ssp_fnu
+        spec_dict["line"] = line_fnu
+        spec_dict["fnuerr"] = fnuerr
+    return spec_dict

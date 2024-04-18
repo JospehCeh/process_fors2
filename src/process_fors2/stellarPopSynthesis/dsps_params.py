@@ -128,7 +128,7 @@ if FLAG_INCREASE_RANGE_MAH:
     DEFAULT_MAH_PARAMS_MAX[1] = 0.15
     # MAH_early_index
     DEFAULT_MAH_PARAMS_MIN[2] = 0.1
-    DEFAULT_MAH_PARAMS_MAX[2] = 0.10
+    DEFAULT_MAH_PARAMS_MAX[2] = 10.0  # 0.10 -- erreur de frappe? ça bloquait cette valeur à 0.1
     # MAH_late_index
     DEFAULT_MAH_PARAMS_MIN[3] = 0.1
     DEFAULT_MAH_PARAMS_MAX[3] = 10.0
@@ -136,8 +136,8 @@ if FLAG_INCREASE_RANGE_MAH:
 FLAG_INCREASE_RANGE_MS = True
 if FLAG_INCREASE_RANGE_MS:
     # MS_lgmcrit  12
-    DEFAULT_MS_PARAMS_MIN[0] = 9.0
-    DEFAULT_MS_PARAMS_MAX[0] = 13.0
+    DEFAULT_MS_PARAMS_MIN[0] = 6.0  # 9.0
+    DEFAULT_MS_PARAMS_MAX[0] = 15.0  # 13.0
     # MS_lgy_at_mcrit : -1
     DEFAULT_MS_PARAMS_MIN[1] = -2.0
     DEFAULT_MS_PARAMS_MAX[1] = -0.7
@@ -238,16 +238,20 @@ class SSPParametersFit:
         self.DEFAULT_AGEDEPLGMET_PARAMS_MAX = [DEFAULT_AGEDEPLGMET_PARAMS_MAX[0]]
         """
         # Scaling free parameter
-        self.DEFAULT_SCALE_PARAMS = DEFAULT_SCALE_PARAMS
-        self.SCALE_PARAMNAMES = SCALE_PARAMNAMES
-        self.DEFAULT_SCALE_PARAMS_MIN = DEFAULT_SCALE_PARAMS_MIN
-        self.DEFAULT_SCALE_PARAMS_MAX = DEFAULT_SCALE_PARAMS_MAX
+        # self.DEFAULT_SCALE_PARAMS = DEFAULT_SCALE_PARAMS
+        # self.SCALE_PARAMNAMES = SCALE_PARAMNAMES
+        # self.DEFAULT_SCALE_PARAMS_MIN = DEFAULT_SCALE_PARAMS_MIN
+        # self.DEFAULT_SCALE_PARAMS_MAX = DEFAULT_SCALE_PARAMS_MAX
 
         # bound parameters together
-        self.DEFAULT_PARAMS = [self.DEFAULT_MAH_PARAMS, self.DEFAULT_MS_PARAMS, self.DEFAULT_Q_PARAMS, self.DEFAULT_SCALE_PARAMS, self.DEFAULT_DUST_PARAMS]
+        self.DEFAULT_PARAMS = [self.DEFAULT_MAH_PARAMS, self.DEFAULT_MS_PARAMS, self.DEFAULT_Q_PARAMS, self.DEFAULT_DUST_PARAMS]  # , self.DEFAULT_SCALE_PARAMS en avant-dernier
 
-        self.PARAMS_MIN = np.concatenate([self.DEFAULT_MAH_PARAMS_MIN, self.DEFAULT_MS_PARAMS_MIN, self.DEFAULT_Q_PARAMS_MIN, self.DEFAULT_SCALE_PARAMS_MIN, self.DEFAULT_DUST_PARAMS_MIN])
-        self.PARAMS_MAX = np.concatenate([self.DEFAULT_MAH_PARAMS_MAX, self.DEFAULT_MS_PARAMS_MAX, self.DEFAULT_Q_PARAMS_MAX, self.DEFAULT_SCALE_PARAMS_MAX, self.DEFAULT_DUST_PARAMS_MAX])
+        self.PARAMS_MIN = np.concatenate(
+            [self.DEFAULT_MAH_PARAMS_MIN, self.DEFAULT_MS_PARAMS_MIN, self.DEFAULT_Q_PARAMS_MIN, self.DEFAULT_DUST_PARAMS_MIN]
+        )  # , self.DEFAULT_SCALE_PARAMS_MIN en avant-dernier
+        self.PARAMS_MAX = np.concatenate(
+            [self.DEFAULT_MAH_PARAMS_MAX, self.DEFAULT_MS_PARAMS_MAX, self.DEFAULT_Q_PARAMS_MAX, self.DEFAULT_DUST_PARAMS_MAX]
+        )  # , self.DEFAULT_SCALE_PARAMS_MAX en avant-dernier
 
         self.PARAMS_MIN = jnp.array(self.PARAMS_MIN)
         self.PARAMS_MAX = jnp.array(self.PARAMS_MAX)
@@ -255,7 +259,7 @@ class SSPParametersFit:
         self.INIT_PARAMS = np.concatenate(self.DEFAULT_PARAMS)
         self.INIT_PARAMS = jnp.array(self.INIT_PARAMS)
 
-        self.PARAM_NAMES = [self.MAH_PARAMNAMES, self.MS_PARAMNAMES, self.Q_PARAMNAMES, self.SCALE_PARAMNAMES, self.DUST_PARAMNAMES]
+        self.PARAM_NAMES = [self.MAH_PARAMNAMES, self.MS_PARAMNAMES, self.Q_PARAMNAMES, self.DUST_PARAMNAMES]  # , self.SCALE_PARAMNAMES en avant-dernier
         self.PARAM_NAMES_FLAT = list(itertools.chain(*self.PARAM_NAMES))
 
         self.DICT_PARAM_MAH_true = OrderedDict([(name, self.DEFAULT_MAH_PARAMS[k]) for k, name in enumerate(self.MAH_PARAMNAMES)])
@@ -264,14 +268,14 @@ class SSPParametersFit:
 
         self.DICT_PARAM_Q_true = OrderedDict([(name, self.DEFAULT_Q_PARAMS[k]) for k, name in enumerate(self.Q_PARAMNAMES)])
 
-        self.DICT_PARAM_SCALE_true = OrderedDict([(name, self.DEFAULT_SCALE_PARAMS[k]) for k, name in enumerate(self.SCALE_PARAMNAMES)])
+        # self.DICT_PARAM_SCALE_true = OrderedDict([(name, self.DEFAULT_SCALE_PARAMS[k]) for k, name in enumerate(self.SCALE_PARAMNAMES)])
 
         self.DICT_PARAM_DUST_true = OrderedDict([(name, self.DEFAULT_DUST_PARAMS[k]) for k, name in enumerate(self.DUST_PARAMNAMES)])
 
         self.DICT_PARAMS_true = self.DICT_PARAM_MAH_true
         self.DICT_PARAMS_true.update(self.DICT_PARAM_MS_true)
         self.DICT_PARAMS_true.update(self.DICT_PARAM_Q_true)
-        self.DICT_PARAMS_true.update(self.DICT_PARAM_SCALE_true)
+        # self.DICT_PARAMS_true.update(self.DICT_PARAM_SCALE_true)
         self.DICT_PARAMS_true.update(self.DICT_PARAM_DUST_true)
 
     def __repr__(self) -> str:

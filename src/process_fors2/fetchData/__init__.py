@@ -1,4 +1,19 @@
-from .manipulate import DEFAULTS_DICT, GetColumnHfData, cleanGalexData, convertFlambdaToFnu, crossmatchFors2KidsGalex, filterCrossMatch, fors2ToH5, readH5FileAttributes, starlightToH5
+from .manipulate import (
+    DEFAULTS_DICT,
+    GetColumnHfData,
+    cleanGalexData,
+    crossmatchFors2KidsGalex,
+    crossmatchToGelato,
+    dsps_to_gelato,
+    filterCrossMatch,
+    fors2ToH5,
+    gelato_xmatch_todict,
+    gelatoToH5,
+    loadDataInH5,
+    readH5FileAttributes,
+    starlightToH5,
+    tableForGelato,
+)
 from .queries import _getTargetCoordinates, getFors2FitsTable, queryGalexMast, queryTargetInSimbad, readKids
 
 __all__ = [
@@ -7,7 +22,6 @@ __all__ = [
     "_getTargetCoordinates",
     "queryGalexMast",
     "readKids",
-    "convertFlambdaToFnu",
     "fors2ToH5",
     "starlightToH5",
     "GetColumnHfData",
@@ -16,4 +30,10 @@ __all__ = [
     "DEFAULTS_DICT",
     "filterCrossMatch",
     "cleanGalexData",
+    "loadDataInH5",
+    "dsps_to_gelato",
+    "gelato_xmatch_todict",
+    "gelatoToH5",
+    "tableForGelato",
+    "crossmatchToGelato",
 ]

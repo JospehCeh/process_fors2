@@ -31,7 +31,10 @@ dependencies = [
     "diffstar",
     "jax",
     "jaxlib",
-    "jaxopt"
+    "jaxopt",
+    "dsps",
+    "interpax",
+    "arviz"
 ]
 
 [project.urls]
@@ -125,6 +128,7 @@ ignore = [
     "UP028", # Allow yield in for loop
     "N806",
     "N802",
+    "N803",
     "B007",
     "D417",
     "SIM118",

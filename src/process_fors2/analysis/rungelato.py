@@ -17,6 +17,45 @@ import gelato
 from gelato import ConstructParams, Utility
 
 
+def run_gelato_single(pars, spec, z):
+    """
+    Run GELATO from within python to identify lines in spectra. This version is limited to a single spectrum.
+
+    Parameters
+    ----------
+    pars : path or str
+        Path to the parameters file (json).
+    spec : path or str
+        Path to the spectrum file (fits table of 3 columns : log10(wl in angstrom), flux in erg/cm²/s/angstrom, inverse variance of the flux).
+    z :  int or float
+        Redshift of the spectrum
+
+    Returns
+    -------
+    int
+        0 if exited correctly, else another value.
+    """
+    # Parameters
+    _pars = os.path.abspath(pars)
+    _spec = os.path.abspath(spec)
+    p = ConstructParams.construct(_pars)
+
+    ## Create Directory for Output
+    outpath = os.path.abspath(p["OutFolder"])
+    if not os.path.isdir(outpath):
+        os.makedirs(outpath)
+
+    if p["Verbose"]:
+        now = Utility.header()
+
+    # Single Mode
+    gelato.gelato(_pars, _spec, z)
+
+    if p["Verbose"]:
+        Utility.footer(now)
+    return 0
+
+
 def run_gelato():
     """
     Run GELATO to identify lines in spectra.
