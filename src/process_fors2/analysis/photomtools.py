@@ -274,7 +274,7 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
     return fl_mean, fl_std
 
 
-def get_fnu_clean(gelatoh5, tag, nsigs=8):
+def get_fnu_clean(gelatoh5, tag, zob=None, nsigs=8):
     """
     Computes the clean spectrum in appropriate units for SPS-fitting with DSPS.
 
@@ -284,6 +284,10 @@ def get_fnu_clean(gelatoh5, tag, nsigs=8):
         Name or path to the `HDF5` file that contains GELATO outputs.
     tag : str
         Name of the FORS2 spectrum to be considered, normally in the form f"SPEC{number}".
+    zob : int or float
+        Redshift of the galaxy. If `None`, it will be inferred from GELATO results. The default is None.
+    nsigs : int or float
+        Number of standard deviations to consider at smoothing. The default is 8.
 
     Returns
     -------
@@ -297,7 +301,8 @@ def get_fnu_clean(gelatoh5, tag, nsigs=8):
         wls = np.array(group.get("wl_ang"))
         flam = np.array(group.get("flam"))
         flamerr = np.array(group.get("flam_err"))
-        zob = group.attrs.get("redshift")
+        if zob is None:
+            zob = group.attrs.get("SSP_Redshift") / C_KMS
         dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
         fnu = ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
         fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
@@ -316,7 +321,7 @@ def get_fnu_clean(gelatoh5, tag, nsigs=8):
     return spec_dict
 
 
-def get_fnu(gelatoh5, tag):
+def get_fnu(gelatoh5, tag, zob=None):
     """
     Computes the spectrum in appropriate units for SPS-fitting with DSPS.
 
@@ -326,6 +331,8 @@ def get_fnu(gelatoh5, tag):
         Name or path to the `HDF5` file that contains GELATO outputs.
     tag : str
         Name of the FORS2 spectrum to be considered, normally in the form f"SPEC{number}".
+    zob : int or float
+        Redshift of the galaxy. If `None`, it will be inferred from GELATO results. The default is None.
 
     Returns
     -------
@@ -339,7 +346,8 @@ def get_fnu(gelatoh5, tag):
         wls = np.array(group.get("wl_ang"))
         flam = np.array(group.get("flam"))
         flamerr = np.array(group.get("flam_err"))
-        zob = group.attrs.get("redshift")
+        if zob is None:
+            zob = group.attrs.get("SSP_Redshift") / C_KMS
         dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
         fnu = ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
         fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
@@ -349,7 +357,7 @@ def get_fnu(gelatoh5, tag):
     return spec_dict
 
 
-def get_gelmod(gelatoh5, tag):
+def get_gelmod(gelatoh5, tag, zob=None):
     """
     Computes the spectrum in appropriate units for SPS-fitting with DSPS.
 
@@ -359,6 +367,8 @@ def get_gelmod(gelatoh5, tag):
         Name or path to the `HDF5` file that contains GELATO outputs.
     tag : str
         Name of the FORS2 spectrum to be considered, normally in the form f"SPEC{number}".
+    zob : int or float
+        Redshift of the galaxy. If `None`, it will be inferred from GELATO results. The default is None.
 
     Returns
     -------
@@ -374,7 +384,8 @@ def get_gelmod(gelatoh5, tag):
         line_fl = np.array(group.get("gelato_line"))
         ssp_fl = np.array(group.get("gelato_ssp"))
         flamerr = np.array(group.get("flam_err"))
-        zob = group.attrs.get("redshift")
+        if zob is None:
+            zob = group.attrs.get("SSP_Redshift") / C_KMS
         dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
         mod_fnu = ((convertFlambdaToFnu(wls, mod_fl) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
         line_fnu = ((convertFlambdaToFnu(wls, line_fl) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
