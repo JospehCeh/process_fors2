@@ -476,7 +476,6 @@ def main(args):
         dict_fors2_for_fit[tag] = dict_tag
 
     # parameters for fit
-    pdfoutputfilename = f"DSPS_pickles/fitparams_magsOnly_{low_bound+1}-{start_tag}_to_{high_bound}-{end_tag}.pdf"
     list_of_figs = []
 
     # fit loop
@@ -517,6 +516,7 @@ def main(args):
     if "spec" in args[3].lower():
         fitname += f"_{args[4]}"
     outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
+    pdfoutputfilename = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}-{start_tag}_to_{high_bound}-{end_tag}.pdf")
 
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
