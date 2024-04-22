@@ -28,9 +28,9 @@ from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from tqdm import tqdm
 
-from process_fors2.analysis import convert_flux_torestframe, get_fnu_clean, get_gelmod
+from process_fors2.analysis import convert_flux_torestframe, get_fnu, get_fnu_clean, get_gelmod
 from process_fors2.fetchData import gelato_xmatch_todict
-from process_fors2.stellarPopSynthesis import FilterInfo, SSPParametersFit, lik_mag, paramslist_to_dict, plot_fit_ssp_spectrophotometry, plot_SFH
+from process_fors2.stellarPopSynthesis import FilterInfo, SSPParametersFit, lik_lines, lik_mag, lik_rew, lik_spec, paramslist_to_dict, plot_fit_ssp_spectrophotometry, plot_SFH
 
 jax.config.update("jax_enable_x64", True)
 
@@ -71,6 +71,9 @@ init_params = p.INIT_PARAMS
 params_min = p.PARAMS_MIN
 params_max = p.PARAMS_MAX
 lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=5000)
+lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
+lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=5000)
+lbfgsb_lin = jaxopt.ScipyBoundedMinimize(fun=lik_lines, method="L-BFGS-B", maxiter=5000)
 
 
 def has_redshift(dic):
@@ -140,6 +143,95 @@ def fit_mags(data_dict):
     return dict_out
 
 
+def fit_spec(data_dict):
+    """
+    Function to fit SPS on spectrum with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    res_s = lbfgsb_spec.run(init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["fnu"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"])
+
+    # Convert fitted parameters into a dictionnary
+    params_s = res_s.params
+    # save to dictionary
+    dict_out = OrderedDict()
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_s, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
+def fit_rew(data_dict):
+    """
+    Function to fit SPS on rest equivalent widths with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
+    res_ew = lbfgsb_rew.run(
+        init_params, bounds=(params_min, params_max), surwls=surechwls, rews_wls=data_dict["rews_wls"], rews=data_dict["rews"], rews_err=data_dict["rews_err"], z_obs=data_dict["redshift"]
+    )
+
+    # Convert fitted parameters into a dictionnary
+    params_rew = res_ew.params
+    # save to dictionary
+    dict_out = OrderedDict()
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_rew, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
+def fit_lines(data_dict):
+    """
+    Function to fit SPS on spectral bands with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    res_li = lbfgsb_lin.run(
+        init_params,
+        bounds=(params_min, params_max),
+        wls=data_dict["wavelengths"],
+        refmod=data_dict["gelato_mod"],
+        reflines=data_dict["gelato_lines"],
+        fnuerr=data_dict["fnu_err"],
+        z_obs=data_dict["redshift"],
+    )
+
+    # Convert fitted parameters into a dictionnary
+    params_li = res_li.params
+    # save to dictionary
+    dict_out = OrderedDict()
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_li, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
 def main(args):
     """
     Function that goes through the whole fitting process, callable from outside.
@@ -148,8 +240,9 @@ def main(args):
     ----------
     args : list, tuple or array
         Arguments to be passed to the function as command line arguments.
-        Mandatory arguments are 1- path to the HDF5 file of cross-matched data and 2- path to the HDF5 file of GELATO outputs.
-        Optional arguments are 3- (resp. 4-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, all galaxies will be fitted. This may cause crashes.
+        Mandatory arguments are 1- path to the HDF5 file of cross-matched data, 2- path to the HDF5 file of GELATO outputs, 3- the type of fit ('mags', 'spec', 'rews' or 'lines') and
+        4- whether to clean the spectrum before the fit ('raw' or 'clean' - only affects fitting on spectra).
+        Optional arguments are 5- (resp. 6-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, all galaxies will be fitted. This may cause crashes.
 
     Returns
     -------
@@ -187,10 +280,14 @@ def main(args):
             filtered_tags.append(tag)
     print(f"Number of galaxies in the sample : {len(filtered_tags)}.")
 
-    if len(args) < 5:
+    if len(args) < 7:
         low_bound, high_bound = 0, len(filtered_tags)
     else:
-        low_bound, high_bound = int(args[3]), int(args[4])
+        low_bound, high_bound = int(args[5]), int(args[6])
+
+    use_clean = True
+    if "spec" in args[3].lower() and "raw" in args[4].lower():
+        use_clean = False
 
     low_bound = max(0, low_bound - 1)
     high_bound = min(high_bound, len(filtered_tags))
@@ -251,10 +348,16 @@ def main(args):
         ugri_magserr_c = np.array([fors2_attr["MAGERR_GAAP_u"], fors2_attr["MAGERR_GAAP_g"], fors2_attr["MAGERR_GAAP_r"], fors2_attr["MAGERR_GAAP_i"]])
 
         # get the Fors2 spectrum
-        spec_obs = get_fnu_clean(gelatoh5, tag, zob=z_obs, nsigs=6)
-        Xs = spec_obs["wl_cl"]
-        Ys = spec_obs["fnu_cl"]
-        EYs = spec_obs["bg"]
+        if use_clean:
+            spec_obs = get_fnu_clean(gelatoh5, tag, zob=z_obs, nsigs=6)
+            Xs = spec_obs["wl_cl"]
+            Ys = spec_obs["fnu_cl"]
+            EYs = spec_obs["bg"]
+        else:
+            spec_obs = get_fnu(gelatoh5, tag, zob=z_obs)
+            Xs = spec_obs["wl"]
+            Ys = spec_obs["fnu"]
+            EYs = spec_obs["fnuerr"]
         # EYs_med = spec_obs['bg_med']
 
         # get the Gelato model
@@ -378,16 +481,24 @@ def main(args):
 
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
-    fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+    if "line" in args[3].lower():
+        fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "rew" in args[3].lower():
+        fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "spec" in args[3].lower():
+        fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+    else:
+        fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+
     for tag, fit_dict in fit_results_dict.items():
-        dict_params_m = paramslist_to_dict(fit_dict["fit_params"], p.PARAM_NAMES_FLAT)
+        dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], p.PARAM_NAMES_FLAT)
         data_dict = dict_fors2_for_fit[tag]
 
         # plot SFR
         f, a = plt.subplots(1, 2)
-        plot_SFH(dict_params_m, data_dict["redshift"], subtit=data_dict["title"], ax=a[0])
+        plot_SFH(dict_params_fit, data_dict["redshift"], subtit=data_dict["title"], ax=a[0])
         plot_fit_ssp_spectrophotometry(
-            dict_params_m,
+            dict_params_fit,
             data_dict["wavelengths"],
             data_dict["fnu"],
             data_dict["fnu_err"],
@@ -402,10 +513,14 @@ def main(args):
 
         # save figures and parameters
         list_of_figs.append(copy.deepcopy(f))
-    outdir = os.path.abspath("./DSPS_pickles")
+    fitname = args[3]
+    if "spec" in args[3].lower():
+        fitname += f"_{args[4]}"
+    outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
+
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    filename_params = os.path.join(outdir, f"fitparams_magsOnly_{low_bound+1}-{start_tag}_to_{high_bound}-{end_tag}.pickle")
+    filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}-{start_tag}_to_{high_bound}-{end_tag}.pickle")
     with open(filename_params, "wb") as outf:
         pickle.dump(fit_results_dict, outf)
     plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
