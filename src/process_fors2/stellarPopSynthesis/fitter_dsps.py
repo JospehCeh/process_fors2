@@ -21,7 +21,7 @@ from interpax import interp1d
 from jax import jit, vmap
 from jax.numpy import trapezoid as trapz
 
-from process_fors2.analysis import C_KMS, ab_mag, convert_flux_toobsframe, convertFnuToFlambda_noU
+from process_fors2.analysis import C_KMS
 
 from .dsps_params import SSPParametersFit
 from .met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
@@ -183,6 +183,7 @@ def mean_mags(X, params, z_obs):
     return mags_predictions
 
 
+'''
 @jit
 def mean_ugri_sedpy(X, params, z_obs):
     """
@@ -221,6 +222,7 @@ def mean_ugri_sedpy(X, params, z_obs):
     mags_predictions = jnp.array(mags_predictions)
 
     return mags_predictions
+'''
 
 
 @jit
@@ -471,6 +473,7 @@ def lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs):
     return jnp.sum((resid / sigma_mag_obs) ** 2)
 
 
+'''
 @jit
 def lik_ugri_sedpy(p, xf, mags_measured, sigma_mag_obs, z_obs):
     """
@@ -483,6 +486,7 @@ def lik_ugri_sedpy(p, xf, mags_measured, sigma_mag_obs, z_obs):
     resid = mags_measured - all_mags_predictions
 
     return jnp.sum((resid / sigma_mag_obs) ** 2)
+'''
 
 
 @jit

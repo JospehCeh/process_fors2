@@ -14,7 +14,7 @@
 from .dsps_params import SSPParametersFit, paramslist_to_dict
 from .fit_filters import FilterInfo
 from .fit_utils import plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_SFH
-from .fitter_dsps import calc_eqw, lik_lines, lik_mag, lik_mag_partial, lik_rew, lik_spec, lik_ugri_sedpy, mean_lines, mean_mags, mean_sfr, mean_spectrum, ssp_spectrum_fromparam
+from .fitter_dsps import calc_eqw, lik_lines, lik_mag, lik_mag_partial, lik_rew, lik_spec, mean_lines, mean_mags, mean_sfr, mean_spectrum, ssp_spectrum_fromparam
 
 __all__ = [
     "FilterInfo",
@@ -23,7 +23,6 @@ __all__ = [
     "plot_SFH",
     "lik_mag",
     "lik_mag_partial",
-    "lik_ugri_sedpy",
     "ssp_spectrum_fromparam",
     "mean_mags",
     "mean_sfr",
@@ -43,6 +42,7 @@ __all__ = ["_get_package_dir",
            "FULLFILENAME_SSP_DATA",
            "SSP_DATA",
            "mean_ugri_sedpy",
+           "lik_ugri_sedpy",
            "lik_comb", "lik_spec_from_mag", "lik_normspec_from_mag",
            "get_infos_spec","get_infos_mag","get_infos_comb",
            "rescale_photometry",

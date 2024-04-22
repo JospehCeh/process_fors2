@@ -16,7 +16,8 @@ from .photomtools import (
     scalingToBand,
 )
 from .rungelato import run_gelato, run_gelato_single
-from .sedpyjax import ab_mag
+
+# from .sedpyjax import ab_mag
 
 __all__ = [
     "scalingToBand",
@@ -29,7 +30,6 @@ __all__ = [
     "convertFnuToFlambda",
     "convertFlambdaToFnu_noU",
     "convertFnuToFlambda_noU",
-    "ab_mag",
     "get_fnu_clean",
     "get_fnu",
     "get_gelmod",
