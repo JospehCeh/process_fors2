@@ -70,10 +70,6 @@ p = SSPParametersFit()
 init_params = p.INIT_PARAMS
 params_min = p.PARAMS_MIN
 params_max = p.PARAMS_MAX
-lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=5000)
-lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
-lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=5000)
-lbfgsb_lin = jaxopt.ScipyBoundedMinimize(fun=lik_lines, method="L-BFGS-B", maxiter=5000)
 
 
 def has_redshift(dic):
@@ -110,6 +106,7 @@ def fit_mags(data_dict):
     """
     # data_dict = dict_fors2_for_fit[tag]
     # fit with all magnitudes
+    lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=5000)
     res_m = lbfgsb_mag.run(init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"])
 
     """
@@ -157,6 +154,7 @@ def fit_spec(data_dict):
     dictionary
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
+    lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
     res_s = lbfgsb_spec.run(init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["fnu"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"])
 
     # Convert fitted parameters into a dictionnary
@@ -183,6 +181,7 @@ def fit_rew(data_dict):
     dictionary
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
+    lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=5000)
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     res_ew = lbfgsb_rew.run(
         init_params, bounds=(params_min, params_max), surwls=surechwls, rews_wls=data_dict["rews_wls"], rews=data_dict["rews"], rews_err=data_dict["rews_err"], z_obs=data_dict["redshift"]
@@ -212,6 +211,7 @@ def fit_lines(data_dict):
     dictionary
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
+    lbfgsb_lin = jaxopt.ScipyBoundedMinimize(fun=lik_lines, method="L-BFGS-B", maxiter=5000)
     res_li = lbfgsb_lin.run(
         init_params,
         bounds=(params_min, params_max),
