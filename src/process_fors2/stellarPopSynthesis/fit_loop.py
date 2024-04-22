@@ -62,8 +62,8 @@ def plot_figs_to_PDF(pdf_file, fig_list):
             plt.close()
 
 
-FLAG_REMOVE_GALEX = False
-FLAG_REMOVE_GALEX_FUV = True
+FLAG_REMOVE_GALEX = True
+FLAG_REMOVE_GALEX_FUV = False
 FLAG_REMOVE_VISIBLE = False
 
 p = SSPParametersFit()
@@ -149,17 +149,13 @@ def main(args):
     args : list, tuple or array
         Arguments to be passed to the function as command line arguments.
         Mandatory arguments are 1- path to the HDF5 file of cross-matched data and 2- path to the HDF5 file of GELATO outputs.
-        Optional arguments are 3- (resp. 4-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, galaxies 1 to 5 will be fitted. This is to avoid crashes.
+        Optional arguments are 3- (resp. 4-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, all galaxies will be fitted. This may cause crashes.
 
     Returns
     -------
     int
         0 if exited correctly.
     """
-    if len(args) < 5:
-        low_bound, high_bound = 1, 5
-    else:
-        low_bound, high_bound = int(args[3]), int(args[4])
 
     ps = FilterInfo()
     ps.plot_transmissions()
@@ -189,12 +185,20 @@ def main(args):
 
         if bool_viz and bool_fuv and bool_nuv:
             filtered_tags.append(tag)
-    print(len(filtered_tags))
-    low_bound -= 1
+    print(f"Number of galaxies in the sample : {len(filtered_tags)}.")
+
+    if len(args) < 5:
+        low_bound, high_bound = 0, len(filtered_tags)
+    else:
+        low_bound, high_bound = int(args[3]), int(args[4])
+
+    low_bound = max(0, low_bound - 1)
     high_bound = min(high_bound, len(filtered_tags))
     low_bound = min(low_bound, high_bound - 1)
 
     selected_tags = filtered_tags[low_bound:high_bound]
+
+    print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
     start_tag, end_tag = selected_tags[0], selected_tags[-1]
 
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
