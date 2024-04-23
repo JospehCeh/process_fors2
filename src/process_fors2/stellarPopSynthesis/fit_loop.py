@@ -182,9 +182,11 @@ def fit_rew(data_dict):
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
     lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=5000)
-    # surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
+    surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
-    res_ew = lbfgsb_rew.run(init_params, bounds=(params_min, params_max), rews_wls=data_dict["rews_wls"], rews=data_dict["rews"], rews_err=data_dict["rews_err"], z_obs=data_dict["redshift"])
+    res_ew = lbfgsb_rew.run(
+        init_params, bounds=(params_min, params_max), surwls=surechwls, rews_wls=data_dict["rews_wls"], rews=data_dict["rews"], rews_err=data_dict["rews_err"], z_obs=data_dict["redshift"]
+    )
 
     # Convert fitted parameters into a dictionnary
     params_rew = res_ew.params
