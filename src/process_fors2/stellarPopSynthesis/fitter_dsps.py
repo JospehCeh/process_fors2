@@ -340,7 +340,7 @@ def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs):
 
 
 @jit
-def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs):
+def lik_rew(p, rews_wls, rews, rews_err, z_obs):
     r"""
     Negative log-likelihood ($\Chi^2$) of the SPS defined by the parameters `p` with respect to previously known spectral lines.
 
@@ -348,8 +348,6 @@ def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs):
     ----------
     p : array
         SPS parameters' values - should be an output of a fitting procedure, *e.g.* `results.params`.
-    surwls : array
-        Wavelengths in angstrom - should be oversampled so that spectral lines can be sampled with a sufficiently high resolution (step of 0.1 angstrom is recommended)
     rews_wls : array
         Central wavelengths (in angstrom) of lines to be studied.
     rews : array
@@ -365,10 +363,19 @@ def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs):
         Value of the negative log-likelihood ($\Chi^2$).
     """
     params = {name: p[k] for k, name in enumerate(_DUMMY_P_ADQ.PARAM_NAMES_FLAT)}
-    spec = mean_spectrum(surwls, params, z_obs)
+    # spec = mean_spectrum(surwls, params, z_obs)
+    surwls, _, spec = ssp_spectrum_fromparam(params, z_obs)
     rew_predictions = calc_eqw(surwls, spec, rews_wls)
     resid = rew_predictions - rews
     return jnp.sum(jnp.power(resid / rews_err, 2))
+
+
+## BACKUP old doc when surwls was the second argument ##
+"""
+surwls : array
+    Wavelengths in angstrom - should be oversampled so that spectral lines can be sampled with a sufficiently high resolution (step of 0.1 angstrom is recommended)
+"""
+## END BACKUP ##
 
 
 @jit
