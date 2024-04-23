@@ -48,8 +48,8 @@ DEFAULTS_DICT.update({"Starlight spectra": STARLIGHT_SPECS})
 
 FORS2_H5 = os.path.join(FORS2DATALOC, "fors2", "fors2_spectra.hdf5")
 SL_H5 = os.path.join(FORS2DATALOC, "starlight", "starlight_spectra.hdf5")
-FILENAME_SSP_DATA = "test_fspsData_v3_2_BASEL.h5"
-# FILENAME_SSP_DATA = 'tempdata.h5'
+FILENAME_SSP_DATA = "ssp_data_fsps_v3.2_lgmet_age.h5"
+# FILENAME_SSP_DATA = "test_fspsData_v3_2_BASEL.h5"
 # FILENAME_SSP_DATA = 'test_fspsData_v3_2_C3K.h5'
 FULLFILENAME_SSP_DATA = os.path.abspath(os.path.join(os.path.join(FORS2DATALOC, "sps"), FILENAME_SSP_DATA))
 
