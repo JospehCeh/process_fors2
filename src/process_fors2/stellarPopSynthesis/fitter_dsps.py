@@ -38,7 +38,7 @@ def _get_package_dir() -> str:
 # FILENAME_SSP_DATA = '../../data/sps/tempdata.h5'
 # FILENAME_SSP_DATA = '../../data/sps/test_fspsData_v3_2_C3K.h5'
 FILENAME_SSP_DATA = "../../data/sps/test_fspsData_v3_2_BASEL.h5"
-FULLFILENAME_SSP_DATA = os.path.join(_get_package_dir(), FILENAME_SSP_DATA)
+FULLFILENAME_SSP_DATA = os.path.abspath(os.path.join(_get_package_dir(), FILENAME_SSP_DATA))
 SSP_DATA = load_ssp_templates(fn=FULLFILENAME_SSP_DATA)
 
 TODAY_GYR = 13.8
