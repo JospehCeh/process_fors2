@@ -22,6 +22,7 @@ from jax import jit, vmap
 from jax.numpy import trapezoid as trapz
 
 from process_fors2.analysis import C_KMS
+from process_fors2.fetchData import DEFAULTS_DICT
 
 from .dsps_params import SSPParametersFit
 from .met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
@@ -35,10 +36,7 @@ def _get_package_dir() -> str:
     return dirname
 
 
-# FILENAME_SSP_DATA = '../../data/sps/tempdata.h5'
-# FILENAME_SSP_DATA = '../../data/sps/test_fspsData_v3_2_C3K.h5'
-FILENAME_SSP_DATA = "../../data/sps/test_fspsData_v3_2_BASEL.h5"
-FULLFILENAME_SSP_DATA = os.path.abspath(os.path.join(_get_package_dir(), FILENAME_SSP_DATA))
+FULLFILENAME_SSP_DATA = DEFAULTS_DICT["DSPS HDF5"]
 SSP_DATA = load_ssp_templates(fn=FULLFILENAME_SSP_DATA)
 
 TODAY_GYR = 13.8

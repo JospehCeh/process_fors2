@@ -26,7 +26,6 @@ from sedpy import observate
 from tqdm import tqdm
 
 from process_fors2.analysis import U_FL, U_FNU, U_LSUNperHz, convert_flux_toobsframe, convertFnuToFlambda, estimateErrors, scalingToBand
-from process_fors2.stellarPopSynthesis import mean_spectrum
 
 from .queries import FORS2DATALOC, _defaults, queryGalexMast, readKids
 
@@ -49,9 +48,14 @@ DEFAULTS_DICT.update({"Starlight spectra": STARLIGHT_SPECS})
 
 FORS2_H5 = os.path.join(FORS2DATALOC, "fors2", "fors2_spectra.hdf5")
 SL_H5 = os.path.join(FORS2DATALOC, "starlight", "starlight_spectra.hdf5")
+FILENAME_SSP_DATA = "test_fspsData_v3_2_BASEL.h5"
+# FILENAME_SSP_DATA = 'tempdata.h5'
+# FILENAME_SSP_DATA = 'test_fspsData_v3_2_C3K.h5'
+FULLFILENAME_SSP_DATA = os.path.abspath(os.path.join(os.path.join(FORS2DATALOC, "sps"), FILENAME_SSP_DATA))
 
 DEFAULTS_DICT.update({"FORS2 HDF5": FORS2_H5})
 DEFAULTS_DICT.update({"Starlight HDF5": SL_H5})
+DEFAULTS_DICT.update({"DSPS HDF5": FULLFILENAME_SSP_DATA})
 
 
 def fors2ToH5(infile=FORS2_FITS, inspecs=FORS2_SPECS, outfile=FORS2_H5):
@@ -661,6 +665,8 @@ def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0):
         2. The spectral flux density in flam units, column name: "flux"
         3. The inverse variances of the data points, column name: "ivar"
     """
+    from process_fors2.stellarPopSynthesis import mean_spectrum
+
     dl = luminosity_distance_to_z(z_obs, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
     dsps_fnu_r = mean_spectrum(wls_ang, params_dict, z_obs) * U_LSUNperHz / (4 * np.pi * dl.to(u.m) ** 2) / (1 + z_obs)
     dsps_flambda_r = convertFnuToFlambda(wls_ang, dsps_fnu_r.to(U_FNU).value) * U_FL
