@@ -914,9 +914,9 @@ def gelato_tables_from_dsps(dsps_pickle_dir):
     for file in os.listdir(dsps_pickle_dir):
         if f"{mod}" in file and ".pickle" in file:
             dspsfile = os.path.abspath(os.path.join(dsps_pickle_dir, file))
-        with open(dspsfile, "rb") as _pkl:
-            _dict = pickle.load(_pkl)
-            dict_of_dsps_fits.update(_dict)
+            with open(dspsfile, "rb") as _pkl:
+                _dict = pickle.load(_pkl)
+                dict_of_dsps_fits.update(_dict)
     geldir = f"prep_gelato_fromDSPS_{mod}"
     dn = os.path.dirname(dsps_pickle_dir)
     outdir = os.path.join(dn, geldir)
