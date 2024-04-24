@@ -7,6 +7,7 @@ from .manipulate import (
     dsps_to_gelato,
     filterCrossMatch,
     fors2ToH5,
+    gelato_tables_from_dsps,
     gelato_xmatch_todict,
     gelatoToH5,
     loadDataInH5,
@@ -36,4 +37,5 @@ __all__ = [
     "gelatoToH5",
     "tableForGelato",
     "crossmatchToGelato",
+    "gelato_tables_from_dsps",
 ]

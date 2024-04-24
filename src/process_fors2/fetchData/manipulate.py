@@ -10,6 +10,7 @@ Created on Tue Feb 27 11:34:33 2024
 """
 
 import os
+import pickle
 import re
 import sys
 
@@ -892,3 +893,54 @@ def gelatoToH5(outfilename, gelato_run_dir):
 
     ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
     return ret
+
+
+def gelato_tables_from_dsps(dsps_pickle_dir):
+    """
+    Generates all files and folder structure for a GELATO run on DSPS outputs. Essentially a wrapper for a loop on `dsps_to_gelato()`.
+
+    Parameters
+    ----------
+    dsps_pickle_dir : path or str
+        Path to the directory containing DSPS outputs as pickle files.
+
+    Returns
+    -------
+    None
+    """
+    mod = dsps_pickle_dir.split("fit_")[-1]
+    dsps_pickle_dir = os.path.abspath(dsps_pickle_dir)
+    dict_of_dsps_fits = {}
+    for file in os.listdir(dsps_pickle_dir):
+        if f"{mod}" in file and ".pickle" in file:
+            dspsfile = os.path.abspath(os.path.join(dsps_pickle_dir, file))
+        with open(dspsfile, "rb") as _pkl:
+            _dict = pickle.load(_pkl)
+            dict_of_dsps_fits.update(_dict)
+    geldir = f"prep_gelato_fromDSPS_{mod}"
+    dn = os.path.dirname(dsps_pickle_dir)
+    outdir = os.path.join(dn, geldir)
+    wls_ang = np.arange(500, 30000, 10)
+    from process_fors2.stellarPopSynthesis import SSPParametersFit, paramslist_to_dict
+
+    _pars = SSPParametersFit()
+
+    if not os.path.isdir(os.path.join(outdir, "SPECS")):
+        os.makedirs(os.path.join(outdir, "SPECS"))
+
+    all_paths = []
+    all_zs = []
+    for tag, dsps_fit_tag in tqdm(dict_of_dsps_fits.items()):
+        redz = dsps_fit_tag["zobs"]
+        dict_of_pars = paramslist_to_dict(dsps_fit_tag["fit_params"], _pars.PARAM_NAMES_FLAT)
+        gelin = dsps_to_gelato(wls_ang, dict_of_pars, dsps_fit_tag["zobs"])
+        fpath = os.path.join(outdir, "SPECS", f"{tag}_z{redz:.3f}_GEL.fits")
+        gelin.write(fpath, format="fits", overwrite=True)
+        all_paths.append(os.path.relpath(fpath, start=outdir))
+        all_zs.append(redz)
+
+    # Create list of objects
+    objlist = Table([all_paths, all_zs], names=["Path", "z"])
+    writepath = os.path.join(outdir, "specs_for_GELATO.fits")
+    objlist.write(writepath, format="fits", overwrite=True)
+    print(f"Done ! List of objects written in {writepath}.")
