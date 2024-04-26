@@ -233,34 +233,29 @@ def fit_lines(data_dict):
     return dict_out
 
 
-def main(args):
+def filter_tags(attrs_dict, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
     """
-    Function that goes through the whole fitting process, callable from outside.
+    Function to filter galaxies to fit according to their available photometry.
 
     Parameters
     ----------
-    args : list, tuple or array
-        Arguments to be passed to the function as command line arguments.
-        Mandatory arguments are 1- path to the HDF5 file of cross-matched data, 2- path to the HDF5 file of GELATO outputs, 3- the type of fit ('mags', 'spec', 'rews' or 'lines') and
-        4- whether to clean the spectrum before the fit ('raw' or 'clean' - only affects fitting on spectra).
-        Optional arguments are 5- (resp. 6-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, all galaxies will be fitted. This may cause crashes.
+    attrs_dict : dict
+        Dictionary of attributes - must contain KiDS and GALEX photometry keywords in its keys.
+    remove_visible : bool, optional
+        Whether to remove galaxies with photometry in the visible range of the EM spectrum. The default is `False`.
+    remove_galex : bool, optional
+        Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
+    remove_galex_fuv : bool, optional
+        Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
 
     Returns
     -------
-    int
-        0 if exited correctly.
+    list
+        List of applicable tags after filtering, to be used as keys in the original `attrs_dict` dictionary for instance.
     """
-
-    ps = FilterInfo()
-    ps.plot_transmissions()
-
-    xmatchh5 = os.path.abspath(args[1])
-    gelatoh5 = os.path.abspath(args[2])
-    merged_attrs = gelato_xmatch_todict(gelatoh5, xmatchh5)
-
     # ## Select applicable spectra
     filtered_tags = []
-    for tag, fors2_attr in merged_attrs.items():
+    for tag, fors2_attr in attrs_dict.items():
         bool_viz = FLAG_REMOVE_VISIBLE or (
             not (FLAG_REMOVE_VISIBLE)
             and np.isfinite(fors2_attr["MAG_GAAP_u"])
@@ -280,31 +275,43 @@ def main(args):
         if bool_viz and bool_fuv and bool_nuv:
             filtered_tags.append(tag)
     print(f"Number of galaxies in the sample : {len(filtered_tags)}.")
+    return filtered_tags
 
-    if len(args) < 7:
-        low_bound, high_bound = 0, len(filtered_tags)
-    else:
-        low_bound, high_bound = int(args[5]), int(args[6])
 
-    use_clean = True
-    if "spec" in args[3].lower() and "raw" in args[4].lower():
-        use_clean = False
+def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
+    """
+    Function to prepare data for the SPS fitting procedure (only DSPS available atm).
 
-    low_bound = max(0, low_bound - 1)
-    high_bound = min(high_bound, len(filtered_tags))
-    low_bound = min(low_bound, high_bound - 1)
+    Parameters
+    ----------
+    gelatoh5 : path or str
+        Path to the HDF5 file gathering outputs from GELATO run.
+    attrs_dict : dict
+        Dictionary of attributes - must contain KiDS and GALEX photometry keywords in its keys.
+    selected_tags : list
+        List of tags to be considered - must correspond to keys of `attrs_dict`.
+    useclean : bool, optional
+        Whether to use the raw spectrum for each galaxy, or a smoothed version to remove features such as emission/absorption lines. The default is `False`.
+    remove_visible : bool, optional
+        Whether to remove galaxies with photometry in the visible range of the EM spectrum. The default is `False`.
+    remove_galex : bool, optional
+        Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
+    remove_galex_fuv : bool, optional
+        Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
 
-    selected_tags = filtered_tags[low_bound:high_bound]
-
-    print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
-    start_tag, end_tag = selected_tags[0], selected_tags[-1]
-
+    Returns
+    -------
+    dict
+        Dictionary of dictionaries, of the form `{tag: {key: val, ..}, ..}` with `key` and `val` match data that will be used for the SPS fitting procedure of galaxy `tag`.
+    """
+    ps = FilterInfo()
+    ps.plot_transmissions()
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
     dict_fors2_for_fit = {}
     for tag in tqdm(selected_tags):
         dict_tag = {}
         # extract most basic info
-        fors2_attr = merged_attrs[tag]
+        fors2_attr = attrs_dict[tag]
         selected_spectrum_number = fors2_attr["num"]
         z_obs = fors2_attr["redshift"]
         title_spec = f"{tag} z = {z_obs:.2f}"
@@ -349,7 +356,7 @@ def main(args):
         ugri_magserr_c = np.array([fors2_attr["MAGERR_GAAP_u"], fors2_attr["MAGERR_GAAP_g"], fors2_attr["MAGERR_GAAP_r"], fors2_attr["MAGERR_GAAP_i"]])
 
         # get the Fors2 spectrum
-        if use_clean:
+        if useclean:
             spec_obs = get_fnu_clean(gelatoh5, tag, zob=z_obs, nsigs=6)
             Xs = spec_obs["wl_cl"]
             Ys = spec_obs["fnu_cl"]
@@ -397,14 +404,14 @@ def main(args):
         # selected indexes for filters
         index_selected_filters = NoNaN_mags
 
-        if FLAG_REMOVE_GALEX:
+        if remove_galex:
             galex_indexes = np.array([0, 1])
             index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
-        elif FLAG_REMOVE_GALEX_FUV:
+        elif remove_galex_fuv:
             galex_indexes = np.array([0])
             index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
 
-        if FLAG_REMOVE_VISIBLE:
+        if remove_visible:
             visible_indexes = np.array([2, 3, 4, 5, 6, 7])
             index_selected_filters = np.setdiff1d(NoNaN_mags, visible_indexes)
 
@@ -475,24 +482,110 @@ def main(args):
         dict_tag["rews_err"] = lines_rewerr[selew]
 
         dict_fors2_for_fit[tag] = dict_tag
+        return dict_fors2_for_fit
 
-    # parameters for fit
-    list_of_figs = []
+
+def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None):
+    """
+    Function to fit a stellar population onto observations of galaxies.
+
+    Parameters
+    ----------
+    xmatch_h5 : path or str
+        Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
+    gelato_h5 : path or str
+        Path to the HDF5 file gathering outputs from GELATO run.
+    fit_type : str, optional
+        Data to fit the SPS on. Must be one of :
+            - 'mags' to fit on KiDS+VIKING+GALEX photometry
+            - 'spec' to fit on spectral density of flux
+            - 'lines' to fit on spectral emission/absorption lines (_i.e._ the spectral density of flux after removal of the continuum as detected by GELATO)
+            - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO.
+        The default is 'mags'.
+    use_clean : bool, optional
+        If fitting on spectra, whether to use the raw spectrum for each galaxy, or a smoothed version to remove features such as emission/absorption lines. The default is `False`.
+    low_bound : int, optional
+        If fitting a slice of the original data : the index of the first element (natural count : starts at 1, ends at nb of elements). The default is 0.
+    high_bound : int or None, optional
+        If fitting a slice of the original data : the index of the last element (natural count : starts at 1, ends at nb of elements).
+        If None, all galaxies are fitted satrting with `low_bound`. The default is None.
+
+    Returns
+    -------
+    dict
+        Dictionary of dictionaries, of the form `{tag: {key: val, ..}, ..}` where `key` and `val` match data that were used for the SPS fitting procedure of galaxy `tag`.
+    dict
+        Dictionary of dictionaries, of the form `{tag: {key: val, ..}, ..}` where `key` and `val` match data that were produced by the fitting procedure and can be used to synthetise an SED with DSPS.
+    int
+        The effective lower boundary used during the fit.
+    int
+        The effective higher boundary used during the fit.
+    """
+    xmatchh5 = os.path.abspath(xmatch_h5)
+    gelatoh5 = os.path.abspath(gelato_h5)
+    merged_attrs = gelato_xmatch_todict(gelatoh5, xmatchh5)
+
+    # ## Select applicable spectra
+    filtered_tags = filter_tags(merged_attrs, remove_galex=FLAG_REMOVE_GALEX, remove_galex_fuv=FLAG_REMOVE_GALEX_FUV, remove_visible=FLAG_REMOVE_VISIBLE)
+
+    if high_bound is None:
+        high_bound = len(filtered_tags)
+    else:
+        high_bound = min(high_bound, len(filtered_tags))
+        high_bound = max(1, high_bound)
+    low_bound = max(0, low_bound - 1)
+    low_bound = min(low_bound, high_bound - 1)
+
+    selected_tags = filtered_tags[low_bound:high_bound]
+    print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
+
+    # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
+    dict_fors2_for_fit = prepare_data_dict(gelatoh5, merged_attrs, filtered_tags, useclean=use_clean)
 
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
-    if "line" in args[3].lower():
+    if "line" in fit_type.lower():
         fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico), dict_fors2_for_fit, is_leaf=has_redshift)
-    elif "rew" in args[3].lower():
+    elif "rew" in fit_type.lower():
         fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico), dict_fors2_for_fit, is_leaf=has_redshift)
-    elif "spec" in args[3].lower():
+    elif "spec" in fit_type.lower():
         fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico), dict_fors2_for_fit, is_leaf=has_redshift)
     else:
         fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico), dict_fors2_for_fit, is_leaf=has_redshift)
 
-    for tag, fit_dict in fit_results_dict.items():
+    return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
+
+
+def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None, end=None):
+    """
+    Function to make plots of the fitting procedure outputs and gather them in a PDF file.
+
+    Parameters
+    ----------
+    dict_for_fit : path or str
+        Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
+    results_dict : dict
+        Path to the HDF5 file gathering outputs from GELATO run.
+    outir : path or str
+        Path to the directory where to write the PDF file.
+    fitname : str, optional
+        Name of the fitting procedure (_e.g._ the `fit_type` in `fit_loop`), to be included in the PDF title. If None, it will be sort of guessed from `outdir`. The default is None.
+    start : int or None, optional
+        The effective start index of the fitted slice, to be included in the PDF title. If None, will be set to 1. The default is None.
+    end : int or None, optional
+        The effective end index of the fitted slice, to be included in the PDF title. If None, will be set to the length of the list of figures. The default is None.
+
+    Returns
+    -------
+    None
+    """
+    # parameters for fit
+    list_of_figs = []
+    outdir = os.path.abspath(outdir)
+
+    for tag, fit_dict in results_dict.items():
         dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], p.PARAM_NAMES_FLAT)
-        data_dict = dict_fors2_for_fit[tag]
+        data_dict = dict_for_fit[tag]
 
         # plot SFR
         f, a = plt.subplots(1, 2)
@@ -513,18 +606,59 @@ def main(args):
 
         # save figures and parameters
         list_of_figs.append(copy.deepcopy(f))
+    if fitname is None:
+        fitname = outdir.split("_")[-1]
+    if fitname[-1] == "/":
+        fitname = fitname[:-1]
+
+    if start is None:
+        start = 0
+    if end is None:
+        end = len(list_of_figs)
+
+    pdfoutputfilename = os.path.join(outdir, f"fitparams_{fitname}_{start+1}_to_{end}.pdf")
+    plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+
+
+def main(args):
+    """
+    Function that goes through the whole fitting process, callable from outside.
+
+    Parameters
+    ----------
+    args : list, tuple or array
+        Arguments to be passed to the function as command line arguments.
+        Mandatory arguments are 1- path to the HDF5 file of cross-matched data, 2- path to the HDF5 file of GELATO outputs, 3- the type of fit ('mags', 'spec', 'rews' or 'lines') and
+        4- whether to clean the spectrum before the fit ('raw' or 'clean' - only affects fitting on spectra).
+        Optional arguments are 5- (resp. 6-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, all galaxies will be fitted. This may cause crashes.
+
+    Returns
+    -------
+    int
+        0 if exited correctly.
+    """
+    if len(args) < 7:
+        _low, _high = 0, None
+    else:
+        _low, _high = int(args[5]), int(args[6])
+
+    dict_fors2_for_fit, fit_results_dict, low_bound, high_bound = fit_loop(
+        args[1], args[2], fit_type=args[3], use_clean=("spec" in args[3].lower() and "clean" in args[4].lower()), low_bound=_low, high_bound=_high
+    )
+
     fitname = args[3]
     if "spec" in args[3].lower():
         fitname += f"_{args[4]}"
-    outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
-    pdfoutputfilename = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}-{start_tag}_to_{high_bound}-{end_tag}.pdf")
 
+    outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}-{start_tag}_to_{high_bound}-{end_tag}.pickle")
+
+    make_fit_plots(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname, start=low_bound, end=high_bound)
+
+    filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}_to_{high_bound}.pickle")
     with open(filename_params, "wb") as outf:
         pickle.dump(fit_results_dict, outf)
-    plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
     return 0
 
 
