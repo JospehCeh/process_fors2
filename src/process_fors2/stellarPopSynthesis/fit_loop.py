@@ -346,7 +346,7 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
     from process_fors2.stellarPopSynthesis import FilterInfo
 
     ps = FilterInfo()
-    ps.plot_transmissions()
+    # ps.plot_transmissions()
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
     dict_fors2_for_fit = {}
     for tag in tqdm(selected_tags):
@@ -408,7 +408,6 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
             Ys = spec_obs["fnu"]
             EYs = spec_obs["fnuerr"]
         # EYs_med = spec_obs['bg_med']
-
         # get the Gelato model
         gel_obs = get_gelmod(gelatoh5, tag, zob=z_obs)
         gemod = np.interp(Xs, gel_obs["wl"], gel_obs["mod"])
@@ -523,7 +522,7 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
         dict_tag["rews_err"] = lines_rewerr[selew]
 
         dict_fors2_for_fit[tag] = dict_tag
-        return dict_fors2_for_fit
+    return dict_fors2_for_fit
 
 
 def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None):
@@ -582,7 +581,7 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
-    dict_fors2_for_fit = prepare_data_dict(gelatoh5, merged_attrs, filtered_tags, useclean=use_clean)
+    dict_fors2_for_fit = prepare_data_dict(gelatoh5, merged_attrs, selected_tags, useclean=use_clean)
 
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
@@ -635,7 +634,7 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
         data_dict = dict_for_fit[tag]
 
         # plot SFR
-        f, a = plt.subplots(1, 2)
+        f, a = plt.subplots(1, 2, constrained_layout=True)
         plot_SFH(dict_params_fit, data_dict["redshift"], subtit=data_dict["title"], ax=a[0])
         plot_fit_ssp_spectrophotometry(
             dict_params_fit,
