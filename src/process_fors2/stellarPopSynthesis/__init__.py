@@ -13,7 +13,7 @@
 # from .met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
 from .dsps_params import SSPParametersFit, paramslist_to_dict
 from .fit_filters import FilterInfo
-from .fit_loop import filter_tags, fit_lines, fit_loop, fit_mags, fit_rew, fit_spec, make_fit_plots, prepare_data_dict
+from .fit_loop import filter_tags, fit_gelmod, fit_lines, fit_loop, fit_mags, fit_rew, fit_spec, make_fit_plots, prepare_data_dict
 from .fit_utils import plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_SFH
 from .fitter_dsps import calc_eqw, lik_lines, lik_mag, lik_mag_partial, lik_rew, lik_spec, mean_lines, mean_mags, mean_sfr, mean_spectrum, ssp_spectrum_fromparam
 
@@ -39,6 +39,7 @@ __all__ = [
     "fit_spec",
     "fit_rew",
     "fit_lines",
+    "fit_gelmod",
     "filter_tags",
     "prepare_data_dict",
     "fit_loop",

@@ -30,10 +30,12 @@ from tqdm import tqdm
 
 from process_fors2.analysis import convert_flux_torestframe, get_fnu, get_fnu_clean, get_gelmod
 from process_fors2.fetchData import gelato_xmatch_todict
-from process_fors2.stellarPopSynthesis import FilterInfo, SSPParametersFit, lik_lines, lik_mag, lik_rew, lik_spec, paramslist_to_dict, plot_fit_ssp_spectrophotometry, plot_SFH
+
+from .dsps_params import SSPParametersFit
 
 jax.config.update("jax_enable_x64", True)
 
+plt.style.use("default")
 plt.rcParams["figure.figsize"] = (9, 5)
 plt.rcParams["axes.labelsize"] = "x-large"
 plt.rcParams["axes.titlesize"] = "x-large"
@@ -106,6 +108,8 @@ def fit_mags(data_dict):
     """
     # data_dict = dict_fors2_for_fit[tag]
     # fit with all magnitudes
+    from process_fors2.stellarPopSynthesis import lik_mag
+
     lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=5000)
     res_m = lbfgsb_mag.run(init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"])
 
@@ -154,8 +158,39 @@ def fit_spec(data_dict):
     dictionary
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
+    from process_fors2.stellarPopSynthesis import lik_spec
+
     lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
     res_s = lbfgsb_spec.run(init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["fnu"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"])
+
+    # Convert fitted parameters into a dictionnary
+    params_s = res_s.params
+    # save to dictionary
+    dict_out = OrderedDict()
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_s, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
+def fit_gelmod(data_dict):
+    """
+    Function to fit SPS on spectrum with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    from process_fors2.stellarPopSynthesis import lik_spec
+
+    lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
+    res_s = lbfgsb_spec.run(init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["gelato_mod"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"])
 
     # Convert fitted parameters into a dictionnary
     params_s = res_s.params
@@ -181,6 +216,8 @@ def fit_rew(data_dict):
     dictionary
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
+    from process_fors2.stellarPopSynthesis import lik_rew
+
     lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=5000)
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
@@ -212,6 +249,8 @@ def fit_lines(data_dict):
     dictionary
         Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
     """
+    from process_fors2.stellarPopSynthesis import lik_lines
+
     lbfgsb_lin = jaxopt.ScipyBoundedMinimize(fun=lik_lines, method="L-BFGS-B", maxiter=5000)
     res_li = lbfgsb_lin.run(
         init_params,
@@ -304,6 +343,8 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
     dict
         Dictionary of dictionaries, of the form `{tag: {key: val, ..}, ..}` with `key` and `val` match data that will be used for the SPS fitting procedure of galaxy `tag`.
     """
+    from process_fors2.stellarPopSynthesis import FilterInfo
+
     ps = FilterInfo()
     ps.plot_transmissions()
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
@@ -500,6 +541,7 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
             - 'mags' to fit on KiDS+VIKING+GALEX photometry
             - 'spec' to fit on spectral density of flux
             - 'lines' to fit on spectral emission/absorption lines (_i.e._ the spectral density of flux after removal of the continuum as detected by GELATO)
+            - 'gelato' to fit on the model output from GELATO (incl. SSP, lines and power law continuum) directly instead of the raw spectrum (*e.g.* FORS2)
             - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO.
         The default is 'mags'.
     use_clean : bool, optional
@@ -550,6 +592,8 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
         fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "spec" in fit_type.lower():
         fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "gelato" in fit_type.lower():
+        fit_results_dict = jax.tree_map(lambda dico: fit_gelmod(dico), dict_fors2_for_fit, is_leaf=has_redshift)
     else:
         fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico), dict_fors2_for_fit, is_leaf=has_redshift)
 
@@ -579,6 +623,9 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
     -------
     None
     """
+    from process_fors2.stellarPopSynthesis import paramslist_to_dict, plot_fit_ssp_spectrophotometry, plot_SFH
+
+    plt.style.use("default")
     # parameters for fit
     list_of_figs = []
     outdir = os.path.abspath(outdir)

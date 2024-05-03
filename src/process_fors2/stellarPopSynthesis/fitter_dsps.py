@@ -21,9 +21,6 @@ from interpax import interp1d
 from jax import jit, vmap
 from jax.numpy import trapezoid as trapz
 
-from process_fors2.analysis import C_KMS
-from process_fors2.fetchData import DEFAULTS_DICT
-
 from .dsps_params import SSPParametersFit
 from .met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
 
@@ -35,11 +32,6 @@ def _get_package_dir() -> str:
     dirname = os.path.dirname(__file__)
     return dirname
 
-
-FULLFILENAME_SSP_DATA = DEFAULTS_DICT["DSPS HDF5"]
-SSP_DATA = load_ssp_templates(fn=FULLFILENAME_SSP_DATA)
-
-TODAY_GYR = 13.8
 
 _DUMMY_P_ADQ = SSPParametersFit()
 
@@ -58,6 +50,7 @@ def mean_sfr(params, z_obs):
     :rtype: float
 
     """
+    today_gyr = 13.8
 
     # decode the parameters
     MAH_lgmO = params["MAH_lgmO"]
@@ -83,7 +76,7 @@ def mean_sfr(params, z_obs):
     tup_param_sfh = DiffstarUParams(tuple(list_param_ms), tuple(list_param_q))
     tup_param_mah = DiffmahParams(*list_param_mah)
 
-    tarr = np.linspace(0.1, TODAY_GYR, 100)
+    tarr = np.linspace(0.1, today_gyr, 100)
     # sfh_gal = sfh_singlegal(tarr, list_param_mah , list_param_ms, list_param_q,\
     #                        ms_param_type="unbounded", q_param_type="unbounded"\
     #                       )
@@ -114,6 +107,10 @@ def ssp_spectrum_fromparam(params, z_obs):
     :rtype: float
 
     """
+    from process_fors2.fetchData import DEFAULTS_DICT
+
+    fullfilename_ssp_data = DEFAULTS_DICT["DSPS HDF5"]
+    ssp_data = load_ssp_templates(fn=fullfilename_ssp_data)
 
     # compute the SFR
     t_obs, gal_t_table, gal_sfr_table = mean_sfr(params, z_obs)
@@ -125,7 +122,7 @@ def ssp_spectrum_fromparam(params, z_obs):
 
     # compute the SED_info object
     sed_info = calc_rest_sed_sfh_table_lognormal_mdf_agedep(
-        gal_t_table, gal_sfr_table, gal_lgmet_young, gal_lgmet_old, gal_lgmet_scatter, SSP_DATA.ssp_lgmet, SSP_DATA.ssp_lg_age_gyr, SSP_DATA.ssp_flux, t_obs
+        gal_t_table, gal_sfr_table, gal_lgmet_young, gal_lgmet_old, gal_lgmet_scatter, ssp_data.ssp_lgmet, ssp_data.ssp_lg_age_gyr, ssp_data.ssp_flux, t_obs
     )
     # dust attenuation parameters
     Av = params["AV"]
@@ -134,13 +131,13 @@ def ssp_spectrum_fromparam(params, z_obs):
     # list_param_dust = [Av, uv_bump, plaw_slope]
 
     # compute dust attenuation
-    wave_spec_micron = SSP_DATA.ssp_wave / 10000
+    wave_spec_micron = ssp_data.ssp_wave / 10000
     k = sbl18_k_lambda(wave_spec_micron, uv_bump, plaw_slope)
     dsps_flux_ratio = _frac_transmission_from_k_lambda(k, Av)
 
     sed_attenuated = dsps_flux_ratio * sed_info.rest_sed
 
-    return SSP_DATA.ssp_wave, sed_info.rest_sed, sed_attenuated
+    return ssp_data.ssp_wave, sed_info.rest_sed, sed_attenuated
 
 
 @partial(vmap, in_axes=(None, None, 0, 0, None))
@@ -298,6 +295,8 @@ def calc_eqw(sur_wls, sur_spec, lin):
     float
         Value of the nequivalent width of spectral line at $\lambda=$`lin`.
     """
+    from process_fors2.analysis import C_KMS
+
     line_wid = lin * 300 / C_KMS / 2
     cont_wid = lin * 1500 / C_KMS / 2
     nancont = jnp.where((sur_wls > lin - cont_wid) * (sur_wls < lin - line_wid) + (sur_wls > lin + line_wid) * (sur_wls < lin + cont_wid), sur_spec, jnp.nan)
