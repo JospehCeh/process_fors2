@@ -247,7 +247,7 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
 
     # Initialize the gaussian process to plausible parameters
     fl_smooth = gaussian_filter1d(fl[sel], nsigma)
-    fl_dev = np.abs(fl_smooth - fl[sel]) / nsigma
+    fl_dev = np.abs(fl_smooth - fl[sel])  # / nsigma
     # rbf = kernels.RBF(55., (10., 100.))
     # gpr = GaussianProcessRegressor(kernel = rbf)
 
