@@ -50,6 +50,7 @@ for index in index_selected_filters:
     list_wlmean_f_sel.append(the_wlmean)
     list_name_f_sel.append(ps.filters_namelist[index])
 list_wlmean_f_sel = jnp.array(list_wlmean_f_sel)
+list_name_f_sel = np.array(list_name_f_sel)
 
 
 def func_strip_name(x):
@@ -371,7 +372,7 @@ def plot_fit_ssp_spectroscopy(params, Xspec_data_rest, Yspec_data_rest, EYspec_d
     ymax = y_nodust.max()
     ylim_max = ymax * 3
     ylim_min = ymax / 2e4
-    ax.set_xlim(1e3, 1e6)
+    ax.set_xlim(1.5e3, 5e4)
     ax.set_ylim(ylim_min, ylim_max)
 
     ax.grid()
@@ -454,9 +455,10 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     ylim_max = ymax * 3.0
     ylim_min = ymax / 2e4
 
-    filter_tags = [func_strip_name(n) for n in list_name_f_sel]
+    filt_sel = [wlmen in xphot for wlmen in list_wlmean_f_sel]
+    filter_tags = [func_strip_name(n) for n in list_name_f_sel[filt_sel]]
     for idx, tag in enumerate(filter_tags):
-        ax.text(xphot[idx], 2.0 * ymax, tag, fontsize=12, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+        ax.text(xphot[idx], 2.0 * ymax - (idx % 2) * 0.5 * ymax, tag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
         ax.axvline(xphot[idx], linestyle=":")
 
     ax.set_xlabel("$\\lambda\\ [\\AA]$")
@@ -464,9 +466,86 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     ax_phot.set_ylabel("$m_{AB}$")
     ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
 
-    ax.set_xlim(1e3, 1e6)
+    ax.set_xlim(1.5e3, 5e4)
     ax.set_ylim(ylim_min, ylim_max)
     ax_phot.set_ylim(27, 18)
+
+    ax.grid()
+    plt.show(block=False)
+
+
+def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, plot_phot=True, ax=None):
+    """
+    Plot input model (combined spectro and photometric data).
+
+    :param params: fitted parameters on rescaled spectroscopic data
+    :type params: dictionnary of parameters
+    :param Xspec_data_rest: wavelength of spectroscopic observation in restframe
+    :type Xspec_data_rest: jax array of floats
+    :param Yspec_data_rest: rescaled fluxes of spectroscopic data
+    :type Yspec_data_rest: jax array of floats
+    :param EYspec_data_rest: errors on rescaled fluxes of spectroscopic data
+    :type EYspec_data_rest:jax array of floats
+    :param Xphot_data_rest: filter central wavelenth in rest frame
+    :type Xphot_data_rest: jax array of floats
+    :param Yphot_data_rest: photometric flux in rest frame
+    :type Yphot_data_rest: jax array of floats
+    :param EYphot_data_rest: error on photometric flux in rest frame
+    :type EYphot_data_rest: jax array of floats
+    :param z_obs: redshift of observed galaxy object
+    :type z_obs: float
+    :param ax: matplotlib axis to plot the figure, default None
+    :type ax: matplotlib axis
+    :param subtit: info on the photometric data on the corresponding spectrum
+    :type subtit: str
+    :plot_phot: whether or not to add the photometry to the plot
+    :return: plot the figure
+    :rtype: None
+
+    """
+    # calculate the SED model from fitted parameters
+    x, y_nodust, y_dust = ssp_spectrum_fromparam(params, z_obs)
+
+    ymax = y_nodust.max()
+    ylim_max = ymax * 3.0
+    ylim_min = ymax / 2e4
+
+    if ax is None:
+        _, ax = plt.subplots(1, 1)
+    ax.set_yscale("log")
+    ax.set_xscale("log")
+
+    xspec_r, yspec, eyspec = Xspec_data_rest, Yspec_data_rest, EYspec_data_rest
+
+    # plot Fors2 data
+    label = "Fors2 spectrum\n" + subtit
+    ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5)
+    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4, label=label)
+
+    # plot photometric data
+    if plot_phot:
+        ax_phot = ax.twinx()
+        label = "Photometry for\n" + subtit
+        xphot, yphot, eyphot = Xphot_data_rest, Yphot_data_rest, EYphot_data_rest
+        ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
+        filt_sel = [wlmen in xphot for wlmen in list_wlmean_f_sel]
+        filter_tags = [func_strip_name(n) for n in list_name_f_sel[filt_sel]]
+        for idx, tag in enumerate(filter_tags):
+            ax.text(xphot[idx], 2.0 * ymax - (idx % 2) * 0.5 * ymax, tag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+            ax.axvline(xphot[idx], linestyle=":")
+        ax_phot.set_ylabel("$m_{AB}$")
+        ax_phot.legend(loc="lower right")  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+        ax_phot.set_ylim(27, 18)
+
+    title = "DSPS inputs (obs. frame)"
+    ax.set_title(title)
+    ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+    ax.set_xlabel("$\\lambda\\ [\\AA]$")
+    ax.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
+
+    ax.set_xlim(1.5e3, 5e4)
+    ax.set_ylim(ylim_min, ylim_max)
 
     ax.grid()
     plt.show(block=False)
