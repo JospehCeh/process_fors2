@@ -15,11 +15,12 @@ from .manipulate import (
     starlightToH5,
     tableForGelato,
 )
-from .queries import _getTargetCoordinates, getFors2FitsTable, queryGalexMast, queryTargetInSimbad, readKids
+from .queries import _getTargetCoordinates, getFors2FitsTable, json_to_inputs, queryGalexMast, queryTargetInSimbad, readKids
 
 __all__ = [
     "queryTargetInSimbad",
     "getFors2FitsTable",
+    "json_to_inputs",
     "_getTargetCoordinates",
     "queryGalexMast",
     "readKids",

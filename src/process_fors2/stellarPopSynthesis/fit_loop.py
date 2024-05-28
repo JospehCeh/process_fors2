@@ -92,7 +92,7 @@ def has_redshift(dic):
     return "redshift" in list(dic.keys())
 
 
-def fit_mags(data_dict):
+def fit_mags(data_dict, ssp_file=None):
     """
     Function to fit SPS on magnitudes with DSPS.
 
@@ -100,6 +100,8 @@ def fit_mags(data_dict):
     ----------
     data_dict : dictionary
         Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -111,7 +113,9 @@ def fit_mags(data_dict):
     from process_fors2.stellarPopSynthesis import lik_mag
 
     lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=5000)
-    res_m = lbfgsb_mag.run(init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"])
+    res_m = lbfgsb_mag.run(
+        init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
+    )
 
     """
     params_m, fun_min_m, jacob_min_m, inv_hessian_min_m = get_infos_mag(res_m,\
@@ -144,7 +148,7 @@ def fit_mags(data_dict):
     return dict_out
 
 
-def fit_spec(data_dict):
+def fit_spec(data_dict, ssp_file=None):
     """
     Function to fit SPS on spectrum with DSPS.
 
@@ -152,6 +156,8 @@ def fit_spec(data_dict):
     ----------
     data_dict : dictionary
         Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -161,7 +167,9 @@ def fit_spec(data_dict):
     from process_fors2.stellarPopSynthesis import lik_spec
 
     lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
-    res_s = lbfgsb_spec.run(init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["fnu"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"])
+    res_s = lbfgsb_spec.run(
+        init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["fnu"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
+    )
 
     # Convert fitted parameters into a dictionnary
     params_s = res_s.params
@@ -173,7 +181,7 @@ def fit_spec(data_dict):
     return dict_out
 
 
-def fit_gelmod(data_dict):
+def fit_gelmod(data_dict, ssp_file=None):
     """
     Function to fit SPS on spectrum with DSPS.
 
@@ -181,6 +189,8 @@ def fit_gelmod(data_dict):
     ----------
     data_dict : dictionary
         Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -190,7 +200,9 @@ def fit_gelmod(data_dict):
     from process_fors2.stellarPopSynthesis import lik_spec
 
     lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
-    res_s = lbfgsb_spec.run(init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["gelato_mod"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"])
+    res_s = lbfgsb_spec.run(
+        init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["gelato_mod"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
+    )
 
     # Convert fitted parameters into a dictionnary
     params_s = res_s.params
@@ -202,7 +214,7 @@ def fit_gelmod(data_dict):
     return dict_out
 
 
-def fit_rew(data_dict):
+def fit_rew(data_dict, ssp_file=None):
     """
     Function to fit SPS on rest equivalent widths with DSPS.
 
@@ -210,6 +222,8 @@ def fit_rew(data_dict):
     ----------
     data_dict : dictionary
         Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -222,7 +236,14 @@ def fit_rew(data_dict):
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_ew = lbfgsb_rew.run(
-        init_params, bounds=(params_min, params_max), surwls=surechwls, rews_wls=data_dict["rews_wls"], rews=data_dict["rews"], rews_err=data_dict["rews_err"], z_obs=data_dict["redshift"]
+        init_params,
+        bounds=(params_min, params_max),
+        surwls=surechwls,
+        rews_wls=data_dict["rews_wls"],
+        rews=data_dict["rews"],
+        rews_err=data_dict["rews_err"],
+        z_obs=data_dict["redshift"],
+        ssp_file=ssp_file,
     )
 
     # Convert fitted parameters into a dictionnary
@@ -235,7 +256,55 @@ def fit_rew(data_dict):
     return dict_out
 
 
-def fit_lines(data_dict):
+def fit_mags_and_rew(data_dict, weight_mag=0.5, ssp_file=None):
+    """
+    Function to fit SPS on both observed magnitudes and rest equivalent widths with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    weight_mag : float, optional
+        Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    from process_fors2.stellarPopSynthesis import lik_mag_rew
+
+    lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=5000)
+    surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
+    # Removed the argument surwls from the REW likelihood to try and fix crashes.
+    res_comb = lbfgsb_comb.run(
+        init_params,
+        bounds=(params_min, params_max),
+        xf=data_dict["filters"],
+        mags_measured=data_dict["mags"],
+        sigma_mag_obs=data_dict["mags_err"],
+        surwls=surechwls,
+        rews_wls=data_dict["rews_wls"],
+        rews=data_dict["rews"],
+        rews_err=data_dict["rews_err"],
+        z_obs=data_dict["redshift"],
+        weight_mag=weight_mag,
+        ssp_file=ssp_file,
+    )
+
+    # Convert fitted parameters into a dictionnary
+    params_comb = res_comb.params
+    # save to dictionary
+    dict_out = OrderedDict()
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_comb, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
+def fit_lines(data_dict, ssp_file=None):
     """
     Function to fit SPS on spectral bands with DSPS.
 
@@ -243,6 +312,8 @@ def fit_lines(data_dict):
     ----------
     data_dict : dictionary
         Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -260,6 +331,7 @@ def fit_lines(data_dict):
         reflines=data_dict["gelato_lines"],
         fnuerr=data_dict["fnu_err"],
         z_obs=data_dict["redshift"],
+        ssp_file=ssp_file,
     )
 
     # Convert fitted parameters into a dictionnary
@@ -525,7 +597,7 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
     return dict_fors2_for_fit
 
 
-def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None):
+def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5):
     """
     Function to fit a stellar population onto observations of galaxies.
 
@@ -550,6 +622,8 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     high_bound : int or None, optional
         If fitting a slice of the original data : the index of the last element (natural count : starts at 1, ends at nb of elements).
         If None, all galaxies are fitted satrting with `low_bound`. The default is None.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -586,15 +660,23 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
     if "line" in fit_type.lower():
-        fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico), dict_fors2_for_fit, is_leaf=has_redshift)
-    elif "rew" in fit_type.lower():
-        fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+        print("Fitting SPS on spectral lines... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "spec" in fit_type.lower():
-        fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+        print("Fitting SPS on observed spectra... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "gelato" in fit_type.lower():
-        fit_results_dict = jax.tree_map(lambda dico: fit_gelmod(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+        print("Fitting SPS on GELATO models... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_gelmod(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "mag" in fit_type.lower() and "rew" in fit_type.lower():
+        print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "rew" in fit_type.lower():
+        print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
     else:
-        fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico), dict_fors2_for_fit, is_leaf=has_redshift)
+        print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
 
     return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
 
@@ -674,27 +756,38 @@ def main(args):
     ----------
     args : list, tuple or array
         Arguments to be passed to the function as command line arguments.
-        Mandatory arguments are 1- path to the HDF5 file of cross-matched data, 2- path to the HDF5 file of GELATO outputs, 3- the type of fit ('mags', 'spec', 'rews' or 'lines') and
-        4- whether to clean the spectrum before the fit ('raw' or 'clean' - only affects fitting on spectra).
-        Optional arguments are 5- (resp. 6-) the index of the first (resp. last) galaxy to fit (starts at one). If not specified, all galaxies will be fitted. This may cause crashes.
+        Mandatory arguments are 1- path to the HDF5 file of cross-matched data and 2- path to the HDF5 file of GELATO outputs.
+        Optional argument is 3- path to a `JSON` configuration file similar to that in `$FORS2DATALOC/defaults.json`.
 
     Returns
     -------
     int
         0 if exited correctly.
     """
-    if len(args) < 7:
-        _low, _high = 0, None
-    else:
-        _low, _high = int(args[5]), int(args[6])
+    from process_fors2.fetchData import json_to_inputs
+    from process_fors2.fetchData.queries import FORS2DATALOC
+
+    conf_json = args[3] if len(args) > 3 else os.path.join(FORS2DATALOC, "defaults.json")  # attention à la localisation du fichier !
+
+    xmatchh5 = args[1]  # le premier argument de args est toujours `__main__.py`
+    gelatoh5 = args[2]
+    inputs = json_to_inputs(conf_json)["fitDSPS"]
+    _low = inputs["first_spec"]
+    _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
+    _fit_type = inputs["fit_type"]
+    _useclean = inputs["use_clean"]  # Only for fit on spectra
+
+    _weight_mag = inputs["weight_mag"]  # Only for combined fit : mags + rews
+
+    _ssp_file = None if inputs["ssp_file"].lower() == "default" else os.path.abspath(inputs["ssp_file"])
 
     dict_fors2_for_fit, fit_results_dict, low_bound, high_bound = fit_loop(
-        args[1], args[2], fit_type=args[3], use_clean=("spec" in args[3].lower() and "clean" in args[4].lower()), low_bound=_low, high_bound=_high
+        xmatchh5, gelatoh5, fit_type=_fit_type, use_clean=("spec" in _fit_type.lower() and _useclean), low_bound=_low, high_bound=_high, ssp_file=_ssp_file, weight_mag=_weight_mag
     )
 
-    fitname = args[3]
-    if "spec" in args[3].lower():
-        fitname += f"_{args[4]}"
+    fitname = _fit_type
+    if "spec" in _fit_type.lower():
+        fitname = f"{fitname}_clean" if _useclean else f"{fitname}_raw"
 
     outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
     if not os.path.isdir(outdir):

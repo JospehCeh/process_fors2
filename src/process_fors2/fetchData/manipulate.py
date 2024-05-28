@@ -644,7 +644,7 @@ def gelato_xmatch_todict(gelatoh5, xmatchh5):
     return merged_attrs
 
 
-def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0):
+def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0, ssp_file=None):
     """
     Returns a table that contains spectral data from DSPS formatted for GELATO, *i.e* the log10 of the wavelength in Angstroms,
     the spectral flux density per unit wavelength (flam) and the inverse variance of the fluxes, in corresponding units.
@@ -657,6 +657,8 @@ def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0):
         Parameters that result from SPS-fitting procedure with DSPS.
     z_obs : int or float, optional
         Redshift of the object. The default is 0.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -669,7 +671,7 @@ def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0):
     from process_fors2.stellarPopSynthesis import mean_spectrum
 
     dl = luminosity_distance_to_z(z_obs, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
-    dsps_fnu_r = mean_spectrum(wls_ang, params_dict, z_obs) * U_LSUNperHz / (4 * np.pi * dl.to(u.m) ** 2) / (1 + z_obs)
+    dsps_fnu_r = mean_spectrum(wls_ang, params_dict, z_obs, ssp_file) * U_LSUNperHz / (4 * np.pi * dl.to(u.m) ** 2) / (1 + z_obs)
     dsps_flambda_r = convertFnuToFlambda(wls_ang, dsps_fnu_r.to(U_FNU).value) * U_FL
     wls_o, dsps_flambda_o = convert_flux_toobsframe(wls_ang, dsps_flambda_r, z_obs)
     nsig = 1
@@ -895,7 +897,7 @@ def gelatoToH5(outfilename, gelato_run_dir):
     return ret
 
 
-def gelato_tables_from_dsps(dsps_pickle_dir):
+def gelato_tables_from_dsps(dsps_pickle_dir, ssp_file=None):
     """
     Generates all files and folder structure for a GELATO run on DSPS outputs. Essentially a wrapper for a loop on `dsps_to_gelato()`.
 
@@ -903,6 +905,8 @@ def gelato_tables_from_dsps(dsps_pickle_dir):
     ----------
     dsps_pickle_dir : path or str
         Path to the directory containing DSPS outputs as pickle files.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
 
     Returns
     -------
@@ -933,7 +937,7 @@ def gelato_tables_from_dsps(dsps_pickle_dir):
     for tag, dsps_fit_tag in tqdm(dict_of_dsps_fits.items()):
         redz = dsps_fit_tag["zobs"]
         dict_of_pars = paramslist_to_dict(dsps_fit_tag["fit_params"], _pars.PARAM_NAMES_FLAT)
-        gelin = dsps_to_gelato(wls_ang, dict_of_pars, dsps_fit_tag["zobs"])
+        gelin = dsps_to_gelato(wls_ang, dict_of_pars, dsps_fit_tag["zobs"], ssp_file)
         fpath = os.path.join(outdir, "SPECS", f"{tag}_z{redz:.3f}_GEL.fits")
         gelin.write(fpath, format="fits", overwrite=True)
         all_paths.append(os.path.relpath(fpath, start=outdir))

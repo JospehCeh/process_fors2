@@ -93,7 +93,7 @@ def mean_sfr(params, z_obs):
     return t_obs, tarr, sfh_gal
 
 
-@jit
+@partial(jit, static_argnums=2)
 def ssp_spectrum_fromparam(params, z_obs, ssp_file=None):
     """Return the SED of SSP DSPS with original wavelength range wihout and with dust
 
@@ -152,7 +152,7 @@ def _calc_mag(ssp_wls, sed_fnu, filt_wls, filt_transm, z_obs):
     return calc_obs_mag(ssp_wls, sed_fnu, filt_wls, filt_transm, z_obs, *DEFAULT_COSMOLOGY)
 
 
-@jit
+@partial(jit, static_argnums=3)
 def mean_mags(X, params, z_obs, ssp_file=None):
     """Return the photometric magnitudes for the given filters transmission
     in X : predict the magnitudes in Filters
@@ -230,8 +230,8 @@ def mean_ugri_sedpy(X, params, z_obs):
 '''
 
 
-@jit
-def mean_spectrum(wls, params, z_obs, ssp_file):
+@partial(jit, static_argnums=3)
+def mean_spectrum(wls, params, z_obs, ssp_file=None):
     """Return the Model of SSP spectrum including Dust at the wavelength wls
 
     :param wls: wavelengths of the spectrum in rest frame
@@ -261,8 +261,8 @@ def mean_spectrum(wls, params, z_obs, ssp_file):
     return Fobs
 
 
-@jit
-def mean_lines(wls, params, z_obs, refmod, reflines, ssp_file):
+@partial(jit, static_argnums=5)
+def mean_lines(wls, params, z_obs, refmod, reflines, ssp_file=None):
     """
     Estimates the contribution of spectral lines to the flux density yielded by DSPS with parameters `params`.
 
@@ -322,7 +322,7 @@ def calc_eqw(sur_wls, sur_spec, lin):
     return ew
 
 
-@jit
+@partial(jit, static_argnums=6)
 def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs, ssp_file=None):
     r"""
     Negative log-likelihood ($\Chi^2$) of the SPS defined by the parameters `p` with respect to previously known spectral lines.
@@ -354,7 +354,7 @@ def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs, ssp_file=None):
     return jnp.sum((resid / fnuerr) ** 2)
 
 
-@jit
+@partial(jit, static_argnums=6)
 def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file=None):
     r"""
     Negative log-likelihood ($\Chi^2$) of the SPS defined by the parameters `p` with respect to previously known spectral lines.
@@ -397,7 +397,7 @@ surwls : array
 ## END BACKUP ##
 
 
-@jit
+@partial(jit, static_argnums=5)
 def lik_spec(p, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
     """
     neg loglikelihood(parameters,x,y,sigmas) for the spectrum
@@ -424,7 +424,7 @@ def lik_spec(p, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
     return jnp.sum(ev)
 
 
-@jit
+@partial(jit, static_argnums=-1)
 def lik_spec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
     """
     neg loglikelihood(parameters,x,y,sigmas) for the spectrum
@@ -452,7 +452,7 @@ def lik_spec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=None) -
     return jnp.sum(ev)
 
 
-@jit
+@partial(jit, static_argnums=-1)
 def lik_normspec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
     """
     neg loglikelihood(parameters,x,y,sigmas) for the spectrum
@@ -481,7 +481,7 @@ def lik_normspec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=Non
     return jnp.sum((resid / (sigma_obs / jnp.sqrt(_norm_fors))) ** 2)
 
 
-@jit
+@partial(jit, static_argnums=-1)
 def lik_mag_partial(p_tofit, p_fix, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
     """
     neg loglikelihood(parameters,x,y,sigmas) for the photometry
@@ -496,7 +496,7 @@ def lik_mag_partial(p_tofit, p_fix, xf, mags_measured, sigma_mag_obs, z_obs, ssp
     return jnp.sum((resid / sigma_mag_obs) ** 2)
 
 
-@jit
+@partial(jit, static_argnums=-1)
 def lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
     """
     neg loglikelihood(parameters,x,y,sigmas) for the photometry
@@ -526,7 +526,7 @@ def lik_ugri_sedpy(p, xf, mags_measured, sigma_mag_obs, z_obs):
 '''
 
 
-@jit
+@partial(jit, static_argnums=-1)
 def lik_comb(p, xc, datac, sigmac, z_obs, weight=0.5, ssp_file=None):
     """
     neg loglikelihood(parameters,xc,yc,sigmasc) combining the spectroscopy and the photometry
@@ -544,7 +544,7 @@ def lik_comb(p, xc, datac, sigmac, z_obs, weight=0.5, ssp_file=None):
     return weight * resid_phot + (1 - weight) * resid_spec
 
 
-@jit
+@partial(jit, static_argnums=-1)
 def lik_mag_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rews_err, z_obs, weight_mag=0.5, ssp_file=None):
     r"""
     neg loglikelihood(parameters,xc,yc,sigmasc) combining the lines rest equivalent widths and the photometry
