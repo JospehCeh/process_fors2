@@ -367,8 +367,8 @@ def filter_tags(attrs_dict, remove_visible=False, remove_galex=False, remove_gal
     # ## Select applicable spectra
     filtered_tags = []
     for tag, fors2_attr in attrs_dict.items():
-        bool_viz = FLAG_REMOVE_VISIBLE or (
-            not (FLAG_REMOVE_VISIBLE)
+        bool_viz = remove_visible or (
+            not (remove_visible)
             and np.isfinite(fors2_attr["MAG_GAAP_u"])
             and np.isfinite(fors2_attr["MAG_GAAP_g"])
             and np.isfinite(fors2_attr["MAG_GAAP_r"])
@@ -379,9 +379,9 @@ def filter_tags(attrs_dict, remove_visible=False, remove_galex=False, remove_gal
             and np.isfinite(fors2_attr["MAGERR_GAAP_i"])
         )
 
-        bool_fuv = (FLAG_REMOVE_GALEX or FLAG_REMOVE_GALEX_FUV) or (not (FLAG_REMOVE_GALEX or FLAG_REMOVE_GALEX_FUV) and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
+        bool_fuv = (remove_galex or remove_galex_fuv) or (not (remove_galex or remove_galex_fuv) and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
 
-        bool_nuv = FLAG_REMOVE_GALEX or (not (FLAG_REMOVE_GALEX) and np.isfinite(fors2_attr["nuv_mag"]) and np.isfinite(fors2_attr["nuv_magerr"]))
+        bool_nuv = remove_galex or (not (remove_galex) and np.isfinite(fors2_attr["nuv_mag"]) and np.isfinite(fors2_attr["nuv_magerr"]))
 
         if bool_viz and bool_fuv and bool_nuv:
             filtered_tags.append(tag)
@@ -465,8 +465,8 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
             ]
         )
 
-        ugri_mags_c = np.array([fors2_attr["MAG_GAAP_u"], fors2_attr["MAG_GAAP_g"], fors2_attr["MAG_GAAP_r"], fors2_attr["MAG_GAAP_i"]])
-        ugri_magserr_c = np.array([fors2_attr["MAGERR_GAAP_u"], fors2_attr["MAGERR_GAAP_g"], fors2_attr["MAGERR_GAAP_r"], fors2_attr["MAGERR_GAAP_i"]])
+        # ugri_mags_c = np.array([fors2_attr["MAG_GAAP_u"], fors2_attr["MAG_GAAP_g"], fors2_attr["MAG_GAAP_r"], fors2_attr["MAG_GAAP_i"]])
+        # ugri_magserr_c = np.array([fors2_attr["MAGERR_GAAP_u"], fors2_attr["MAGERR_GAAP_g"], fors2_attr["MAGERR_GAAP_r"], fors2_attr["MAGERR_GAAP_i"]])
 
         # get the Fors2 spectrum
         if useclean:
@@ -545,6 +545,7 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
         list_wlmean_f_sel = jnp.array(list_wlmean_f_sel)
         Xf_sel = (list_wls_f_sel, list_trans_f_sel)
 
+        """
         NoNan_ugri = np.intersect1d(NoNaN_mags, np.array([2, 3, 4, 5]))
         list_wls_ugri = []
         list_trans_ugri = []
@@ -562,21 +563,22 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
         list_wlmean_ugri = jnp.array(list_wlmean_ugri)
         Xf_ugri = (list_wls_ugri, list_trans_ugri)
         # print(NoNan_ugri, list_name_ugri)
+        """
 
         # get the magnitudes and magnitude errors
         data_selected_mags = jnp.array(data_mags[index_selected_filters])
         data_selected_magserr = jnp.array(data_magserr[index_selected_filters])
-        data_selected_ugri_corr = jnp.array(ugri_mags_c)
-        data_selected_ugri_correrr = jnp.array(ugri_magserr_c)
+        # data_selected_ugri_corr = jnp.array(ugri_mags_c)
+        # data_selected_ugri_correrr = jnp.array(ugri_magserr_c)
 
         dict_tag["filters"] = Xf_sel
         dict_tag["wl_mean_filters"] = list_wlmean_f_sel
         dict_tag["mags"] = data_selected_mags
         dict_tag["mags_err"] = data_selected_magserr
-        dict_tag["ugri_filters"] = Xf_ugri
-        dict_tag["wl_mean_ugri"] = list_wlmean_ugri
-        dict_tag["ugri_corr"] = data_selected_ugri_corr
-        dict_tag["ugri_corr_err"] = data_selected_ugri_correrr
+        # dict_tag["ugri_filters"] = Xf_ugri
+        # dict_tag["wl_mean_ugri"] = list_wlmean_ugri
+        # dict_tag["ugri_corr"] = data_selected_ugri_corr
+        # dict_tag["ugri_corr_err"] = data_selected_ugri_correrr
 
         lines_list = np.unique(sorted([fl.split("_REW")[:-1] for fl in fors2_attr if "REW" in fl]))
         lines_wls = jnp.array([float(li.split("_")[-1]) for li in lines_list])
@@ -591,6 +593,172 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
 
         dict_tag["rews_wls"] = lines_wls[selew]
         dict_tag["rews"] = lines_rew[selew]
+        dict_tag["rews_err"] = lines_rewerr[selew]
+
+        dict_fors2_for_fit[tag] = dict_tag
+    return dict_fors2_for_fit
+
+
+def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
+    """
+    Function to prepare data for the SPS fitting procedure (only DSPS available atm).
+
+    Parameters
+    ----------
+    gelatoh5 : path or str
+        Path to the HDF5 file gathering outputs from GELATO run.
+    attrs_dict : dict
+        Dictionary of attributes - must contain KiDS and GALEX photometry keywords in its keys.
+    selected_tag : str
+        Identifier (tag) of the galaxy to perform several fits on. For FORS2 data, it is of the shape `'SPECnnn'` where `nnn` is an integer.
+    n_fits : int, optional
+        Number of bootstrap samples to draw. The default is 10.
+    remove_visible : bool, optional
+        Whether to remove galaxies with photometry in the visible range of the EM spectrum. The default is `False`.
+    remove_galex : bool, optional
+        Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
+    remove_galex_fuv : bool, optional
+        Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
+
+    Returns
+    -------
+    dict
+        Dictionary of dictionaries, of the form `{tag_N: {key: val, ..}, ..}` with `key` and `val` match data that will be used for the SPS fitting procedure of galaxy `tag` and bootstrap draw `N`.
+    """
+    from process_fors2.stellarPopSynthesis import FilterInfo
+
+    ps = FilterInfo()
+    # ps.plot_transmissions()
+    # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
+    dict_fors2_for_fit = {}
+    for n_bs in tqdm(range(n_fits)):
+        tag = f"{selected_tag}_{n_bs}"
+        dict_tag = {}
+        # extract most basic info
+        fors2_attr = attrs_dict[selected_tag]
+        selected_spectrum_number = fors2_attr["num"]
+        z_obs = fors2_attr["redshift"]
+        title_spec = f"{tag} z = {z_obs:.2f}"
+
+        dict_tag["spec ID"] = selected_spectrum_number
+        dict_tag["redshift"] = z_obs
+        dict_tag["title"] = title_spec
+
+        # retrieve magnitude data
+        data_mags = np.array(
+            [
+                fors2_attr["fuv_mag"],
+                fors2_attr["nuv_mag"],
+                fors2_attr["MAG_GAAP_u"],
+                fors2_attr["MAG_GAAP_g"],
+                fors2_attr["MAG_GAAP_r"],
+                fors2_attr["MAG_GAAP_i"],
+                fors2_attr["MAG_GAAP_Z"],
+                fors2_attr["MAG_GAAP_Y"],
+                fors2_attr["MAG_GAAP_J"],
+                fors2_attr["MAG_GAAP_H"],
+                fors2_attr["MAG_GAAP_Ks"],
+            ]
+        )
+        data_magserr = np.array(
+            [
+                fors2_attr["fuv_magerr"],
+                fors2_attr["nuv_magerr"],
+                fors2_attr["MAGERR_GAAP_u"],
+                fors2_attr["MAGERR_GAAP_g"],
+                fors2_attr["MAGERR_GAAP_r"],
+                fors2_attr["MAGERR_GAAP_i"],
+                fors2_attr["MAGERR_GAAP_Z"],
+                fors2_attr["MAGERR_GAAP_Y"],
+                fors2_attr["MAGERR_GAAP_J"],
+                fors2_attr["MAGERR_GAAP_H"],
+                fors2_attr["MAGERR_GAAP_Ks"],
+            ]
+        )
+
+        # get the Fors2 spectrum
+        spec_obs = get_fnu(gelatoh5, selected_tag, zob=z_obs)
+        Xs = spec_obs["wl"]
+        Ys = spec_obs["fnu"]
+        EYs = spec_obs["fnuerr"]
+        # EYs_med = spec_obs['bg_med']
+
+        # get the Gelato model
+        gel_obs = get_gelmod(gelatoh5, selected_tag, zob=z_obs)
+        gemod = np.interp(Xs, gel_obs["wl"], gel_obs["mod"])
+        geline = np.interp(Xs, gel_obs["wl"], gel_obs["line"])
+        gessp = np.interp(Xs, gel_obs["wl"], gel_obs["ssp"])
+
+        # convert to restframe
+        Xspec_data, Yspec_data = convert_flux_torestframe(Xs, Ys, z_obs)
+        EYspec_data = EYs  # * (1+z_obs)
+        # EYspec_data_med = EYs_med #* (1+z_obs)
+
+        _, gmod_data = convert_flux_torestframe(Xs, gemod, z_obs)
+        _, glin_data = convert_flux_torestframe(Xs, geline, z_obs)
+        _, gssp_data = convert_flux_torestframe(Xs, gessp, z_obs)
+
+        dict_tag["wavelengths"] = Xspec_data
+        dict_tag["fnu"] = Yspec_data
+        dict_tag["fnu_err"] = EYspec_data
+
+        dict_tag["gelato_mod"] = gmod_data
+        dict_tag["gelato_lines"] = glin_data
+        dict_tag["gelato_ssp"] = gssp_data
+
+        # Choose filters with mags without Nan
+        NoNaN_mags = np.intersect1d(np.argwhere(~np.isnan(data_mags)).flatten(), np.argwhere(~np.isnan(data_magserr)).flatten())
+
+        # selected indexes for filters
+        index_selected_filters = NoNaN_mags
+
+        if remove_galex:
+            galex_indexes = np.array([0, 1])
+            index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
+        elif remove_galex_fuv:
+            galex_indexes = np.array([0])
+            index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
+
+        if remove_visible:
+            visible_indexes = np.array([2, 3, 4, 5, 6, 7])
+            index_selected_filters = np.setdiff1d(NoNaN_mags, visible_indexes)
+
+        # Select filters
+        XF = ps.get_2lists()
+        list_wls_f_sel = []
+        list_trans_f_sel = []
+        list_name_f_sel = []
+        list_wlmean_f_sel = []
+
+        for index in index_selected_filters:
+            list_wls_f_sel.append(XF[0][index])
+            list_trans_f_sel.append(XF[1][index])
+            the_filt = ps.filters_transmissionlist[index]
+            the_wlmean = the_filt.wave_mean
+            list_wlmean_f_sel.append(the_wlmean)
+            list_name_f_sel.append(ps.filters_namelist[index])
+
+        list_wlmean_f_sel = jnp.array(list_wlmean_f_sel)
+        Xf_sel = (list_wls_f_sel, list_trans_f_sel)
+
+        # get the magnitudes and magnitude errors
+        data_selected_mags = jnp.array(data_mags[index_selected_filters])
+        data_selected_magserr = jnp.array(data_magserr[index_selected_filters])
+
+        dict_tag["filters"] = Xf_sel
+        dict_tag["wl_mean_filters"] = list_wlmean_f_sel
+        dict_tag["mags"] = np.random.normal(loc=data_selected_mags, scale=data_selected_magserr)
+        dict_tag["mags_err"] = data_selected_magserr
+
+        lines_list = np.unique(sorted([fl.split("_REW")[:-1] for fl in fors2_attr if "REW" in fl]))
+        lines_wls = jnp.array([float(li.split("_")[-1]) for li in lines_list])
+        lines_rew = jnp.array([fors2_attr[f"{attr}_REW"] for attr in lines_list])
+        lines_rewerr = jnp.array([fors2_attr[f"{attr}_REW_err"] for attr in lines_list])
+
+        selew = jnp.logical_and(jnp.isfinite(lines_rew), lines_rewerr > 1.0e-4)
+
+        dict_tag["rews_wls"] = lines_wls[selew]
+        dict_tag["rews"] = lines_rew[selew]  # np.random.normal(loc=lines_rew[selew], scale=lines_rewerr[selew])
         dict_tag["rews_err"] = lines_rewerr[selew]
 
         dict_fors2_for_fit[tag] = dict_tag
@@ -614,6 +782,7 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
             - 'lines' to fit on spectral emission/absorption lines (_i.e._ the spectral density of flux after removal of the continuum as detected by GELATO)
             - 'gelato' to fit on the model output from GELATO (incl. SSP, lines and power law continuum) directly instead of the raw spectrum (*e.g.* FORS2)
             - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO.
+            - 'mags+rews' to fit on both magnitudes and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`.
         The default is 'mags'.
     use_clean : bool, optional
         If fitting on spectra, whether to use the raw spectrum for each galaxy, or a smoothed version to remove features such as emission/absorption lines. The default is `False`.
@@ -624,6 +793,8 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
         If None, all galaxies are fitted satrting with `low_bound`. The default is None.
     ssp_file : path or str, optional
         SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    weight_mag : float, optional
+        Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
 
     Returns
     -------
@@ -662,7 +833,6 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     if "line" in fit_type.lower():
         print("Fitting SPS on spectral lines... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
-        fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "spec" in fit_type.lower():
         print("Fitting SPS on observed spectra... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
@@ -674,11 +844,75 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
         fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "rew" in fit_type.lower():
         print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     else:
         print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
 
     return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
+
+
+def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, ssp_file=None, weight_mag=0.5):
+    """
+    Function to fit a stellar population onto observations of galaxies.
+
+    Parameters
+    ----------
+    xmatch_h5 : path or str
+        Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
+    gelato_h5 : path or str
+        Path to the HDF5 file gathering outputs from GELATO run.
+    specID : str
+        Identifier (tag) of the galaxy to perform several fits on. For FORS2 data, it is of the shape `'SPECnnn'` where `nnn` is an integer.
+    fit_type : str, optional
+        Data to fit the SPS on. Must be one of :
+            - 'mags' to fit on KiDS+VIKING+GALEX photometry
+            - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO.
+            - 'mags+rews' to fit on both magnitudes and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`.
+        The default is 'mags'.
+    n_fits : int, optional
+        Number of bootstrap samples to draw. The default is 10.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    weight_mag : float, optional
+        Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
+
+    Returns
+    -------
+    dict
+        Dictionary of dictionaries, of the form `{tag: {key: val, ..}, ..}` where `key` and `val` match data that were used for the SPS fitting procedure of galaxy `tag`.
+    dict
+        Dictionary of dictionaries, of the form `{tag: {key: val, ..}, ..}` where `key` and `val` match data that were produced by the fitting procedure and can be used to synthetise an SED with DSPS.
+    """
+    xmatchh5 = os.path.abspath(xmatch_h5)
+    gelatoh5 = os.path.abspath(gelato_h5)
+    merged_attrs = gelato_xmatch_todict(gelatoh5, xmatchh5)
+
+    # ## Select applicable spectra
+    # filtered_tags = filter_tags(merged_attrs, remove_galex=FLAG_REMOVE_GALEX, remove_galex_fuv=FLAG_REMOVE_GALEX_FUV, remove_visible=FLAG_REMOVE_VISIBLE)
+
+    try:
+        print(f"Performing {n_fits} fits of galaxy {specID} with bootstrapped {fit_type}.")
+
+        # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
+        dict_fors2_for_fit = prepare_bootstrap_dict(gelatoh5, merged_attrs, specID, n_fits=n_fits)
+
+        # fit loop
+        # for tag in tqdm(dict_fors2_for_fit):
+        if "mag" in fit_type.lower() and "rew" in fit_type.lower():
+            print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+            fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+        elif "rew" in fit_type.lower():
+            print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+            fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+        else:
+            print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
+            fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+
+        return dict_fors2_for_fit, fit_results_dict
+    except IndexError:
+        print(f"Specified tag ({specID}) not found in database.")
+        return None
 
 
 def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None, end=None):
@@ -691,7 +925,7 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
         Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
     results_dict : dict
         Path to the HDF5 file gathering outputs from GELATO run.
-    outir : path or str
+    outdir : path or str
         Path to the directory where to write the PDF file.
     fitname : str, optional
         Name of the fitting procedure (_e.g._ the `fit_type` in `fit_loop`), to be included in the PDF title. If None, it will be sort of guessed from `outdir`. The default is None.
@@ -748,6 +982,48 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
     plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
 
 
+def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
+    """
+    Function to make plots of the bootstrap-fitting procedure outputs and gather them in a PDF file.
+
+    Parameters
+    ----------
+    dict_for_fit : path or str
+        Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
+    results_dict : dict
+        Path to the HDF5 file gathering outputs from GELATO run.
+    outdir : path or str
+        Path to the directory where to write the PDF file.
+    fitname : str, optional
+        Name of the fitting procedure (_e.g._ the `fit_type` in `fit_loop`), to be included in the PDF title. If None, it will be sort of guessed from `outdir`. The default is None.
+
+    Returns
+    -------
+    None
+    """
+    from process_fors2.stellarPopSynthesis import plot_bootstrap_ssp_spectrophotometry, plot_SFH_bootstrap
+
+    plt.style.use("default")
+    # parameters for fit
+    list_of_figs = []
+    outdir = os.path.abspath(outdir)
+
+    f, a = plt.subplots(1, 2, constrained_layout=True)
+    plot_SFH_bootstrap(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[0])
+    plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[1])
+
+    # save figures and parameters
+    list_of_figs.append(copy.deepcopy(f))
+    if fitname is None:
+        fitname = outdir.split("_")[-1]
+    if fitname[-1] == "/":
+        fitname = fitname[:-1]
+    keylist = list(results_dict.keys())
+    specn = keylist[0].split("_")[0]
+    pdfoutputfilename = os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.pdf")
+    plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+
+
 def main(args):
     """
     Function that goes through the whole fitting process, callable from outside.
@@ -772,32 +1048,47 @@ def main(args):
     xmatchh5 = args[1]  # le premier argument de args est toujours `__main__.py`
     gelatoh5 = args[2]
     inputs = json_to_inputs(conf_json)["fitDSPS"]
-    _low = inputs["first_spec"]
-    _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
     _fit_type = inputs["fit_type"]
-    _useclean = inputs["use_clean"]  # Only for fit on spectra
-
     _weight_mag = inputs["weight_mag"]  # Only for combined fit : mags + rews
-
     _ssp_file = None if inputs["ssp_file"].lower() == "default" else os.path.abspath(inputs["ssp_file"])
 
-    dict_fors2_for_fit, fit_results_dict, low_bound, high_bound = fit_loop(
-        xmatchh5, gelatoh5, fit_type=_fit_type, use_clean=("spec" in _fit_type.lower() and _useclean), low_bound=_low, high_bound=_high, ssp_file=_ssp_file, weight_mag=_weight_mag
-    )
+    if inputs["bootstrap"]:
+        dict_fors2_for_fit, fit_results_dict = fit_bootstrap(
+            xmatchh5, gelatoh5, inputs["bootstrap_id"], n_fits=inputs["number_bootstrap"], fit_type=_fit_type, ssp_file=_ssp_file, weight_mag=_weight_mag
+        )
 
-    fitname = _fit_type
-    if "spec" in _fit_type.lower():
-        fitname = f"{fitname}_clean" if _useclean else f"{fitname}_raw"
+        fitname = _fit_type
 
-    outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
-    if not os.path.isdir(outdir):
-        os.makedirs(outdir)
+        outdir = os.path.abspath("./DSPS_pickles_bootstraps")
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
 
-    make_fit_plots(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname, start=low_bound, end=high_bound)
+        make_bootstrap_plot(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname)
 
-    filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}_to_{high_bound}.pickle")
-    with open(filename_params, "wb") as outf:
-        pickle.dump(fit_results_dict, outf)
+        filename_params = os.path.join(outdir, f"bootstrap_params_{inputs['bootstrap_id']}_{fitname}.pickle")
+        with open(filename_params, "wb") as outf:
+            pickle.dump(fit_results_dict, outf)
+    else:
+        _useclean = inputs["use_clean"]  # Only for fit on spectra
+        _low = inputs["first_spec"]
+        _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
+        dict_fors2_for_fit, fit_results_dict, low_bound, high_bound = fit_loop(
+            xmatchh5, gelatoh5, fit_type=_fit_type, use_clean=("spec" in _fit_type.lower() and _useclean), low_bound=_low, high_bound=_high, ssp_file=_ssp_file, weight_mag=_weight_mag
+        )
+
+        fitname = _fit_type
+        if "spec" in _fit_type.lower():
+            fitname = f"{fitname}_clean" if _useclean else f"{fitname}_raw"
+
+        outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
+        if not os.path.isdir(outdir):
+            os.makedirs(outdir)
+
+        make_fit_plots(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname, start=low_bound, end=high_bound)
+
+        filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}_to_{high_bound}.pickle")
+        with open(filename_params, "wb") as outf:
+            pickle.dump(fit_results_dict, outf)
     return 0
 
 

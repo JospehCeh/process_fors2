@@ -453,7 +453,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
 
     ymax = y_nodust.max()
     ylim_max = ymax * 3.0
-    ylim_min = ymax / 2e4
+    ylim_min = ymax / 3e4
 
     filt_sel = [wlmen in xphot for wlmen in list_wlmean_f_sel]
     filter_tags = [func_strip_name(n) for n in list_name_f_sel[filt_sel]]
@@ -468,7 +468,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
 
     ax.set_xlim(1.5e3, 5e4)
     ax.set_ylim(ylim_min, ylim_max)
-    ax_phot.set_ylim(27, 18)
+    ax_phot.set_ylim(27, 16)
 
     ax.grid()
     plt.show(block=False)
@@ -508,7 +508,7 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
 
     ymax = y_nodust.max()
     ylim_max = ymax * 3.0
-    ylim_min = ymax / 2e4
+    ylim_min = ymax / 3e4
 
     if ax is None:
         _, ax = plt.subplots(1, 1)
@@ -535,7 +535,7 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
             ax.axvline(xphot[idx], linestyle=":")
         ax_phot.set_ylabel("$m_{AB}$")
         ax_phot.legend(loc="lower right")  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
-        ax_phot.set_ylim(27, 18)
+        ax_phot.set_ylim(27, 16)
 
     title = "DSPS inputs (obs. frame)"
     ax.set_title(title)
@@ -681,4 +681,166 @@ def plot_SFH(params, z_obs, subtit, ax=None):
     ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
     ax.grid()
     # ax.legend()
+    plt.show(block=False)
+
+
+def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
+    """
+    Plot Star Formation History
+
+    Parameters
+    ----------
+    dict_for_fit : path or str
+        Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
+    results_dict : dict
+        Path to the HDF5 file gathering outputs from GELATO run.
+    params_names : list of str
+        Name of the fitted parameters for dictionary creation.
+    ax : matplotlib axes, optional
+        Axes to plot the results on. If None, a new axes objetc is created. The default is None.
+
+    Returns
+    -------
+    None
+    """
+    from process_fors2.stellarPopSynthesis import paramslist_to_dict
+
+    if ax is None:
+        _, ax = plt.subplots(1, 1)
+
+    sfh_list = []
+
+    for tag, fit_dict in results_dict.items():
+        dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], params_names)
+        data_dict = dict_for_fit[tag]
+        t_obs, tarr, sfh_gal = mean_sfr(dict_params_fit, data_dict["redshift"])
+        sfh_list.append(sfh_gal)
+
+    sfh_list = np.array(sfh_list)
+
+    mean_sfh = np.mean(sfh_list, axis=0)
+    std_sfh = np.std(sfh_list, axis=0)
+
+    # plot star formation history
+    ax.plot(tarr, mean_sfh, "-k", lw=1)
+    ax.fill_between(tarr, mean_sfh + std_sfh, mean_sfh - std_sfh, color="gray", alpha=0.5)
+    ax.axvline(t_obs, color="red")
+
+    sfr_max = (mean_sfh + std_sfh).max() * 1.1
+    sfr_min = 0.0
+    ax.set_ylim(sfr_min, sfr_max)
+
+    ax.set_title(f"Fitted Star Formation History (SFH) for {data_dict['title'].split('_')[0]}")
+    ax.set_xlabel(r"${\rm cosmic\ time\ [Gyr]}$")
+    ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
+    ax.grid()
+    # ax.legend()
+    plt.show(block=False)
+
+
+def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_names, ax=None):
+    """
+    Plot SSP model fitted with combined spectro and photometric data.
+    Both data are set to observation frame.
+
+    Parameters
+    ----------
+    dict_for_fit : path or str
+        Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
+    results_dict : dict
+        Path to the HDF5 file gathering outputs from GELATO run.
+    params_names : list of str
+        Name of the fitted parameters for dictionary creation.
+    ax : matplotlib axes, optional
+        Axes to plot the results on. If None, a new axes objetc is created. The default is None.
+
+    Returns
+    -------
+    None
+    """
+    from process_fors2.stellarPopSynthesis import paramslist_to_dict
+
+    if ax is None:
+        _, ax = plt.subplots(1, 1)
+
+    ref_mags = []
+    calc_mags = []
+    calc_ydust = []
+    calc_ynodust = []
+
+    for loc, (tag, fit_dict) in enumerate(results_dict.items()):
+        dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], params_names)
+        data_dict = dict_for_fit[tag]
+        if loc == 0:
+            z_obs = data_dict["redshift"]
+            subtit = data_dict["title"].split("_")[0]
+            xspec_r, yspec, eyspec, xphot = data_dict["wavelengths"], data_dict["fnu"], data_dict["fnu_err"], data_dict["wl_mean_filters"]
+
+        # calculate the SED model from fitted parameters
+        x, y_nodust, y_dust = ssp_spectrum_fromparam(dict_params_fit, data_dict["redshift"])
+        mean_mag = mean_mags(data_dict["filters"], dict_params_fit, data_dict["redshift"])
+        calc_ynodust.append(y_nodust)
+        calc_ydust.append(y_dust)
+        calc_mags.append(mean_mag)
+        ref_mags.append(data_dict["mags"])
+
+    calc_ynodust = np.array(calc_ynodust)
+    calc_ydust = np.array(calc_ydust)
+    calc_mags = np.array(calc_mags)
+    ref_mags = np.array(ref_mags)
+
+    mean_ydust = np.mean(calc_ydust, axis=0)
+    mean_ynodust = np.mean(calc_ynodust, axis=0)
+    mean_calcmags = np.mean(calc_mags, axis=0)
+    mean_refmags = np.mean(ref_mags, axis=0)
+
+    std_ydust = np.std(calc_ydust, axis=0)
+    std_ynodust = np.std(calc_ynodust, axis=0)
+    std_calcmags = np.std(calc_mags, axis=0)
+    std_refmags = np.std(ref_mags, axis=0)
+
+    ax_phot = ax.twinx()
+    ax.set_yscale("log")
+    ax.set_xscale("log")
+
+    # plot SED model
+    ax.plot(x * (1 + z_obs), mean_ydust, "-", color="green", lw=1, label="DSPS output\nwith dust")
+    ax.plot(x * (1 + z_obs), mean_ynodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
+    ax.fill_between(x * (1 + z_obs), mean_ydust + std_ydust, mean_ydust - std_ydust, color="green", alpha=0.4, lw=1)
+    ax.fill_between(x * (1 + z_obs), mean_ynodust + std_ynodust, mean_ynodust - std_ynodust, color="red", alpha=0.4, lw=1)
+
+    # plot Fors2 data
+    label = "Fors2 spectrum\n" + subtit
+    ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5)
+    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4, label=label)
+
+    # plot photometric data
+    label = "Photometry for\n" + subtit
+    ax_phot.errorbar(xphot, mean_refmags, yerr=std_refmags, marker="o", color="black", ecolor="black", markersize=6, lw=2, label=label)
+    ax_phot.errorbar(xphot, mean_calcmags, yerr=std_calcmags, marker="s", c="cyan", ecolor="cyan", markersize=6, lw=2, label="Modeled\nphotometry")
+
+    title = "DSPS fitting results (obs. frame)"
+    ax.set_title(title)
+    ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+    ymax = (mean_ynodust + std_ynodust).max()
+    ylim_max = ymax * 3.0
+    ylim_min = ymax / 3e4
+
+    filt_sel = [wlmen in xphot for wlmen in list_wlmean_f_sel]
+    filter_tags = [func_strip_name(n) for n in list_name_f_sel[filt_sel]]
+    for idx, tag in enumerate(filter_tags):
+        ax.text(xphot[idx], 2.0 * ymax - (idx % 2) * 0.5 * ymax, tag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+        ax.axvline(xphot[idx], linestyle=":")
+
+    ax.set_xlabel("$\\lambda\\ [\\AA]$")
+    ax.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
+    ax_phot.set_ylabel("$m_{AB}$")
+    ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+
+    ax.set_xlim(1.5e3, 5e4)
+    ax.set_ylim(ylim_min, ylim_max)
+    ax_phot.set_ylim(27, 16)
+
+    ax.grid()
     plt.show(block=False)

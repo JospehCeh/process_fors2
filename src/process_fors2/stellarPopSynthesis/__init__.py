@@ -14,7 +14,7 @@
 from .dsps_params import SSPParametersFit, paramslist_to_dict
 from .fit_filters import FilterInfo
 from .fit_loop import filter_tags, fit_gelmod, fit_lines, fit_loop, fit_mags, fit_mags_and_rew, fit_rew, fit_spec, make_fit_plots, prepare_data_dict
-from .fit_utils import plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH
+from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
 from .fitter_dsps import calc_eqw, lik_lines, lik_mag, lik_mag_partial, lik_mag_rew, lik_rew, lik_spec, mean_lines, mean_mags, mean_sfr, mean_spectrum, ssp_spectrum_fromparam
 
 __all__ = [
@@ -22,6 +22,7 @@ __all__ = [
     "paramslist_to_dict",
     "SSPParametersFit",
     "plot_SFH",
+    "plot_SFH_bootstrap",
     "lik_mag",
     "lik_mag_partial",
     "ssp_spectrum_fromparam",
@@ -36,6 +37,7 @@ __all__ = [
     "lik_mag_rew",
     "plot_fit_ssp_spectroscopy",
     "plot_fit_ssp_spectrophotometry",
+    "plot_bootstrap_ssp_spectrophotometry",
     "plot_input_spectrophotometry",
     "fit_mags",
     "fit_spec",
