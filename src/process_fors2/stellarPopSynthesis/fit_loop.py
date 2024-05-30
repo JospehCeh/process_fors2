@@ -1057,7 +1057,7 @@ def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
         fitname = fitname[:-1]
     keylist = list(results_dict.keys())
     specn = keylist[0].split("_")[0]
-    f.savefig(f"bootstrap_plot_{specn}_{fitname}.png", pad_inches="layout")
+    f.savefig(os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.png"), pad_inches="layout")
     # pdfoutputfilename = os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.pdf")
     # plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
 
