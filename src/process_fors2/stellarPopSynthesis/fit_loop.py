@@ -767,7 +767,9 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, bs_typ
     return dict_fors2_for_fit
 
 
-def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
+def fit_loop(
+    xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False
+):
     """
     Function to fit a stellar population onto observations of galaxies.
 
@@ -803,6 +805,8 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
         Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
     remove_galex_fuv : bool, optional
         Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
+    quiet : bool, optional
+        Whether to silence some prints (for convenience while running in loops for instance). The default is False.
 
     Returns
     -------
@@ -831,7 +835,8 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     low_bound = min(low_bound, high_bound - 1)
 
     selected_tags = filtered_tags[low_bound:high_bound]
-    print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
+    if not quiet:
+        print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
     dict_fors2_for_fit = prepare_data_dict(gelatoh5, merged_attrs, selected_tags, useclean=use_clean, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
@@ -839,28 +844,36 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
     if "line" in fit_type.lower():
-        print("Fitting SPS on spectral lines... it may take (more than) a few minutes, please be patient.")
+        if not quiet:
+            print("Fitting SPS on spectral lines... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "spec" in fit_type.lower():
-        print("Fitting SPS on observed spectra... it may take (more than) a few minutes, please be patient.")
+        if not quiet:
+            print("Fitting SPS on observed spectra... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "gelato" in fit_type.lower():
-        print("Fitting SPS on GELATO models... it may take (more than) a few minutes, please be patient.")
+        if not quiet:
+            print("Fitting SPS on GELATO models... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_gelmod(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "mag" in fit_type.lower() and "rew" in fit_type.lower():
-        print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        if not quiet:
+            print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "rew" in fit_type.lower():
-        print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        if not quiet:
+            print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     else:
-        print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
+        if not quiet:
+            print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
 
     return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
 
 
-def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_type="mags", ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
+def fit_bootstrap(
+    xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_type="mags", ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False
+):
     """
     Function to fit a stellar population onto observations of galaxies.
 
@@ -892,6 +905,8 @@ def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_t
         Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
     remove_galex_fuv : bool, optional
         Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
+    quiet : bool, optional
+        Whether to silence some prints (for convenience while running in loops for instance). The default is False.
 
     Returns
     -------
@@ -908,7 +923,8 @@ def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_t
     # filtered_tags = filter_tags(merged_attrs, remove_galex=FLAG_REMOVE_GALEX, remove_galex_fuv=FLAG_REMOVE_GALEX_FUV, remove_visible=FLAG_REMOVE_VISIBLE)
 
     try:
-        print(f"Performing {n_fits} fits of galaxy {specID} with bootstrapped {fit_type}.")
+        if not quiet:
+            print(f"Performing {n_fits} fits of galaxy {specID} with bootstrapped {fit_type}.")
 
         # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
         dict_fors2_for_fit = prepare_bootstrap_dict(
@@ -918,13 +934,16 @@ def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_t
         # fit loop
         # for tag in tqdm(dict_fors2_for_fit):
         if "mag" in fit_type.lower() and "rew" in fit_type.lower():
-            print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+            if not quiet:
+                print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
             fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
         elif "rew" in fit_type.lower():
-            print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+            if not quiet:
+                print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
             fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
         else:
-            print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
+            if not quiet:
+                print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
             fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
 
         return dict_fors2_for_fit, fit_results_dict
