@@ -599,7 +599,7 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
     return dict_fors2_for_fit
 
 
-def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
+def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, bs_type="mags", remove_visible=False, remove_galex=False, remove_galex_fuv=True):
     """
     Function to prepare data for the SPS fitting procedure (only DSPS available atm).
 
@@ -613,6 +613,8 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, remove
         Identifier (tag) of the galaxy to perform several fits on. For FORS2 data, it is of the shape `'SPECnnn'` where `nnn` is an integer.
     n_fits : int, optional
         Number of bootstrap samples to draw. The default is 10.
+    bs_type : str, optional
+        Data from which to draw random samples from a distribution (mean+std dev). Can be any combination of 'mags' for magnitudes and 'rews' for Restframe Equivalent Widths. The default is 'mags'.
     remove_visible : bool, optional
         Whether to remove galaxies with photometry in the visible range of the EM spectrum. The default is `False`.
     remove_galex : bool, optional
@@ -747,7 +749,7 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, remove
 
         dict_tag["filters"] = Xf_sel
         dict_tag["wl_mean_filters"] = list_wlmean_f_sel
-        dict_tag["mags"] = np.random.normal(loc=data_selected_mags, scale=data_selected_magserr)
+        dict_tag["mags"] = np.random.normal(loc=data_selected_mags, scale=data_selected_magserr) if "mag" in bs_type.lower() else data_selected_mags
         dict_tag["mags_err"] = data_selected_magserr
 
         lines_list = np.unique(sorted([fl.split("_REW")[:-1] for fl in fors2_attr if "REW" in fl]))
@@ -758,14 +760,14 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, remove
         selew = jnp.logical_and(jnp.isfinite(lines_rew), lines_rewerr > 1.0e-4)
 
         dict_tag["rews_wls"] = lines_wls[selew]
-        dict_tag["rews"] = lines_rew[selew]  # np.random.normal(loc=lines_rew[selew], scale=lines_rewerr[selew])
+        dict_tag["rews"] = np.random.normal(loc=lines_rew[selew], scale=lines_rewerr[selew]) if "rew" in bs_type.lower() else lines_rew[selew]
         dict_tag["rews_err"] = lines_rewerr[selew]
 
         dict_fors2_for_fit[tag] = dict_tag
     return dict_fors2_for_fit
 
 
-def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5):
+def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
     """
     Function to fit a stellar population onto observations of galaxies.
 
@@ -795,6 +797,12 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
         SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
     weight_mag : float, optional
         Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
+    remove_visible : bool, optional
+        Whether to remove galaxies with photometry in the visible range of the EM spectrum. The default is `False`.
+    remove_galex : bool, optional
+        Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
+    remove_galex_fuv : bool, optional
+        Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
 
     Returns
     -------
@@ -812,7 +820,7 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     merged_attrs = gelato_xmatch_todict(gelatoh5, xmatchh5)
 
     # ## Select applicable spectra
-    filtered_tags = filter_tags(merged_attrs, remove_galex=FLAG_REMOVE_GALEX, remove_galex_fuv=FLAG_REMOVE_GALEX_FUV, remove_visible=FLAG_REMOVE_VISIBLE)
+    filtered_tags = filter_tags(merged_attrs, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
 
     if high_bound is None:
         high_bound = len(filtered_tags)
@@ -826,7 +834,7 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
-    dict_fors2_for_fit = prepare_data_dict(gelatoh5, merged_attrs, selected_tags, useclean=use_clean)
+    dict_fors2_for_fit = prepare_data_dict(gelatoh5, merged_attrs, selected_tags, useclean=use_clean, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
 
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
@@ -852,7 +860,7 @@ def fit_loop(xmatch_h5, gelato_h5, fit_type="mags", use_clean=False, low_bound=0
     return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
 
 
-def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, ssp_file=None, weight_mag=0.5):
+def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_type="mags", ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True):
     """
     Function to fit a stellar population onto observations of galaxies.
 
@@ -872,10 +880,18 @@ def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, ssp_
         The default is 'mags'.
     n_fits : int, optional
         Number of bootstrap samples to draw. The default is 10.
+    bs_type : str, optional
+        Data from which to draw random samples from a distribution (mean+std dev). Can be any combination of 'mags' for magnitudes and 'rews' for Restframe Equivalent Widths. The default is 'mags'.
     ssp_file : path or str, optional
         SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
     weight_mag : float, optional
         Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
+    remove_visible : bool, optional
+        Whether to remove galaxies with photometry in the visible range of the EM spectrum. The default is `False`.
+    remove_galex : bool, optional
+        Whether to remove galaxies with photometry in the ultraviolet (near and far) range of the EM spectrum. The default is `False`.
+    remove_galex_fuv : bool, optional
+        Whether to remove galaxies with photometry in the far ultraviolet range (only) of the EM spectrum. The default is `True`.
 
     Returns
     -------
@@ -895,7 +911,9 @@ def fit_bootstrap(xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, ssp_
         print(f"Performing {n_fits} fits of galaxy {specID} with bootstrapped {fit_type}.")
 
         # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
-        dict_fors2_for_fit = prepare_bootstrap_dict(gelatoh5, merged_attrs, specID, n_fits=n_fits)
+        dict_fors2_for_fit = prepare_bootstrap_dict(
+            gelatoh5, merged_attrs, specID, n_fits=n_fits, bs_type=bs_type, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv
+        )
 
         # fit loop
         # for tag in tqdm(dict_fors2_for_fit):
@@ -1054,7 +1072,17 @@ def main(args):
 
     if inputs["bootstrap"]:
         dict_fors2_for_fit, fit_results_dict = fit_bootstrap(
-            xmatchh5, gelatoh5, inputs["bootstrap_id"], n_fits=inputs["number_bootstrap"], fit_type=_fit_type, ssp_file=_ssp_file, weight_mag=_weight_mag
+            xmatchh5,
+            gelatoh5,
+            inputs["bootstrap_id"],
+            n_fits=inputs["number_bootstrap"],
+            bs_type=inputs["bootstrap_type"],
+            fit_type=_fit_type,
+            ssp_file=_ssp_file,
+            weight_mag=_weight_mag,
+            remove_visible=inputs["remove_visible"],
+            remove_galex=inputs["remove_galex"],
+            remove_galex_fuv=inputs["remove_fuv"],
         )
 
         fitname = _fit_type
@@ -1073,7 +1101,17 @@ def main(args):
         _low = inputs["first_spec"]
         _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
         dict_fors2_for_fit, fit_results_dict, low_bound, high_bound = fit_loop(
-            xmatchh5, gelatoh5, fit_type=_fit_type, use_clean=("spec" in _fit_type.lower() and _useclean), low_bound=_low, high_bound=_high, ssp_file=_ssp_file, weight_mag=_weight_mag
+            xmatchh5,
+            gelatoh5,
+            fit_type=_fit_type,
+            use_clean=("spec" in _fit_type.lower() and _useclean),
+            low_bound=_low,
+            high_bound=_high,
+            ssp_file=_ssp_file,
+            weight_mag=_weight_mag,
+            remove_visible=inputs["remove_visible"],
+            remove_galex=inputs["remove_galex"],
+            remove_galex_fuv=inputs["remove_fuv"],
         )
 
         fitname = _fit_type

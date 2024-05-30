@@ -11,6 +11,7 @@
         "remove_visible": false,
         "bootstrap": false,
         "bootstrap_id": "SPEC33",
+        "bootstrap_type": "mags",
         "number_bootstrap": 10
     }
 }
