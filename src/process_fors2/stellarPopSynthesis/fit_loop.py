@@ -1042,7 +1042,7 @@ def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
 
     plt.style.use("default")
     # parameters for fit
-    list_of_figs = []
+    # list_of_figs = []
     outdir = os.path.abspath(outdir)
 
     f, a = plt.subplots(1, 2, constrained_layout=True)
@@ -1050,15 +1050,16 @@ def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
     plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[1])
 
     # save figures and parameters
-    list_of_figs.append(copy.deepcopy(f))
+    # list_of_figs.append(copy.deepcopy(f))
     if fitname is None:
         fitname = outdir.split("_")[-1]
     if fitname[-1] == "/":
         fitname = fitname[:-1]
     keylist = list(results_dict.keys())
     specn = keylist[0].split("_")[0]
-    pdfoutputfilename = os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.pdf")
-    plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+    f.savefig(f"bootstrap_plot_{specn}_{fitname}.png", pad_inches="layout")
+    # pdfoutputfilename = os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.pdf")
+    # plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
 
 
 def main(args):

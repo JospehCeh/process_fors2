@@ -447,7 +447,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     mean_mag = mean_mags(X, params, z_obs)
     ax_phot.scatter(xphot, mean_mag, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
 
-    title = "DSPS fitting results (obs. frame)"
+    title = "DSPS fit (obs. frame)"
     ax.set_title(title)
     ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
@@ -676,7 +676,7 @@ def plot_SFH(params, z_obs, subtit, ax=None):
     sfr_min = 0.0
     ax.set_ylim(sfr_min, sfr_max)
 
-    ax.set_title("Fitted Star Formation History (SFH) for " + subtit)
+    ax.set_title(f"Fitted SFH\n{subtit}")
     ax.set_xlabel(r"${\rm cosmic\ time\ [Gyr]}$")
     ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
     ax.grid()
@@ -730,7 +730,7 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     sfr_min = 0.0
     ax.set_ylim(sfr_min, sfr_max)
 
-    ax.set_title(f"Fitted Star Formation History (SFH) for {data_dict['title'].split('_')[0]}")
+    ax.set_title(f"Fitted SFH\n{data_dict['title'].split('_')[0]}")
     ax.set_xlabel(r"${\rm cosmic\ time\ [Gyr]}$")
     ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
     ax.grid()
@@ -819,7 +819,7 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
     ax_phot.errorbar(xphot, mean_refmags, yerr=std_refmags, marker="o", color="black", ecolor="black", markersize=6, lw=2, label=label)
     ax_phot.errorbar(xphot, mean_calcmags, yerr=std_calcmags, marker="s", c="cyan", ecolor="cyan", markersize=6, lw=2, label="Modeled\nphotometry")
 
-    title = "DSPS fitting results (obs. frame)"
+    title = "DSPS fit (obs. frame)"
     ax.set_title(title)
     ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
