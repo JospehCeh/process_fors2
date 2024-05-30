@@ -633,7 +633,7 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, bs_typ
     # ps.plot_transmissions()
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
     dict_fors2_for_fit = {}
-    for n_bs in tqdm(range(n_fits)):
+    for n_bs in range(n_fits):
         tag = f"{selected_tag}_{n_bs}"
         dict_tag = {}
         # extract most basic info
