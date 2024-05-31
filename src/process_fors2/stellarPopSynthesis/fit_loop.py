@@ -987,7 +987,7 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
         data_dict = dict_for_fit[tag]
 
         # plot SFR
-        f, a = plt.subplots(1, 2, constrained_layout=True)
+        f, a = plt.subplots(1, 2, figsize=(11, 5.2), constrained_layout=True)
         plot_SFH(dict_params_fit, data_dict["redshift"], subtit=data_dict["title"], ax=a[0])
         plot_fit_ssp_spectrophotometry(
             dict_params_fit,
@@ -1010,6 +1010,7 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
     if fitname[-1] == "/":
         fitname = fitname[:-1]
 
+    f.suptitle(f"Fit method : {fitname}")
     if start is None:
         start = 0
     if end is None:
@@ -1045,7 +1046,7 @@ def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
     # list_of_figs = []
     outdir = os.path.abspath(outdir)
 
-    f, a = plt.subplots(1, 2, constrained_layout=True)
+    f, a = plt.subplots(1, 2, figsize=(11, 5.2), constrained_layout=True)
     plot_SFH_bootstrap(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[0])
     plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[1])
 
@@ -1055,6 +1056,8 @@ def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
         fitname = outdir.split("_")[-1]
     if fitname[-1] == "/":
         fitname = fitname[:-1]
+
+    f.suptitle(f"Fit method : {fitname}")
     keylist = list(results_dict.keys())
     specn = keylist[0].split("_")[0]
     f.savefig(os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.png"), pad_inches="layout")
