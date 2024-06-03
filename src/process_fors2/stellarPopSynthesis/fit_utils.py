@@ -843,4 +843,4 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
     ax_phot.set_ylim(27, 16)
 
     ax.grid()
-    plt.show(block=False)
+    # plt.show(block=False)
