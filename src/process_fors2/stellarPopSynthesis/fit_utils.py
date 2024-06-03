@@ -376,7 +376,7 @@ def plot_fit_ssp_spectroscopy(params, Xspec_data_rest, Yspec_data_rest, EYspec_d
     ax.set_ylim(ylim_min, ylim_max)
 
     ax.grid()
-    plt.show(block=False)
+    # plt.show(block=False)
 
 
 def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, ax=None):
@@ -471,7 +471,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     ax_phot.set_ylim(27, 16)
 
     ax.grid()
-    plt.show(block=False)
+    # plt.show(block=False)
 
 
 def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, plot_phot=True, ax=None):
@@ -548,7 +548,7 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
     ax.set_ylim(ylim_min, ylim_max)
 
     ax.grid()
-    plt.show(block=False)
+    # plt.show(block=False)
 
 
 def plot_fit_ssp_spectrophotometry_sl(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, w_sl, fnu_sl, z_obs, subtit, ax=None):
@@ -681,7 +681,7 @@ def plot_SFH(params, z_obs, subtit, ax=None):
     ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
     ax.grid()
     # ax.legend()
-    plt.show(block=False)
+    # plt.show(block=False)
 
 
 def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
@@ -735,7 +735,7 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
     ax.grid()
     # ax.legend()
-    plt.show(block=False)
+    # plt.show(block=False)
 
 
 def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_names, ax=None):
