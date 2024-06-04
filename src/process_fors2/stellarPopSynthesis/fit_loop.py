@@ -62,6 +62,7 @@ def plot_figs_to_PDF(pdf_file, fig_list):
         for fig in fig_list:
             pdf.savefig(fig)
             plt.close()
+    return None
 
 
 FLAG_REMOVE_GALEX = True
@@ -256,6 +257,7 @@ def fit_rew(data_dict, ssp_file=None):
     return dict_out
 
 
+# @partial(jit, statis_argnums=[-1])
 def fit_mags_and_rew(data_dict, weight_mag=0.5, ssp_file=None):
     """
     Function to fit SPS on both observed magnitudes and rest equivalent widths with DSPS.
@@ -599,7 +601,7 @@ def prepare_data_dict(gelatoh5, attrs_dict, selected_tags, useclean=False, remov
     return dict_fors2_for_fit
 
 
-def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, bs_type="mags", remove_visible=False, remove_galex=False, remove_galex_fuv=True):
+def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tags, n_fits=10, bs_type="mags", remove_visible=False, remove_galex=False, remove_galex_fuv=True):
     """
     Function to prepare data for the SPS fitting procedure (only DSPS available atm).
 
@@ -609,8 +611,8 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, bs_typ
         Path to the HDF5 file gathering outputs from GELATO run.
     attrs_dict : dict
         Dictionary of attributes - must contain KiDS and GALEX photometry keywords in its keys.
-    selected_tag : str
-        Identifier (tag) of the galaxy to perform several fits on. For FORS2 data, it is of the shape `'SPECnnn'` where `nnn` is an integer.
+    selected_tags : list
+        List of tags to be considered - must correspond to keys of `attrs_dict`.
     n_fits : int, optional
         Number of bootstrap samples to draw. The default is 10.
     bs_type : str, optional
@@ -633,137 +635,140 @@ def prepare_bootstrap_dict(gelatoh5, attrs_dict, selected_tag, n_fits=10, bs_typ
     # ps.plot_transmissions()
     # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
     dict_fors2_for_fit = {}
-    for n_bs in range(n_fits):
-        tag = f"{selected_tag}_{n_bs}"
-        dict_tag = {}
-        # extract most basic info
-        fors2_attr = attrs_dict[selected_tag]
-        selected_spectrum_number = fors2_attr["num"]
-        z_obs = fors2_attr["redshift"]
-        title_spec = f"{tag} z = {z_obs:.2f}"
+    for selected_tag in selected_tags:
+        dict_seltag = {}
+        for n_bs in range(n_fits):
+            dict_tag = {}
+            # tag = f"{selected_tag}_{n_bs}"
+            # extract most basic info
+            fors2_attr = attrs_dict[selected_tag]
+            selected_spectrum_number = fors2_attr["num"]
+            z_obs = fors2_attr["redshift"]
 
-        dict_tag["spec ID"] = selected_spectrum_number
-        dict_tag["redshift"] = z_obs
-        dict_tag["title"] = title_spec
+            dict_tag["spec ID"] = selected_spectrum_number
+            dict_tag["redshift"] = z_obs
+            # dict_tag["title"] = title_spec
 
-        # retrieve magnitude data
-        data_mags = np.array(
-            [
-                fors2_attr["fuv_mag"],
-                fors2_attr["nuv_mag"],
-                fors2_attr["MAG_GAAP_u"],
-                fors2_attr["MAG_GAAP_g"],
-                fors2_attr["MAG_GAAP_r"],
-                fors2_attr["MAG_GAAP_i"],
-                fors2_attr["MAG_GAAP_Z"],
-                fors2_attr["MAG_GAAP_Y"],
-                fors2_attr["MAG_GAAP_J"],
-                fors2_attr["MAG_GAAP_H"],
-                fors2_attr["MAG_GAAP_Ks"],
-            ]
-        )
-        data_magserr = np.array(
-            [
-                fors2_attr["fuv_magerr"],
-                fors2_attr["nuv_magerr"],
-                fors2_attr["MAGERR_GAAP_u"],
-                fors2_attr["MAGERR_GAAP_g"],
-                fors2_attr["MAGERR_GAAP_r"],
-                fors2_attr["MAGERR_GAAP_i"],
-                fors2_attr["MAGERR_GAAP_Z"],
-                fors2_attr["MAGERR_GAAP_Y"],
-                fors2_attr["MAGERR_GAAP_J"],
-                fors2_attr["MAGERR_GAAP_H"],
-                fors2_attr["MAGERR_GAAP_Ks"],
-            ]
-        )
+            # retrieve magnitude data
+            data_mags = np.array(
+                [
+                    fors2_attr["fuv_mag"],
+                    fors2_attr["nuv_mag"],
+                    fors2_attr["MAG_GAAP_u"],
+                    fors2_attr["MAG_GAAP_g"],
+                    fors2_attr["MAG_GAAP_r"],
+                    fors2_attr["MAG_GAAP_i"],
+                    fors2_attr["MAG_GAAP_Z"],
+                    fors2_attr["MAG_GAAP_Y"],
+                    fors2_attr["MAG_GAAP_J"],
+                    fors2_attr["MAG_GAAP_H"],
+                    fors2_attr["MAG_GAAP_Ks"],
+                ]
+            )
+            data_magserr = np.array(
+                [
+                    fors2_attr["fuv_magerr"],
+                    fors2_attr["nuv_magerr"],
+                    fors2_attr["MAGERR_GAAP_u"],
+                    fors2_attr["MAGERR_GAAP_g"],
+                    fors2_attr["MAGERR_GAAP_r"],
+                    fors2_attr["MAGERR_GAAP_i"],
+                    fors2_attr["MAGERR_GAAP_Z"],
+                    fors2_attr["MAGERR_GAAP_Y"],
+                    fors2_attr["MAGERR_GAAP_J"],
+                    fors2_attr["MAGERR_GAAP_H"],
+                    fors2_attr["MAGERR_GAAP_Ks"],
+                ]
+            )
 
-        # get the Fors2 spectrum
-        spec_obs = get_fnu(gelatoh5, selected_tag, zob=z_obs)
-        Xs = spec_obs["wl"]
-        Ys = spec_obs["fnu"]
-        EYs = spec_obs["fnuerr"]
-        # EYs_med = spec_obs['bg_med']
+            # get the Fors2 spectrum
+            spec_obs = get_fnu(gelatoh5, selected_tag, zob=z_obs)
+            Xs = spec_obs["wl"]
+            Ys = spec_obs["fnu"]
+            EYs = spec_obs["fnuerr"]
+            # EYs_med = spec_obs['bg_med']
 
-        # get the Gelato model
-        gel_obs = get_gelmod(gelatoh5, selected_tag, zob=z_obs)
-        gemod = np.interp(Xs, gel_obs["wl"], gel_obs["mod"])
-        geline = np.interp(Xs, gel_obs["wl"], gel_obs["line"])
-        gessp = np.interp(Xs, gel_obs["wl"], gel_obs["ssp"])
+            # get the Gelato model
+            gel_obs = get_gelmod(gelatoh5, selected_tag, zob=z_obs)
+            gemod = np.interp(Xs, gel_obs["wl"], gel_obs["mod"])
+            geline = np.interp(Xs, gel_obs["wl"], gel_obs["line"])
+            gessp = np.interp(Xs, gel_obs["wl"], gel_obs["ssp"])
 
-        # convert to restframe
-        Xspec_data, Yspec_data = convert_flux_torestframe(Xs, Ys, z_obs)
-        EYspec_data = EYs  # * (1+z_obs)
-        # EYspec_data_med = EYs_med #* (1+z_obs)
+            # convert to restframe
+            Xspec_data, Yspec_data = convert_flux_torestframe(Xs, Ys, z_obs)
+            EYspec_data = EYs  # * (1+z_obs)
+            # EYspec_data_med = EYs_med #* (1+z_obs)
 
-        _, gmod_data = convert_flux_torestframe(Xs, gemod, z_obs)
-        _, glin_data = convert_flux_torestframe(Xs, geline, z_obs)
-        _, gssp_data = convert_flux_torestframe(Xs, gessp, z_obs)
+            _, gmod_data = convert_flux_torestframe(Xs, gemod, z_obs)
+            _, glin_data = convert_flux_torestframe(Xs, geline, z_obs)
+            _, gssp_data = convert_flux_torestframe(Xs, gessp, z_obs)
 
-        dict_tag["wavelengths"] = Xspec_data
-        dict_tag["fnu"] = Yspec_data
-        dict_tag["fnu_err"] = EYspec_data
+            dict_tag["wavelengths"] = Xspec_data
+            dict_tag["fnu"] = Yspec_data
+            dict_tag["fnu_err"] = EYspec_data
 
-        dict_tag["gelato_mod"] = gmod_data
-        dict_tag["gelato_lines"] = glin_data
-        dict_tag["gelato_ssp"] = gssp_data
+            dict_tag["gelato_mod"] = gmod_data
+            dict_tag["gelato_lines"] = glin_data
+            dict_tag["gelato_ssp"] = gssp_data
 
-        # Choose filters with mags without Nan
-        NoNaN_mags = np.intersect1d(np.argwhere(~np.isnan(data_mags)).flatten(), np.argwhere(~np.isnan(data_magserr)).flatten())
+            # Choose filters with mags without Nan
+            NoNaN_mags = np.intersect1d(np.argwhere(~np.isnan(data_mags)).flatten(), np.argwhere(~np.isnan(data_magserr)).flatten())
 
-        # selected indexes for filters
-        index_selected_filters = NoNaN_mags
+            # selected indexes for filters
+            index_selected_filters = NoNaN_mags
 
-        if remove_galex:
-            galex_indexes = np.array([0, 1])
-            index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
-        elif remove_galex_fuv:
-            galex_indexes = np.array([0])
-            index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
+            if remove_galex:
+                galex_indexes = np.array([0, 1])
+                index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
+            elif remove_galex_fuv:
+                galex_indexes = np.array([0])
+                index_selected_filters = np.setdiff1d(NoNaN_mags, galex_indexes)
 
-        if remove_visible:
-            visible_indexes = np.array([2, 3, 4, 5, 6, 7])
-            index_selected_filters = np.setdiff1d(NoNaN_mags, visible_indexes)
+            if remove_visible:
+                visible_indexes = np.array([2, 3, 4, 5, 6, 7])
+                index_selected_filters = np.setdiff1d(NoNaN_mags, visible_indexes)
 
-        # Select filters
-        XF = ps.get_2lists()
-        list_wls_f_sel = []
-        list_trans_f_sel = []
-        list_name_f_sel = []
-        list_wlmean_f_sel = []
+            # Select filters
+            XF = ps.get_2lists()
+            list_wls_f_sel = []
+            list_trans_f_sel = []
+            list_name_f_sel = []
+            list_wlmean_f_sel = []
 
-        for index in index_selected_filters:
-            list_wls_f_sel.append(XF[0][index])
-            list_trans_f_sel.append(XF[1][index])
-            the_filt = ps.filters_transmissionlist[index]
-            the_wlmean = the_filt.wave_mean
-            list_wlmean_f_sel.append(the_wlmean)
-            list_name_f_sel.append(ps.filters_namelist[index])
+            for index in index_selected_filters:
+                list_wls_f_sel.append(XF[0][index])
+                list_trans_f_sel.append(XF[1][index])
+                the_filt = ps.filters_transmissionlist[index]
+                the_wlmean = the_filt.wave_mean
+                list_wlmean_f_sel.append(the_wlmean)
+                list_name_f_sel.append(ps.filters_namelist[index])
 
-        list_wlmean_f_sel = jnp.array(list_wlmean_f_sel)
-        Xf_sel = (list_wls_f_sel, list_trans_f_sel)
+            list_wlmean_f_sel = jnp.array(list_wlmean_f_sel)
+            Xf_sel = (list_wls_f_sel, list_trans_f_sel)
 
-        # get the magnitudes and magnitude errors
-        data_selected_mags = jnp.array(data_mags[index_selected_filters])
-        data_selected_magserr = jnp.array(data_magserr[index_selected_filters])
+            # get the magnitudes and magnitude errors
+            data_selected_mags = jnp.array(data_mags[index_selected_filters])
+            data_selected_magserr = jnp.array(data_magserr[index_selected_filters])
 
-        dict_tag["filters"] = Xf_sel
-        dict_tag["wl_mean_filters"] = list_wlmean_f_sel
-        dict_tag["mags"] = np.random.normal(loc=data_selected_mags, scale=data_selected_magserr) if "mag" in bs_type.lower() else data_selected_mags
-        dict_tag["mags_err"] = data_selected_magserr
+            dict_tag["filters"] = Xf_sel
+            dict_tag["wl_mean_filters"] = list_wlmean_f_sel
+            draw_mags = np.random.normal(loc=data_selected_mags, scale=data_selected_magserr)
+            dict_tag["mags"] = jnp.array(draw_mags) if "mag" in bs_type.lower() else data_selected_mags
+            dict_tag["mags_err"] = data_selected_magserr
 
-        lines_list = np.unique(sorted([fl.split("_REW")[:-1] for fl in fors2_attr if "REW" in fl]))
-        lines_wls = jnp.array([float(li.split("_")[-1]) for li in lines_list])
-        lines_rew = jnp.array([fors2_attr[f"{attr}_REW"] for attr in lines_list])
-        lines_rewerr = jnp.array([fors2_attr[f"{attr}_REW_err"] for attr in lines_list])
+            lines_list = np.unique(sorted([fl.split("_REW")[:-1] for fl in fors2_attr if "REW" in fl]))
+            lines_wls = jnp.array([float(li.split("_")[-1]) for li in lines_list])
+            lines_rew = jnp.array([fors2_attr[f"{attr}_REW"] for attr in lines_list])
+            lines_rewerr = jnp.array([fors2_attr[f"{attr}_REW_err"] for attr in lines_list])
 
-        selew = jnp.logical_and(jnp.isfinite(lines_rew), lines_rewerr > 1.0e-4)
+            selew = jnp.logical_and(jnp.isfinite(lines_rew), lines_rewerr > 1.0e-4)
 
-        dict_tag["rews_wls"] = lines_wls[selew]
-        dict_tag["rews"] = np.random.normal(loc=lines_rew[selew], scale=lines_rewerr[selew]) if "rew" in bs_type.lower() else lines_rew[selew]
-        dict_tag["rews_err"] = lines_rewerr[selew]
-
-        dict_fors2_for_fit[tag] = dict_tag
+            dict_tag["rews_wls"] = lines_wls[selew]
+            draw_rews = np.random.normal(loc=lines_rew[selew], scale=lines_rewerr[selew])
+            dict_tag["rews"] = jnp.array(draw_rews) if "rew" in bs_type.lower() else lines_rew[selew]
+            dict_tag["rews_err"] = lines_rewerr[selew]
+            dict_seltag.update({n_bs: dict_tag})
+        dict_fors2_for_fit.update({selected_tag: dict_seltag})
     return dict_fors2_for_fit
 
 
@@ -871,8 +876,9 @@ def fit_loop(
     return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
 
 
+# @partial(jit, static_argnums=[0, 1, 2, 3, 5, 6])
 def fit_bootstrap(
-    xmatch_h5, gelato_h5, specID, fit_type="mags", n_fits=10, bs_type="mags", ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False
+    xmatch_h5, gelato_h5, filtered_tags, fit_type="mags", n_fits=10, bs_type="mags", ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False
 ):
     """
     Function to fit a stellar population onto observations of galaxies.
@@ -883,8 +889,8 @@ def fit_bootstrap(
         Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
     gelato_h5 : path or str
         Path to the HDF5 file gathering outputs from GELATO run.
-    specID : str
-        Identifier (tag) of the galaxy to perform several fits on. For FORS2 data, it is of the shape `'SPECnnn'` where `nnn` is an integer.
+    filtered_tags : list
+        List of tags to be considered - must correspond to IDs of spectra in `xmatch_h5` and `gelato_h5`.
     fit_type : str, optional
         Data to fit the SPS on. Must be one of :
             - 'mags' to fit on KiDS+VIKING+GALEX photometry
@@ -920,16 +926,18 @@ def fit_bootstrap(
     merged_attrs = gelato_xmatch_todict(gelatoh5, xmatchh5)
 
     # ## Select applicable spectra
+    # filtered_tags = filter_tags(merged_attrs, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
+
+    # ## Select applicable spectra
     # filtered_tags = filter_tags(merged_attrs, remove_galex=FLAG_REMOVE_GALEX, remove_galex_fuv=FLAG_REMOVE_GALEX_FUV, remove_visible=FLAG_REMOVE_VISIBLE)
 
     try:
-        if not quiet:
-            print(f"Performing {n_fits} fits of galaxy {specID} with bootstrapped {fit_type}.")
-
         # ## Attempt with fewer parameters and age-dependant, fixed-bounds metallicity
         dict_fors2_for_fit = prepare_bootstrap_dict(
-            gelatoh5, merged_attrs, specID, n_fits=n_fits, bs_type=bs_type, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv
+            gelatoh5, merged_attrs, filtered_tags, n_fits=n_fits, bs_type=bs_type, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv
         )
+        if not quiet:
+            print(f"Performing {n_fits} fits of each of {len(dict_fors2_for_fit)} galaxies with bootstrapped {fit_type}.")
 
         # fit loop
         # for tag in tqdm(dict_fors2_for_fit):
@@ -948,7 +956,7 @@ def fit_bootstrap(
 
         return dict_fors2_for_fit, fit_results_dict
     except IndexError:
-        print(f"Specified tag ({specID}) not found in database.")
+        print("Applicable tag not found in database.")
         return None
 
 
@@ -985,10 +993,11 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
     for tag, fit_dict in results_dict.items():
         dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], p.PARAM_NAMES_FLAT)
         data_dict = dict_for_fit[tag]
+        title_spec = f"{tag} z = {data_dict['redshift']:.2f}"
 
         # plot SFR
         f, a = plt.subplots(1, 2, figsize=(11, 5.2), constrained_layout=True)
-        plot_SFH(dict_params_fit, data_dict["redshift"], subtit=data_dict["title"], ax=a[0])
+        plot_SFH(dict_params_fit, data_dict["redshift"], subtit=title_spec, ax=a[0])
         plot_fit_ssp_spectrophotometry(
             dict_params_fit,
             data_dict["wavelengths"],
@@ -999,7 +1008,7 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
             data_dict["mags"],
             data_dict["mags_err"],
             data_dict["redshift"],
-            data_dict["title"],
+            title_spec,
             ax=a[1],
         )
 
@@ -1017,9 +1026,11 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
         end = len(list_of_figs)
 
     pdfoutputfilename = os.path.join(outdir, f"fitparams_{fitname}_{start+1}_to_{end}.pdf")
-    plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+    _ = plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+    return None
 
 
+# @partial(jit, static_argnums=[-2, -1])
 def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
     """
     Function to make plots of the bootstrap-fitting procedure outputs and gather them in a PDF file.
@@ -1046,23 +1057,24 @@ def make_bootstrap_plot(dict_for_fit, results_dict, outdir, fitname=None):
     # list_of_figs = []
     outdir = os.path.abspath(outdir)
 
-    f, a = plt.subplots(1, 2, figsize=(11, 5.2), constrained_layout=True)
-    plot_SFH_bootstrap(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[0])
-    plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, p.PARAM_NAMES_FLAT, ax=a[1])
+    for specn, dicofit in dict_for_fit.items():
+        dico_res = results_dict[specn]
+        f, a = plt.subplots(1, 2, figsize=(11, 5.2), constrained_layout=True)
+        _ = plot_SFH_bootstrap(dicofit, dico_res, p.PARAM_NAMES_FLAT, ax=a[0])
+        _ = plot_bootstrap_ssp_spectrophotometry(dicofit, dico_res, p.PARAM_NAMES_FLAT, ax=a[1])
 
-    # save figures and parameters
-    # list_of_figs.append(copy.deepcopy(f))
-    if fitname is None:
-        fitname = outdir.split("_")[-1]
-    if fitname[-1] == "/":
-        fitname = fitname[:-1]
+        # save figures and parameters
+        # list_of_figs.append(copy.deepcopy(f))
+        if fitname is None:
+            fitname = outdir.split("_")[-1]
+        if fitname[-1] == "/":
+            fitname = fitname[:-1]
 
-    f.suptitle(f"Fit method : {fitname}")
-    keylist = list(results_dict.keys())
-    specn = keylist[0].split("_")[0]
-    f.savefig(os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.png"), pad_inches="layout")
-    # pdfoutputfilename = os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.pdf")
-    # plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+        f.suptitle(f"Fit method : {fitname}")
+        f.savefig(os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.png"), pad_inches="layout")
+        # pdfoutputfilename = os.path.join(outdir, f"bootstrap_plot_{specn}_{fitname}.pdf")
+        # plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+    return None
 
 
 def main(args):
@@ -1097,7 +1109,7 @@ def main(args):
         dict_fors2_for_fit, fit_results_dict = fit_bootstrap(
             xmatchh5,
             gelatoh5,
-            inputs["bootstrap_id"],
+            [inputs["bootstrap_id"]],
             n_fits=inputs["number_bootstrap"],
             bs_type=inputs["bootstrap_type"],
             fit_type=_fit_type,
@@ -1114,7 +1126,7 @@ def main(args):
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
 
-        make_bootstrap_plot(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname)
+        _ = make_bootstrap_plot(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname)
 
         filename_params = os.path.join(outdir, f"bootstrap_params_{inputs['bootstrap_id']}_{fitname}.pickle")
         with open(filename_params, "wb") as outf:

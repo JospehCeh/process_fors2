@@ -730,12 +730,15 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     sfr_min = 0.0
     ax.set_ylim(sfr_min, sfr_max)
 
-    ax.set_title(f"Fitted SFH\n{data_dict['title'].split('_')[0]}")
+    title_spec = f"SPEC{data_dict['spec ID']} z = {data_dict['redshift']:.2f}"
+
+    ax.set_title(f"Fitted SFH\n{title_spec}")
     ax.set_xlabel(r"${\rm cosmic\ time\ [Gyr]}$")
     ax.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
     ax.grid()
     # ax.legend()
     # plt.show(block=False)
+    return None
 
 
 def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_names, ax=None):
@@ -771,9 +774,10 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
     for loc, (tag, fit_dict) in enumerate(results_dict.items()):
         dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], params_names)
         data_dict = dict_for_fit[tag]
+        title_spec = f"SPEC{data_dict['spec ID']} z = {data_dict['redshift']:.2f}"
         if loc == 0:
             z_obs = data_dict["redshift"]
-            subtit = data_dict["title"].split("_")[0]
+            subtit = title_spec
             xspec_r, yspec, eyspec, xphot = data_dict["wavelengths"], data_dict["fnu"], data_dict["fnu_err"], data_dict["wl_mean_filters"]
 
         # calculate the SED model from fitted parameters
@@ -804,24 +808,24 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
     ax.set_xscale("log")
 
     # plot SED model
-    ax.plot(x * (1 + z_obs), mean_ydust, "-", color="green", lw=1, label="DSPS output\nwith dust")
-    ax.plot(x * (1 + z_obs), mean_ynodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
+    (l0,) = ax.plot(x * (1 + z_obs), mean_ydust, "-", color="green", lw=1, label="DSPS output\nwith dust")
+    (l1,) = ax.plot(x * (1 + z_obs), mean_ynodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
     ax.fill_between(x * (1 + z_obs), mean_ydust + std_ydust, mean_ydust - std_ydust, color="green", alpha=0.4, lw=1)
     ax.fill_between(x * (1 + z_obs), mean_ynodust + std_ynodust, mean_ynodust - std_ynodust, color="red", alpha=0.4, lw=1)
 
     # plot Fors2 data
     label = "Fors2 spectrum\n" + subtit
-    ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5)
-    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4, label=label)
+    (l2,) = ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5, label=label)
+    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4)
 
     # plot photometric data
     label = "Photometry for\n" + subtit
-    ax_phot.errorbar(xphot, mean_refmags, yerr=std_refmags, marker="o", color="black", ecolor="black", markersize=6, lw=2, label=label)
-    ax_phot.errorbar(xphot, mean_calcmags, yerr=std_calcmags, marker="s", c="cyan", ecolor="cyan", markersize=6, lw=2, label="Modeled\nphotometry")
+    l3 = ax_phot.errorbar(xphot, mean_refmags, yerr=std_refmags, marker="o", color="black", ecolor="black", markersize=6, lw=2, label=label)
+    l4 = ax_phot.errorbar(xphot, mean_calcmags, yerr=std_calcmags, marker="s", c="cyan", ecolor="cyan", markersize=6, lw=2, label="Modeled\nphotometry")
 
     title = "DSPS fit (obs. frame)"
     ax.set_title(title)
-    ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+    # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
     ymax = (mean_ynodust + std_ynodust).max()
     ylim_max = ymax * 3.0
@@ -836,11 +840,13 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
     ax.set_xlabel("$\\lambda\\ [\\AA]$")
     ax.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
     ax_phot.set_ylabel("$m_{AB}$")
-    ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+    # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
 
     ax.set_xlim(1.5e3, 5e4)
     ax.set_ylim(ylim_min, ylim_max)
     ax_phot.set_ylim(27, 16)
 
     ax.grid()
+    plt.legend(handles=[l0, l1, l2, l3, l4])
     # plt.show(block=False)
+    return None
