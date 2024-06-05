@@ -6,12 +6,13 @@
         "use_clean": false,
         "weight_mag": 0.5,
         "ssp_file": "default",
-        "remove_galex": false,
+        "remove_galex": true,
         "remove_fuv": true,
         "remove_visible": false,
         "bootstrap": false,
         "bootstrap_id": "SPEC33",
         "bootstrap_type": "mags",
+        "bootstrap_classif": "Star-forming",
         "number_bootstrap": 10
     }
 }

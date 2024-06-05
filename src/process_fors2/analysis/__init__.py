@@ -1,3 +1,4 @@
+from .galclassif import bpt_classif
 from .photomtools import (
     C_KMS,
     U_FL,
@@ -37,4 +38,5 @@ __all__ = [
     "U_FL",
     "U_LSUNperHz",
     "C_KMS",
+    "bpt_classif",
 ]
