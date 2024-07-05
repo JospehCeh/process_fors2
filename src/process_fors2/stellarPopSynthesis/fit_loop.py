@@ -997,8 +997,8 @@ def make_fit_plots(dict_for_fit, results_dict, outdir, fitname=None, start=None,
 
         # plot SFR
         f, a = plt.subplots(1, 2, figsize=(11, 5.2), constrained_layout=True)
-        plot_SFH(dict_params_fit, data_dict["redshift"], subtit=title_spec, ax=a[0])
-        plot_fit_ssp_spectrophotometry(
+        _ = plot_SFH(dict_params_fit, data_dict["redshift"], subtit=title_spec, ax=a[0])
+        _ = plot_fit_ssp_spectrophotometry(
             dict_params_fit,
             data_dict["wavelengths"],
             data_dict["fnu"],
@@ -1157,7 +1157,7 @@ def main(args):
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
 
-        make_fit_plots(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname, start=low_bound, end=high_bound)
+        _ = make_fit_plots(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname, start=low_bound, end=high_bound)
 
         filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}_to_{high_bound}.pickle")
         with open(filename_params, "wb") as outf:

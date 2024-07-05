@@ -353,14 +353,14 @@ def plot_fit_ssp_spectroscopy(params, Xspec_data_rest, Yspec_data_rest, EYspec_d
     ax.set_xscale("log")
 
     # plot the fitted model
-    ax.plot(x, y_dust, "-", color="green", lw=1, label="fitted DSPS model with dust")
-    ax.plot(x, y_nodust, "-", color="red", lw=1, label="fitted DSPS model No dust")
+    (l0,) = ax.plot(x, y_dust, "-", color="green", lw=1, label="fitted DSPS model with dust")
+    (l1,) = ax.plot(x, y_nodust, "-", color="red", lw=1, label="fitted DSPS model No dust")
 
     # plot spectroscopic data (rest-frame)
     # xspec_r, yspec, eyspec = Xspec_data_rest, Yspec_data_rest*params["SCALE"], EYspec_data_rest*params["SCALE"]
     xspec_r, yspec, _ = Xspec_data_rest, Yspec_data_rest, EYspec_data_rest
     lab = "Fors spectrum " + subtit
-    ax.plot(xspec_r, yspec, "b-", lw=3, label=lab)
+    (l2,) = ax.plot(xspec_r, yspec, "b-", lw=3, label=lab)
 
     title = "SED $L_\\nu$ with and without dust and rescaled spectroscopy(rest frame)"
     ax.set_title(title)
@@ -371,12 +371,14 @@ def plot_fit_ssp_spectroscopy(params, Xspec_data_rest, Yspec_data_rest, EYspec_d
 
     ymax = y_nodust.max()
     ylim_max = ymax * 3
-    ylim_min = ymax / 2e4
+    ylim_min = ymax / 3e4
     ax.set_xlim(1.5e3, 5e4)
     ax.set_ylim(ylim_min, ylim_max)
 
     ax.grid()
     # plt.show(block=False)
+    plt.legend(handles=[l0, l1])
+    return None
 
 
 def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, ax=None):
@@ -418,16 +420,16 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     ax.set_xscale("log")
 
     # plot SED model
-    ax.plot(x * (1 + z_obs), y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
-    ax.plot(x * (1 + z_obs), y_nodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
+    (l0,) = ax.plot(x * (1 + z_obs), y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
+    (l1,) = ax.plot(x * (1 + z_obs), y_nodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
 
     # xspec_r, yspec, eyspec = Xspec_data_rest, Yspec_data_rest*params["SCALE"], EYspec_data_rest*params["SCALE"]
     xspec_r, yspec, eyspec = Xspec_data_rest, Yspec_data_rest, EYspec_data_rest
 
     # plot Fors2 data
     label = "Fors2 spectrum\n" + subtit
-    ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5)
-    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4, label=label)
+    (l2,) = ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5, label=label)
+    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4)
 
     # plot photometric data
     label = "Photometry for\n" + subtit
@@ -443,9 +445,9 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     # ...............................................................................
 
     # xphot , yphot, eyphot = Xphot_data_rest,Yphot_data_rest,EYphot_data_rest
-    ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
+    (l3,) = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
     mean_mag = mean_mags(X, params, z_obs)
-    ax_phot.scatter(xphot, mean_mag, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
+    (l4,) = ax_phot.scatter(xphot, mean_mag, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
 
     title = "DSPS fit (obs. frame)"
     ax.set_title(title)
@@ -472,6 +474,8 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
 
     ax.grid()
     # plt.show(block=False)
+    plt.legend(handles=[l0, l1, l2, l3, l4])
+    return None
 
 
 def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, plot_phot=True, ax=None):
@@ -519,22 +523,24 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
 
     # plot Fors2 data
     label = "Fors2 spectrum\n" + subtit
-    ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5)
-    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4, label=label)
+    (l0,) = ax.plot(xspec_r * (1 + z_obs), yspec, "b-", lw=0.5, label=label)
+    ax.fill_between(xspec_r * (1 + z_obs), yspec - eyspec, yspec + eyspec, color="b", alpha=0.4)
+    hdls = [l0]
 
     # plot photometric data
     if plot_phot:
         ax_phot = ax.twinx()
         label = "Photometry for\n" + subtit
         xphot, yphot, eyphot = Xphot_data_rest, Yphot_data_rest, EYphot_data_rest
-        ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
+        (l1,) = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
         filt_sel = [wlmen in xphot for wlmen in list_wlmean_f_sel]
         filter_tags = [func_strip_name(n) for n in list_name_f_sel[filt_sel]]
         for idx, tag in enumerate(filter_tags):
             ax.text(xphot[idx], 2.0 * ymax - (idx % 2) * 0.5 * ymax, tag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
             ax.axvline(xphot[idx], linestyle=":")
         ax_phot.set_ylabel("$m_{AB}$")
-        ax_phot.legend(loc="lower right")  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+        # ax_phot.legend(loc="lower right")  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+        hdls.append(l1)
         ax_phot.set_ylim(27, 16)
 
     title = "DSPS inputs (obs. frame)"
@@ -549,6 +555,8 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
 
     ax.grid()
     # plt.show(block=False)
+    plt.legend(handles=hdls)
+    return None
 
 
 def plot_fit_ssp_spectrophotometry_sl(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, w_sl, fnu_sl, z_obs, subtit, ax=None):
@@ -646,6 +654,7 @@ def plot_fit_ssp_spectrophotometry_sl(params, Xspec_data_rest, Yspec_data_rest, 
 
     ax.grid()
     plt.show(block=False)
+    return None
 
 
 def plot_SFH(params, z_obs, subtit, ax=None):
@@ -682,6 +691,7 @@ def plot_SFH(params, z_obs, subtit, ax=None):
     ax.grid()
     # ax.legend()
     # plt.show(block=False)
+    return None
 
 
 def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
