@@ -93,7 +93,7 @@ def mean_sfr(params, z_obs):
     return t_obs, tarr, sfh_gal
 
 
-@partial(jit, static_argnums=2)
+@partial(jit, static_argnums=-1)
 def ssp_spectrum_fromparam(params, z_obs, ssp_file=None):
     """Return the SED of SSP DSPS with original wavelength range wihout and with dust
 
@@ -152,7 +152,7 @@ def _calc_mag(ssp_wls, sed_fnu, filt_wls, filt_transm, z_obs):
     return calc_obs_mag(ssp_wls, sed_fnu, filt_wls, filt_transm, z_obs, *DEFAULT_COSMOLOGY)
 
 
-@partial(jit, static_argnums=3)
+@partial(jit, static_argnums=-1)
 def mean_mags(X, params, z_obs, ssp_file=None):
     """Return the photometric magnitudes for the given filters transmission
     in X : predict the magnitudes in Filters
@@ -167,7 +167,7 @@ def mean_mags(X, params, z_obs, ssp_file=None):
     :type z_obs: float
 
     :param ssp_file: SSP library location
-    :type z_obs: path or str
+    :type ssp_file: path or str
 
     :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
     :rtype: float

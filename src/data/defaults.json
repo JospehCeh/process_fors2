@@ -14,5 +14,68 @@
         "bootstrap_type": "mags",
         "bootstrap_classif": "Star-forming",
         "number_bootstrap": 10
+    },
+    "photoZ": {
+        "Z_GRID": {
+            "z_min": 0.01,
+            "z_max": 3.0,
+            "z_step": 0.1
+        },
+        "WL_GRID": {
+            "lambda_min": 100.0,
+            "lambda_max": 11000.0,
+            "lambda_step": 1.0
+        },
+        "Templates": "/home/chevalier/runProcessFors2/DSPS_pickles_fit_mags+rews_test/fitparams_mags+rews_test_1_to_10.pickle",
+        "Filters": {
+            "0": {
+                "name": "cosmos_u_cfht",
+                "path": "filters/u_cfht.lowres",
+                "transmission": "photons"
+            },
+            "1": {
+                "name": "cosmos_u_new",
+                "path": "filters/u_new.pb",
+                "transmission": "photons"
+            },
+            "2": {
+                "name": "hsc_gHSC",
+                "path": "filters/gHSC.pb",
+                "transmission": "photons"
+            },
+            "3": {
+                "name": "hsc_rHSC",
+                "path": "filters/rHSC.pb",
+                "transmission": "photons"
+            },
+            "4": {
+                "name": "hsc_iHSC",
+                "path": "filters/iHSC.pb",
+                "transmission": "photons"
+            },
+            "5": {
+                "name": "hsc_zHSC",
+                "path": "filters/zHSC.pb",
+                "transmission": "photons"
+            },
+            "6": {
+                "name": "hsc_yHSC",
+                "path": "filters/yHSC.pb",
+                "transmission": "photons"
+            }
+        },
+        "i_band_num": 4,
+        "Dataset": {
+            "path": "COSMOS2020_emu_hscOnly.inp",
+            "type": "F"
+        },
+        "Opacity": "opa/OPACITY.dat",
+        "Estimator": "chi2",
+        "prior": true,
+        "Evidence analysis": false,
+        "z_spec analysis": false,
+        "NMOD": 5,
+        "save results": true,
+        "run name": "process_fors2_pz_COSMOS2020-HSC_only"
     }
 }

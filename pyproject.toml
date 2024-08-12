@@ -34,7 +34,8 @@ dependencies = [
     "jaxopt",
     "dsps",
     "interpax",
-    "arviz"
+    "arviz",
+    "jax_cosmo"
 ]
 
 [project.urls]
