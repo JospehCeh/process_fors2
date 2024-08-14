@@ -532,7 +532,7 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
         ax_phot = ax.twinx()
         label = "Photometry for\n" + subtit
         xphot, yphot, eyphot = Xphot_data_rest, Yphot_data_rest, EYphot_data_rest
-        (l1,) = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
+        l1 = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
         filt_sel = [wlmen in xphot for wlmen in list_wlmean_f_sel]
         filter_tags = [func_strip_name(n) for n in list_name_f_sel[filt_sel]]
         for idx, tag in enumerate(filter_tags):
