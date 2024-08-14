@@ -445,7 +445,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     # ...............................................................................
 
     # xphot , yphot, eyphot = Xphot_data_rest,Yphot_data_rest,EYphot_data_rest
-    (l3,) = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
+    l3 = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
     mean_mag = mean_mags(X, params, z_obs)
     (l4,) = ax_phot.scatter(xphot, mean_mag, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
 
