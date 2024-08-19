@@ -18,7 +18,7 @@ from process_fors2.stellarPopSynthesis import SSPParametersFit, mean_mags, mean_
 _DUMMY_P_ADQ = SSPParametersFit()
 
 BaseTemplate = namedtuple("BaseTemplate", ["name", "flux", "z_sps"])
-SPS_Templates = namedtuple("SPS_Templates", ["name", "redshift", "i_mag", "colors", "nuvk"])
+SPS_Templates = namedtuple("SPS_Templates", ["name", "redshift", "z_grid", "i_mag", "colors", "nuvk"])
 
 
 def read_params(pickle_file):
@@ -42,6 +42,30 @@ def read_params(pickle_file):
 v_mags = vmap(mean_mags, in_axes=(None, None, 0))
 
 
+# @jit
+def calc_nuvk(wls, params_dict, zobs):
+    """calc_nuvk _summary_
+
+    :param wls: _description_
+    :type wls: _type_
+    :param params_dict: _description_
+    :type params_dict: _type_
+    :param zobs: _description_
+    :type zobs: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    from process_fors2.photoZ import NIR_filt, NUV_filt, ab_mag
+
+    rest_sed = mean_spectrum(wls, params_dict, zobs)
+    nuv = ab_mag(NUV_filt.wavelengths, NUV_filt.transmission, wls, rest_sed)
+    nir = ab_mag(NIR_filt.wavelengths, NIR_filt.transmission, wls, rest_sed)
+    return nuv - nir
+
+
+v_nuvk = vmap(calc_nuvk, in_axes=(None, None, 0))
+
+
 def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     """make_sps_templates _summary_
 
@@ -60,30 +84,11 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
-    base_sed = mean_spectrum(wl_grid, params_dict, z_sps)
-    nuvk = calc_nuvk(wl_grid, base_sed)
+    nuvk = v_nuvk(wl_grid, params_dict, redz)
     ab_mags = v_mags(filt_tup, params_dict, redz)
     colors = ab_mags[:, :-1] - ab_mags[:, 1:]
     i_mag = ab_mags[:, id_imag]
-    return SPS_Templates(name, redz, i_mag, colors, nuvk)
-
-
-# @jit
-def calc_nuvk(wls, rest_sed):
-    """calc_nuvk _summary_
-
-    :param wls: _description_
-    :type wls: _type_
-    :param rest_sed: _description_
-    :type rest_sed: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    from process_fors2.photoZ import NIR_filt, NUV_filt, ab_mag
-
-    nuv = ab_mag(NUV_filt.wavelengths, NUV_filt.transmission, wls, rest_sed)
-    nir = ab_mag(NIR_filt.wavelengths, NIR_filt.transmission, wls, rest_sed)
-    return nuv - nir
+    return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
 
 
 """OLD FUNCTIONS FOR REFERENCE

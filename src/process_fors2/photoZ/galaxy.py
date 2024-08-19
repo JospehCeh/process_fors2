@@ -78,7 +78,7 @@ def z_prior_val(i_mag, zp, nuvk):
     return val_prior
 
 
-vmap_nz_prior = vmap(z_prior_val, in_axes=(None, 0, None))  # vmap version to compute the prior value for a certain observation and a certain SED template at all redshifts
+vmap_nz_prior = vmap(z_prior_val, in_axes=(None, 0, 0))  # vmap version to compute the prior value for a certain observation and a certain SED template at all redshifts
 
 
 @jit
@@ -105,7 +105,7 @@ def val_neg_log_posterior(z_val, templ_cols, gal_cols, gel_colerrs, gal_iab, tem
     return jnp.sum(_chi) / len(_chi) - 2 * jnp.log(_prior)
 
 
-vmap_neg_log_posterior = vmap(val_neg_log_posterior, in_axes=(0, 0, None, None, None, None))
+vmap_neg_log_posterior = vmap(val_neg_log_posterior, in_axes=(0, 0, None, None, None, 0))
 
 
 # @jit
@@ -120,7 +120,7 @@ def neg_log_posterior(sps_temp, obs_gal):
     :rtype: _type_
     """
     _sel = obs_gal.valid_colors
-    return vmap_neg_log_posterior(sps_temp.redshift, sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel], obs_gal.ref_i_AB, sps_temp.nuvk)
+    return vmap_neg_log_posterior(sps_temp.z_grid, sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel], obs_gal.ref_i_AB, sps_temp.nuvk)
 
 
 @jit

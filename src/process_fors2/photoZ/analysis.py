@@ -37,7 +37,7 @@ Reminder :
 Cosmo = namedtuple('Cosmo', ['h0', 'om0', 'l0', 'omt'])
 sedpyFilter = namedtuple('sedpyFilter', ['name', 'wavelengths', 'transmission'])
 BaseTemplate = namedtuple('BaseTemplate', ['name', 'flux', 'z_sps'])
-SPS_Templates = namedtuple('SPS_Templates', ['name', 'redshift', 'i_mag', 'colors', 'nuvk'])
+SPS_Templates = namedtuple('SPS_Templates', ['name', 'redshift', 'z_grid', 'i_mag', 'colors', 'nuvk'])
 Observation = namedtuple('Observation', ['num', 'AB_fluxes', 'AB_f_errors', 'z_spec'])
 DustLaw = namedtuple('DustLaw', ['name', 'EBV', 'transmission'])
 """
