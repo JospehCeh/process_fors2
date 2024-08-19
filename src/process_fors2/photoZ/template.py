@@ -10,10 +10,12 @@ Created on Thu Aug 1 12:59:33 2024
 
 import pickle
 from collections import namedtuple
+from functools import partial
 
-from jax import vmap
+from jax import jit, tree_map, vmap
+from jax import numpy as jnp
 
-from process_fors2.stellarPopSynthesis import SSPParametersFit, mean_mags, mean_spectrum, paramslist_to_dict
+from process_fors2.stellarPopSynthesis import SSPParametersFit, mean_spectrum, paramslist_to_dict, ssp_spectrum_fromparam
 
 _DUMMY_P_ADQ = SSPParametersFit()
 
@@ -39,7 +41,47 @@ def read_params(pickle_file):
     return new_dict
 
 
-v_mags = vmap(mean_mags, in_axes=(None, None, 0))
+@partial(jit, static_argnums=-1)
+def templ_mags(X, params, z_obs, ssp_file=None):
+    """Return the photometric magnitudes for the given filters transmission
+    in X : predict the magnitudes in Filters
+
+    :param X: Tuple of filters to be used (Galex, SDSS, Vircam)
+    :type X: a 2-tuple of lists (one element is a list of wavelengths and the other is a list of corresponding transmissions - each element of these lists corresponds to a filter).
+
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+
+    :param z_obs: redshift of the observations
+    :type z_obs: float
+
+    :param ssp_file: SSP library location
+    :type ssp_file: path or str
+
+    :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
+    :rtype: float
+
+    """
+
+    # get the restframe spectra without and with dust attenuation
+    from dsps import calc_obs_mag, calc_rest_mag
+    from dsps.cosmology import DEFAULT_COSMOLOGY
+
+    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_file)
+
+    # decode the two lists
+    list_wls_filters = X[0]
+    list_transm_filters = X[1]
+
+    obs_mags = tree_map(lambda x, y: calc_obs_mag(ssp_wave, sed_attenuated, x, y, z_obs, *DEFAULT_COSMOLOGY), list_wls_filters[:-2], list_transm_filters[:-2])
+    rest_mags = tree_map(lambda x, y: calc_rest_mag(ssp_wave, sed_attenuated, x, y), list_wls_filters[-2:], list_transm_filters[-2:])
+
+    mags_predictions = jnp.concatenate((jnp.array(obs_mags), jnp.array(rest_mags)))
+
+    return mags_predictions
+
+
+v_mags = vmap(templ_mags, in_axes=(None, None, 0))
 
 
 # @jit
@@ -84,11 +126,11 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
-    # nuvk = v_nuvk(wl_grid, params_dict, redz)
-    ab_mags = v_mags(filt_tup, params_dict, redz)
-    nuvk = ab_mags[:, -2] - ab_mags[:, -1]
-    colors = ab_mags[:, :-3] - ab_mags[:, 1:-2]
-    i_mag = ab_mags[:, id_imag]
+    nuvk = v_nuvk(wl_grid, params_dict, redz)
+    template_mags = v_mags(filt_tup, params_dict, redz)
+    nuvk = template_mags[:, -2] - template_mags[:, -1]
+    colors = template_mags[:, :-3] - template_mags[:, 1:-2]
+    i_mag = template_mags[:, id_imag]
     return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
 
 
