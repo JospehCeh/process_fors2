@@ -184,11 +184,11 @@
         "Z_GRID": {
             "z_min": 0.01,
             "z_max": 3.0,
-            "z_step": 0.2
+            "z_step": 0.1
         },
         "WL_GRID": {
             "lambda_min": 100.0,
-            "lambda_max": 11000.0,
+            "lambda_max": 25100.0,
             "lambda_step": 1.0
         },
         "Templates": "/home/chevalier/runProcessFors2/DSPS_pickles_fit_mags+rews_test/fitparams_mags+rews_test_1_to_10.pickle",

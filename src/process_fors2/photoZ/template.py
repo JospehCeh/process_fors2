@@ -126,7 +126,7 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
-    nuvk = v_nuvk(wl_grid, params_dict, redz)
+    # nuvk = v_nuvk(wl_grid, params_dict, redz)
     template_mags = v_mags(filt_tup, params_dict, redz)
     nuvk = template_mags[:, -2] - template_mags[:, -1]
     colors = template_mags[:, :-3] - template_mags[:, 1:-2]
