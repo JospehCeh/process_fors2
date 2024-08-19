@@ -66,7 +66,7 @@ def load_data_for_run(inputs):
     :return: _description_
     :rtype: _type_
     """
-    from process_fors2.photoZ import DATALOC, Observation, get_2lists, load_filt, load_galaxy, make_sps_templates, read_params, sedpyFilter
+    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, Observation, get_2lists, load_filt, load_galaxy, make_sps_templates, read_params, sedpyFilter
 
     z_grid = jnp.arange(inputs["Z_GRID"]["z_min"], inputs["Z_GRID"]["z_max"] + inputs["Z_GRID"]["z_step"], inputs["Z_GRID"]["z_step"])
 
@@ -76,8 +76,8 @@ def load_data_for_run(inputs):
     for _f in filters_dict:
         filters_dict[_f]["path"] = os.path.abspath(os.path.join(DATALOC, filters_dict[_f]["path"]))
     print("Loading filters :")
-    filters_arr = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict))
-    N_FILT = len(filters_arr)
+    filters_arr = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict)) + (NUV_filt, NIR_filt)
+    N_FILT = len(filters_arr) - 2
     # print(f"DEBUG: filters = {filters_arr}")
 
     print("Building templates :")
@@ -147,7 +147,7 @@ def load_data_for_analysis(conf_json):
     :rtype: _type_
     """
     inputs = json_to_inputs(conf_json)
-    from process_fors2.photoZ import DATALOC, Observation, get_2lists, load_filt, load_galaxy, make_jcosmo, make_sps_templates, read_params, sedpyFilter
+    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, Observation, get_2lists, load_filt, load_galaxy, make_jcosmo, make_sps_templates, read_params, sedpyFilter
 
     cosmo = make_jcosmo(inputs["Cosmology"]["h0"])
     # cosmo = Cosmo(
@@ -167,8 +167,8 @@ def load_data_for_analysis(conf_json):
     filters_dict = inputs["Filters"]
     for _f in filters_dict:
         filters_dict[_f]["path"] = os.path.abspath(os.path.join(DATALOC, filters_dict[_f]["path"]))
-    filters_arr = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in filters_dict)
-    N_FILT = len(filters_arr)
+    filters_arr = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict)) + (NUV_filt, NIR_filt)
+    N_FILT = len(filters_arr) - 2
 
     named_filters = tuple(sedpyFilter(*load_filt(filters_dict[ident]["name"], filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict))
 
@@ -244,7 +244,7 @@ def load_data_for_analysis(conf_json):
             obs_arr.extend([observ])
         except AssertionError:
             pass
-    return cosmo, z_grid, fine_z_grid, wl_grid, filters_arr, named_filters, templ_dict, obs_arr
+    return cosmo, z_grid, fine_z_grid, wl_grid, filters_arr[:-2], named_filters, templ_dict, obs_arr
 
 
 """Functions not in use at the moment : mostly marginalisations of any combination of bust law, E(B-V), SED template, redshift.
