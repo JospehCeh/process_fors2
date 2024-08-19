@@ -184,7 +184,7 @@
         "Z_GRID": {
             "z_min": 0.01,
             "z_max": 3.0,
-            "z_step": 0.1
+            "z_step": 0.2
         },
         "WL_GRID": {
             "lambda_min": 100.0,

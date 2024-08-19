@@ -30,7 +30,7 @@ import jax
 # from jax import debug
 # from jax import numpy as jnp
 # from tqdm import tqdm
-from process_fors2.photoZ import Observation, extract_pdz, json_to_inputs, load_data_for_run, neg_log_likelihood, neg_log_posterior
+from process_fors2.photoZ import Observation, SPS_Templates, extract_pdz, json_to_inputs, load_data_for_run, neg_log_likelihood, neg_log_posterior
 
 
 def main(args):
@@ -73,16 +73,16 @@ def main(args):
         :return: _description_
         :rtype: _type_
         """
-        return isinstance(cont, tuple)
+        return isinstance(cont, SPS_Templates)
 
     # @partial(jit, static_argnums=(1,2))
     def estim_zp(observ, prior=True):
         # c = observ.AB_colors[observ.valid_colors]
         # c_err = observ.AB_colerrs[observ.valid_colors]
         if prior and observ.valid_filters[inputs["i_band_num"]]:
-            chi2_dict = jax.tree_map(lambda templ_tup: neg_log_posterior(templ_tup, observ), templates_dict, is_leaf=has_sps_template)
+            chi2_dict = jax.tree_map(lambda sps_templ: neg_log_posterior(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
         else:
-            chi2_dict = jax.tree_map(lambda templ_tup: neg_log_likelihood(templ_tup, observ), templates_dict, is_leaf=has_sps_template)
+            chi2_dict = jax.tree_map(lambda sps_templ: neg_log_likelihood(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
         # z_phot_loc = jnp.nanargmin(chi2_arr)
         return chi2_dict, observ.z_spec  # chi2_arr, z_phot_loc
 

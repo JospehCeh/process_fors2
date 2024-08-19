@@ -36,7 +36,8 @@ from process_fors2.stellarPopSynthesis import has_redshift
 Reminder :
 Cosmo = namedtuple('Cosmo', ['h0', 'om0', 'l0', 'omt'])
 sedpyFilter = namedtuple('sedpyFilter', ['name', 'wavelengths', 'transmission'])
-BaseTemplate = namedtuple('BaseTemplate', ['name', 'flux'])
+BaseTemplate = namedtuple('BaseTemplate', ['name', 'flux', 'z_sps'])
+SPS_Templates = namedtuple('SPS_Templates', ['name', 'redshift', 'i_mag', 'colors', 'nuvk'])
 Observation = namedtuple('Observation', ['num', 'AB_fluxes', 'AB_f_errors', 'z_spec'])
 DustLaw = namedtuple('DustLaw', ['name', 'EBV', 'transmission'])
 """
@@ -121,7 +122,7 @@ def extract_pdz(chi2_res, z_grid):
     """
     chi2_dict = chi2_res[0]
     zs = chi2_res[1]
-    chi2_arr = jnp.array([chi2_templ for templ, chi2_templ in chi2_dict.items()])
+    chi2_arr = jnp.array([chi2_templ for _, chi2_templ in chi2_dict.items()])
     _n1 = jnp.max(chi2_arr)
     chi2_arr = 10 * chi2_arr / _n1
     exp_arr = jnp.exp(-0.5 * chi2_arr)

@@ -109,18 +109,18 @@ vmap_neg_log_posterior = vmap(val_neg_log_posterior, in_axes=(0, 0, None, None, 
 
 
 # @jit
-def neg_log_posterior(templ_tup, obs_gal):
+def neg_log_posterior(sps_temp, obs_gal):
     """neg_log_posterior _summary_
 
-    :param templ_tup: _description_
-    :type templ_tup: _type_
+    :param sps_temp: _description_
+    :type sps_temp: _type_
     :param obs_gal: _description_
     :type obs_gal: _type_
     :return: _description_
     :rtype: _type_
     """
     _sel = obs_gal.valid_colors
-    return vmap_neg_log_posterior(templ_tup[1].redshift, templ_tup[1].colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel], obs_gal.ref_i_AB, templ_tup[1].nuvk)
+    return vmap_neg_log_posterior(sps_temp.redshift, sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel], obs_gal.ref_i_AB, sps_temp.nuvk)
 
 
 @jit
@@ -144,18 +144,18 @@ vmap_neg_log_likelihood = vmap(val_neg_log_likelihood, in_axes=(0, None, None))
 
 
 # @jit
-def neg_log_likelihood(templ_tup, obs_gal):
+def neg_log_likelihood(sps_temp, obs_gal):
     """neg_log_likelihood _summary_
 
-    :param templ_tup: _description_
-    :type templ_tup: _type_
+    :param sps_temp: _description_
+    :type sps_temp: _type_
     :param obs_gal: _description_
     :type obs_gal: _type_
     :return: _description_
     :rtype: _type_
     """
     _sel = obs_gal.valid_colors
-    return vmap_neg_log_likelihood(templ_tup[1].colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
+    return vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
 
 
 ## Old functions for reference:

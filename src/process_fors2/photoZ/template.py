@@ -65,7 +65,7 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     ab_mags = v_mags(filt_tup, params_dict, redz)
     colors = ab_mags[:, :-1] - ab_mags[:, 1:]
     i_mag = ab_mags[:, id_imag]
-    return BaseTemplate(name, base_sed, z_sps), SPS_Templates(name, redz, i_mag, colors, nuvk)
+    return SPS_Templates(name, redz, i_mag, colors, nuvk)
 
 
 # @jit
