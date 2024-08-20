@@ -17,6 +17,7 @@
 import copy
 import os
 import pickle
+import subprocess
 from collections import OrderedDict
 
 import jax
@@ -28,7 +29,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from tqdm import tqdm
 
-from process_fors2.analysis import convert_flux_torestframe, get_fnu, get_fnu_clean, get_gelmod
+from process_fors2.analysis import bpt_classif, convert_flux_torestframe, get_fnu, get_fnu_clean, get_gelmod
 from process_fors2.fetchData import gelato_xmatch_todict
 
 from .dsps_params import SSPParametersFit
@@ -1106,31 +1107,63 @@ def main(args):
     _ssp_file = None if inputs["ssp_file"].lower() == "default" else os.path.abspath(inputs["ssp_file"])
 
     if inputs["bootstrap"]:
-        dict_fors2_for_fit, fit_results_dict = fit_bootstrap(
-            xmatchh5,
-            gelatoh5,
-            [inputs["bootstrap_id"]],
-            n_fits=inputs["number_bootstrap"],
-            bs_type=inputs["bootstrap_type"],
-            fit_type=_fit_type,
-            ssp_file=_ssp_file,
-            weight_mag=_weight_mag,
-            remove_visible=inputs["remove_visible"],
-            remove_galex=inputs["remove_galex"],
-            remove_galex_fuv=inputs["remove_fuv"],
-        )
-
-        fitname = _fit_type
-
+        concat_dicts = {}
         outdir = os.path.abspath("./DSPS_pickles_bootstraps")
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
+        merged_attrs = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=True)
+        mags_tags = filter_tags(merged_attrs, inputs["remove_visible"], inputs["remove_galex"], inputs["remove_fuv"])
+        classif_tags = []
+        classif_tgt = inputs["bootstrap_classif"]  # "Composite", "LINER", "Seyferts", "Star-forming" ou "NC"
+        for tag, dictag in merged_attrs.items():
+            if dictag["Classification"].lower() == classif_tgt.lower():
+                classif_tags.append(tag)
+        classif_tags = np.array(classif_tags)
+        list_tags = np.intersect1d(mags_tags, classif_tags)
+        # list_tags = [inputs["bootstrap_id"]]
+        for wgt in _weight_mag:
+            dict_fors2_for_fit, fit_results_dict = fit_bootstrap(
+                xmatchh5,
+                gelatoh5,
+                list_tags,
+                n_fits=inputs["number_bootstrap"],
+                bs_type=inputs["bootstrap_type"],
+                fit_type=_fit_type,
+                ssp_file=_ssp_file,
+                weight_mag=wgt,
+                remove_visible=inputs["remove_visible"],
+                remove_galex=inputs["remove_galex"],
+                remove_galex_fuv=inputs["remove_fuv"],
+            )
 
-        _ = make_bootstrap_plot(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname)
+            fitname = f"{_fit_type}_wmags{wgt:.1f}"
+            concat_dicts.update({f"{fitname}": fit_results_dict})
 
-        filename_params = os.path.join(outdir, f"bootstrap_params_{inputs['bootstrap_id']}_{fitname}.pickle")
+            _ = make_bootstrap_plot(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname)
+
+        for tag in tqdm(list_tags):
+            subprocess.run(
+                [
+                    "montage",
+                    "-tile",
+                    f"1x{len(_weight_mag)}",
+                    "-geometry",
+                    "+2+2",
+                    os.path.join(outdir, f"bootstrap_plot_{tag}_mags_w*.png"),
+                    os.path.join(outdir, f"bootstrap_{len(_weight_mag)}plots_{tag}.png"),
+                ]
+            )
+        filename_params = os.path.join(outdir, f"bootstrap_params_{classif_tgt}_FUV-{not inputs['remove_fuv']}_NUV-{not inputs['remove_galex']}_KiDS-{not inputs['remove_visible']}.pickle")
+        # filename_params = os.path.join(outdir, f"bootstrap_params_{inputs['bootstrap_id']}_{fitname}.pickle")
         with open(filename_params, "wb") as outf:
-            pickle.dump(fit_results_dict, outf)
+            pickle.dump(concat_dicts, outf)
+        subprocess.run(
+            [
+                "convert",
+                os.path.join(outdir, f"bootstrap_{len(_weight_mag)}plots_*.png"),
+                os.path.join(outdir, f"bootstrap_plots_{len(list_tags)}GALS_{classif_tgt}_FUV-{not inputs['remove_fuv']}_NUV-{not inputs['remove_galex']}_KiDS-{not inputs['remove_visible']}.pdf"),
+            ]
+        )
     else:
         _useclean = inputs["use_clean"]  # Only for fit on spectra
         _low = inputs["first_spec"]
