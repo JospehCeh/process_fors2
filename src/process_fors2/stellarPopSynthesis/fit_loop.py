@@ -1149,7 +1149,7 @@ def main(args):
                     f"1x{len(_weight_mag)}",
                     "-geometry",
                     "+2+2",
-                    os.path.join(outdir, f"bootstrap_plot_{tag}_mags_w*.png"),
+                    os.path.join(outdir, f"bootstrap_plot_{tag}_{_fit_type}_wmags*.png"),
                     os.path.join(outdir, f"bootstrap_{len(_weight_mag)}plots_{tag}.png"),
                 ]
             )
