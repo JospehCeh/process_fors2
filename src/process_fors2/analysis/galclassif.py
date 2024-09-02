@@ -240,11 +240,31 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
     res_table["u-g"] = res_table["MAG_GAAP_u"] - res_table["MAG_GAAP_g"]
     res_table["r-i"] = res_table["MAG_GAAP_r"] - res_table["MAG_GAAP_i"]
 
-    res_table["log([OIII]/[Hb])"] = np.log10(res_table["AGN_[OIII]_5008.24_REW"] / res_table["Balmer_HI_4862.68_REW"])
-    res_table["log([NII]/[Ha])"] = np.log10(res_table["AGN_[NII]_6585.27_REW"] / res_table["Balmer_HI_6564.61_REW"])
-    res_table["log([SII]/[Ha])"] = np.log10(res_table["AGN_[SII]_6718.29_REW"] / res_table["Balmer_HI_6564.61_REW"])
-    res_table["log([OI]/[Ha])"] = np.log10(res_table["SF_[OI]_6302.046_REW"] / res_table["Balmer_HI_6564.61_REW"])
-    res_table["log([OIII]/[OII])"] = np.log10(res_table["AGN_[OIII]_5008.24_REW"] / res_table["SF_[OII]_3728.48_REW"])
+    # _sel_oiii = np.logical_and(res_table["AGN_[OIII]_5008.24_REW"] > 0., res_table["Balmer_HI_4862.68_REW"] > 0.)
+    # _sel_nii = np.logical_and(res_table["AGN_[NII]_6585.27_REW"] > 0., res_table["Balmer_HI_6564.61_REW"] > 0.)
+    # _sel_sii = np.logical_and(res_table["AGN_[SII]_6718.29_REW"] > 0., res_table["Balmer_HI_6564.61_REW"] > 0.)
+    # _sel_oi = np.logical_and(res_table["SF_[OI]_6302.046_REW"] > 0., res_table["Balmer_HI_6564.61_REW"] > 0.)
+    # _sel_oii = np.logical_and(res_table["AGN_[OIII]_5008.24_REW"] > 0., res_table["SF_[OII]_3728.48_REW"] > 0.)
+
+    res_table["log([OIII]/[Hb])"] = np.where(
+        res_table["AGN_[OIII]_5008.24_REW"] > 0.0 and res_table["Balmer_HI_4862.68_REW"] > 0.0, np.log10(res_table["AGN_[OIII]_5008.24_REW"] / res_table["Balmer_HI_4862.68_REW"]), np.nan
+    )
+
+    res_table["log([NII]/[Ha])"] = np.where(
+        res_table["AGN_[NII]_6585.27_REW"] > 0.0 and res_table["Balmer_HI_6564.61_REW"] > 0.0, np.log10(res_table["AGN_[NII]_6585.27_REW"] / res_table["Balmer_HI_6564.61_REW"]), np.nan
+    )
+
+    res_table["log([SII]/[Ha])"] = np.where(
+        res_table["AGN_[SII]_6718.29_REW"] > 0.0 and res_table["Balmer_HI_6564.61_REW"] > 0.0, np.log10(res_table["AGN_[SII]_6718.29_REW"] / res_table["Balmer_HI_6564.61_REW"]), np.nan
+    )
+
+    res_table["log([OI]/[Ha])"] = np.where(
+        res_table["SF_[OI]_6302.046_REW"] > 0.0 and res_table["Balmer_HI_6564.61_REW"] > 0.0, np.log10(res_table["SF_[OI]_6302.046_REW"] / res_table["Balmer_HI_6564.61_REW"]), np.nan
+    )
+
+    res_table["log([OIII]/[OII])"] = np.where(
+        res_table["AGN_[OIII]_5008.24_REW"] > 0.0 and res_table["SF_[OII]_3728.48_REW"] > 0, np.log10(res_table["AGN_[OIII]_5008.24_REW"] / res_table["SF_[OII]_3728.48_REW"]), np.nan
+    )
 
     cat_nii = []
     for x, y in zip(res_table["log([NII]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
