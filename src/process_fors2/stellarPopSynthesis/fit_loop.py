@@ -150,6 +150,62 @@ def fit_mags(data_dict, ssp_file=None):
     return dict_out
 
 
+def fit_colidx(data_dict, ssp_file=None):
+    """
+    Function to fit SPS on magnitudes with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    # data_dict = dict_fors2_for_fit[tag]
+    # fit with all magnitudes
+    from process_fors2.stellarPopSynthesis import lik_colidx
+
+    lbfgsb_colidx = jaxopt.ScipyBoundedMinimize(fun=lik_colidx, method="L-BFGS-B", maxiter=5000)
+    res_c = lbfgsb_colidx.run(
+        init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
+    )
+
+    """
+    params_m, fun_min_m, jacob_min_m, inv_hessian_min_m = get_infos_mag(res_m,\
+                                                                        lik_mag,\
+                                                                        xf = data_dict["filters"],\
+                                                                        mgs = data_dict["mags"],\
+                                                                        mgse = data_dict["mags_err"],\
+                                                                        z_obs=data_dict["redshift"])
+    """
+
+    # Convert fitted parameters into a dictionnary
+    params_c = res_c.params
+
+    # plot SFR
+    # f, a = plt.subplots(1, 2)
+    # plot_SFH(dict_params_m, data_dict["redshift"], subtit = data_dict["title"], ax=a[0])
+    # plot_fit_ssp_spectrophotometry(dict_params_m,
+    #                               data_dict["wavelengths"], data_dict["fnu"], data_dict["fnu_err"],
+    #                               data_dict["filters"], data_dict["wl_mean_filters"], data_dict["mags"], data_dict["mags_err"],
+    #                               data_dict["redshift"], data_dict["title"], ax=a[1])
+
+    # save to dictionary
+    dict_out = OrderedDict()
+    # dict_out["fors2name"] = tag
+    # dict_out["zobs"] = data_dict["redshift"]
+    # dict_out["funcmin_m"] = fun_min_m
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_c, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
 def fit_spec(data_dict, ssp_file=None):
     """
     Function to fit SPS on spectrum with DSPS.
@@ -280,6 +336,54 @@ def fit_mags_and_rew(data_dict, weight_mag=0.5, ssp_file=None):
     from process_fors2.stellarPopSynthesis import lik_mag_rew
 
     lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=5000)
+    surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
+    # Removed the argument surwls from the REW likelihood to try and fix crashes.
+    res_comb = lbfgsb_comb.run(
+        init_params,
+        bounds=(params_min, params_max),
+        xf=data_dict["filters"],
+        mags_measured=data_dict["mags"],
+        sigma_mag_obs=data_dict["mags_err"],
+        surwls=surechwls,
+        rews_wls=data_dict["rews_wls"],
+        rews=data_dict["rews"],
+        rews_err=data_dict["rews_err"],
+        z_obs=data_dict["redshift"],
+        weight_mag=weight_mag,
+        ssp_file=ssp_file,
+    )
+
+    # Convert fitted parameters into a dictionnary
+    params_comb = res_comb.params
+    # save to dictionary
+    dict_out = OrderedDict()
+
+    # convert into a dictionnary
+    dict_out.update({"fit_params": params_comb, "zobs": data_dict["redshift"]})
+    return dict_out
+
+
+def fit_colidx_and_rew(data_dict, weight_mag=0.5, ssp_file=None):
+    """
+    Function to fit SPS on both observed magnitudes and rest equivalent widths with DSPS.
+
+    Parameters
+    ----------
+    data_dict : dictionary
+        Dictionary with properties (filters, photometry and redshift) of an individual galaxy - *i.e.* a leaf of the global dictionary (tree).
+    weight_mag : float, optional
+        Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+
+    Returns
+    -------
+    dictionary
+        Dictionary containing all fitted SPS parameters, from which one can synthesize the SFH and the correponding SED with DSPS.
+    """
+    from process_fors2.stellarPopSynthesis import lik_colidx_rew
+
+    lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_colidx_rew, method="L-BFGS-B", maxiter=5000)
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_comb = lbfgsb_comb.run(
@@ -788,10 +892,12 @@ def fit_loop(
     fit_type : str, optional
         Data to fit the SPS on. Must be one of :
             - 'mags' to fit on KiDS+VIKING+GALEX photometry
+            - 'cols' to fit on KiDS+VIKING+GALEX photometry (color indices)
             - 'spec' to fit on spectral density of flux
             - 'lines' to fit on spectral emission/absorption lines (_i.e._ the spectral density of flux after removal of the continuum as detected by GELATO)
             - 'gelato' to fit on the model output from GELATO (incl. SSP, lines and power law continuum) directly instead of the raw spectrum (*e.g.* FORS2)
-            - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO.
+            - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO
+            - 'cols+rews' to fit on both color indices and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`
             - 'mags+rews' to fit on both magnitudes and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`.
         The default is 'mags'.
     use_clean : bool, optional
@@ -865,6 +971,14 @@ def fit_loop(
         if not quiet:
             print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
         fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "col" in fit_type.lower() and "rew" in fit_type.lower():
+        if not quiet:
+            print("Fitting SPS on observed color indices and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_colidx_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+    elif "col" in fit_type.lower():
+        if not quiet:
+            print("Fitting SPS on observed color indices... it may take (more than) a few minutes, please be patient.")
+        fit_results_dict = jax.tree_map(lambda dico: fit_colidx(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
@@ -895,8 +1009,10 @@ def fit_bootstrap(
     fit_type : str, optional
         Data to fit the SPS on. Must be one of :
             - 'mags' to fit on KiDS+VIKING+GALEX photometry
+            - 'cols' to fit on KiDS+VIKING+GALEX photometry (color indices)
             - 'rews' to fit on Restframe Equivalent Widths of spectral emission/absorption lines as detected and computed by GELATO.
-            - 'mags+rews' to fit on both magnitudes and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`.
+            - 'mags+rews' to fit on both magnitudes and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`,
+            - 'cols+rews' to fit on both color indices and Restframe Equivalent Widths. The weight associated to each likelihood can be controlled with the optional parameter `weight_mag`.
         The default is 'mags'.
     n_fits : int, optional
         Number of bootstrap samples to draw. The default is 10.
@@ -946,6 +1062,14 @@ def fit_bootstrap(
             if not quiet:
                 print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
             fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+        elif "col" in fit_type.lower() and "rew" in fit_type.lower():
+            if not quiet:
+                print("Fitting SPS on observed color indices and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+            fit_results_dict = jax.tree_map(lambda dico: fit_colidx_and_rew(dico, weight_mag, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
+        elif "col" in fit_type.lower():
+            if not quiet:
+                print("Fitting SPS on observed color indices... it may take (more than) a few minutes, please be patient.")
+            fit_results_dict = jax.tree_map(lambda dico: fit_colidx(dico, ssp_file), dict_fors2_for_fit, is_leaf=has_redshift)
         elif "rew" in fit_type.lower():
             if not quiet:
                 print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
