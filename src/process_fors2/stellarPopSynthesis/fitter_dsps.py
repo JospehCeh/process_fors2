@@ -188,6 +188,29 @@ def mean_mags(X, params, z_obs, ssp_file=None):
     return mags_predictions
 
 
+@partial(jit, static_argnums=-1)
+def mean_colors(X, params, z_obs, ssp_file=None):
+    """mean_colors returns the photometric magnitudes for the given filters transmission in X : predict the magnitudes in filters
+
+    :param X: Tuple of filters to be used (Galex, SDSS, Vircam)
+    :type X: a 2-tuple of lists (one element is a list of wavelengths and the other is a list of corresponding transmissions - each element of these lists corresponds to a filter).
+
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+
+    :param z_obs: redshift of the observations
+    :type z_obs: float
+
+    :param ssp_file: SSP library location
+    :type ssp_file: path or str
+
+    :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
+    :rtype: float
+    """
+    mags = mean_mags(X, params, z_obs, ssp_file=None)
+    return mags[:-1] - mags[1:]
+
+
 '''
 @jit
 def mean_ugri_sedpy(X, params, z_obs):
@@ -510,6 +533,23 @@ def lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
     return jnp.sum((resid / sigma_mag_obs) ** 2)
 
 
+@partial(jit, static_argnums=-1)
+def lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
+    """
+    neg loglikelihood(parameters,x,y,sigmas) for the photometry
+    """
+
+    params = {name: p[k] for k, name in enumerate(_DUMMY_P_ADQ.PARAM_NAMES_FLAT)}
+
+    cols_msr = mags_measured[:-1] - mags_measured[1:]
+    sigma_cols = jnp.power(jnp.power(sigma_mag_obs[:-1], 2) + jnp.power(sigma_mag_obs[1:], 2), 0.5)
+
+    all_cols_predictions = mean_colors(xf, params, z_obs, ssp_file)
+    resid = cols_msr - all_cols_predictions
+
+    return jnp.sum((resid / sigma_cols) ** 2)
+
+
 '''
 @jit
 def lik_ugri_sedpy(p, xf, mags_measured, sigma_mag_obs, z_obs):
@@ -582,6 +622,48 @@ def lik_mag_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rew
 
     resid_spec = lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file)
     resid_phot = lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file)
+
+    return weight_mag * resid_phot + (1 - weight_mag) * resid_spec
+
+
+@partial(jit, static_argnums=-1)
+def lik_colidx_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rews_err, z_obs, weight_mag=0.5, ssp_file=None):
+    r"""
+    neg loglikelihood(parameters,xc,yc,sigmasc) combining the lines rest equivalent widths and the photometry
+
+    Parameters
+    ----------
+    p : array
+        SPS parameters' values - should be an output of a fitting procedure, *e.g.* `results.params`.
+    xf : 2-tuple of lists
+        Filters in which the photometry is taken. First element of the 2-tuple is the list of arrays of wavelengths for each filter, second element is the list of arrays of corresponding transmission.
+    mags_measured : array of float
+        AB-magnitudes for reference (observations to fit).
+    sigma_mag_obs : array of float
+        Errors (std dev) on reference AB mags.
+    surwls : array
+        Wavelengths in angstrom - should be oversampled so that spectral lines can be sampled with a sufficiently high resolution (step of 0.1 angstrom is recommended)
+    rews_wls : array
+        Central wavelengths (in angstrom) of lines to be studied.
+    rews : array
+        Reference values of equivalent widths of the studied lines.
+    rews_err : array
+        Dispersions of the reference equivalent widths of the studied lines.
+    z_obs : int or float
+        Redshift of the object.
+    weight_mag : float, optional
+        Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
+    ssp_file : path or str, optional
+        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+
+    Returns
+    -------
+    float
+        Value of the negative log-likelihood ($\Chi^2$).
+    """
+
+    resid_spec = lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file)
+    resid_phot = lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file)
 
     return weight_mag * resid_phot + (1 - weight_mag) * resid_spec
 

@@ -30,7 +30,23 @@ from .fit_loop import (
     prepare_data_dict,
 )
 from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
-from .fitter_dsps import calc_eqw, lik_lines, lik_mag, lik_mag_partial, lik_mag_rew, lik_rew, lik_spec, mean_lines, mean_mags, mean_sfr, mean_spectrum, ssp_spectrum_fromparam
+from .fitter_dsps import (
+    calc_eqw,
+    lik_colidx,
+    lik_colidx_rew,
+    lik_lines,
+    lik_mag,
+    lik_mag_partial,
+    lik_mag_rew,
+    lik_rew,
+    lik_spec,
+    mean_colors,
+    mean_lines,
+    mean_mags,
+    mean_sfr,
+    mean_spectrum,
+    ssp_spectrum_fromparam,
+)
 
 __all__ = [
     "FilterInfo",
@@ -42,6 +58,7 @@ __all__ = [
     "lik_mag_partial",
     "ssp_spectrum_fromparam",
     "mean_mags",
+    "mean_colors",
     "mean_sfr",
     "mean_spectrum",
     "mean_lines",
@@ -50,6 +67,8 @@ __all__ = [
     "lik_rew",
     "lik_lines",
     "lik_mag_rew",
+    "lik_colidx",
+    "lik_colidx_rew",
     "plot_fit_ssp_spectroscopy",
     "plot_fit_ssp_spectrophotometry",
     "plot_bootstrap_ssp_spectrophotometry",
