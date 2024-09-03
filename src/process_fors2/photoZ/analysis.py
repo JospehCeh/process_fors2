@@ -22,7 +22,6 @@
 #
 
 
-import json
 import os
 
 import jax
@@ -30,6 +29,7 @@ import numpy as np
 from jax import numpy as jnp
 from tqdm import tqdm
 
+from process_fors2.fetchData import json_to_inputs
 from process_fors2.stellarPopSynthesis import has_redshift
 
 """
@@ -43,19 +43,6 @@ DustLaw = namedtuple('DustLaw', ['name', 'EBV', 'transmission'])
 """
 
 # conf_json = 'EmuLP/COSMOS2020-with-FORS2-HSC_only-jax-CC-togglePriorTrue-opa.json' # attention à la localisation du fichier !
-
-
-def json_to_inputs(conf_json):
-    """json_to_inputs _summary_
-
-    :param conf_json: _description_
-    :type conf_json: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    with open(conf_json, "r") as inpfile:
-        inputs = json.load(inpfile)
-    return inputs["photoZ"]
 
 
 def load_data_for_run(inputs):

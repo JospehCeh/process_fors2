@@ -1,4 +1,4 @@
-from .analysis import extract_pdz, json_to_inputs, load_data_for_run
+from .analysis import extract_pdz, load_data_for_run
 from .cosmology import DATALOC, Cosmo, make_jcosmo, nz_prior_core, prior_alpt0, prior_ft, prior_kt, prior_ktf, prior_pcal, prior_zot
 from .filter import NIR_filt, NUV_filt, ab_mag, get_2lists, load_filt, sedpyFilter
 from .galaxy import (
@@ -29,7 +29,6 @@ __all__ = [
     "NUV_filt",
     "NIR_filt",
     "load_filt",
-    "json_to_inputs",
     "load_data_for_run",
     "extract_pdz",
     "v_mags",

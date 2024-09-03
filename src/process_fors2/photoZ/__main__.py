@@ -26,11 +26,13 @@ import sys
 
 import jax
 
+from process_fors2.fetchData import json_to_inputs
+
 # import pandas as pd
 # from jax import debug
 # from jax import numpy as jnp
 # from tqdm import tqdm
-from process_fors2.photoZ import Observation, SPS_Templates, extract_pdz, json_to_inputs, load_data_for_run, neg_log_likelihood, neg_log_posterior
+from process_fors2.photoZ import Observation, SPS_Templates, extract_pdz, load_data_for_run, neg_log_likelihood, neg_log_posterior
 
 
 def main(args):
@@ -38,7 +40,7 @@ def main(args):
     Main function to start an external call to the photoZ module. Arguments must be the JSON configuration file.
     """
     conf_json = args[1] if len(args) > 1 else "./defaults.json"  # le premier argument de args est toujours `__main__.py` ; attention à la localisation du fichier !
-    inputs = json_to_inputs(conf_json)
+    inputs = json_to_inputs(conf_json)["photoZ"]
 
     z_grid, templates_dict, obs_arr = load_data_for_run(inputs)
 
