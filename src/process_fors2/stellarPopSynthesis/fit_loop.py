@@ -114,7 +114,7 @@ def fit_mags(data_dict, ssp_file=None):
     # fit with all magnitudes
     from process_fors2.stellarPopSynthesis import lik_mag
 
-    lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=1000)
     res_m = lbfgsb_mag.run(
         init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
     )
@@ -170,7 +170,7 @@ def fit_colidx(data_dict, ssp_file=None):
     # fit with all magnitudes
     from process_fors2.stellarPopSynthesis import lik_colidx
 
-    lbfgsb_colidx = jaxopt.ScipyBoundedMinimize(fun=lik_colidx, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_colidx = jaxopt.ScipyBoundedMinimize(fun=lik_colidx, method="L-BFGS-B", maxiter=1000)
     res_c = lbfgsb_colidx.run(
         init_params, bounds=(params_min, params_max), xf=data_dict["filters"], mags_measured=data_dict["mags"], sigma_mag_obs=data_dict["mags_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
     )
@@ -224,7 +224,7 @@ def fit_spec(data_dict, ssp_file=None):
     """
     from process_fors2.stellarPopSynthesis import lik_spec
 
-    lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=1000)
     res_s = lbfgsb_spec.run(
         init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["fnu"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
     )
@@ -257,7 +257,7 @@ def fit_gelmod(data_dict, ssp_file=None):
     """
     from process_fors2.stellarPopSynthesis import lik_spec
 
-    lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_spec = jaxopt.ScipyBoundedMinimize(fun=lik_spec, method="L-BFGS-B", maxiter=1000)
     res_s = lbfgsb_spec.run(
         init_params, bounds=(params_min, params_max), wls=data_dict["wavelengths"], F=data_dict["gelato_mod"], sigma_obs=data_dict["fnu_err"], z_obs=data_dict["redshift"], ssp_file=ssp_file
     )
@@ -290,7 +290,7 @@ def fit_rew(data_dict, ssp_file=None):
     """
     from process_fors2.stellarPopSynthesis import lik_rew
 
-    lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_rew = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=1000)
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_ew = lbfgsb_rew.run(
@@ -335,7 +335,7 @@ def fit_mags_and_rew(data_dict, weight_mag=0.5, ssp_file=None):
     """
     from process_fors2.stellarPopSynthesis import lik_mag_rew
 
-    lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=1000)
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_comb = lbfgsb_comb.run(
@@ -383,7 +383,7 @@ def fit_colidx_and_rew(data_dict, weight_mag=0.5, ssp_file=None):
     """
     from process_fors2.stellarPopSynthesis import lik_colidx_rew
 
-    lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_colidx_rew, method="L-BFGS-B", maxiter=5000)
+    lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_colidx_rew, method="L-BFGS-B", maxiter=1000)
     surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_comb = lbfgsb_comb.run(
