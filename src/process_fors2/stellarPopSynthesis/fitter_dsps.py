@@ -10,7 +10,6 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 from diffmah.defaults import DiffmahParams
 from diffstar import calc_sfh_singlegal  # sfh_singlegal
 from diffstar.defaults import DiffstarUParams  # , DEFAULT_Q_PARAMS
@@ -34,6 +33,26 @@ def _get_package_dir() -> str:
 
 
 _DUMMY_P_ADQ = SSPParametersFit()
+TODAY_GYR = 13.8
+T_ARR = jnp.linspace(0.1, TODAY_GYR, 100)
+
+
+def load_ssp(ssp_file=None):
+    """load_ssp _summary_
+
+    :param ssp_file: _description_, defaults to None
+    :type ssp_file: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    if ssp_file == "" or ssp_file is None or "default" in ssp_file.lower():
+        from process_fors2.fetchData import DEFAULTS_DICT
+
+        fullfilename_ssp_data = DEFAULTS_DICT["DSPS HDF5"]
+    else:
+        fullfilename_ssp_data = os.path.abspath(ssp_file)
+    ssp_data = load_ssp_templates(fn=fullfilename_ssp_data)
+    return ssp_data
 
 
 @jit
@@ -50,8 +69,6 @@ def mean_sfr(params, z_obs):
     :rtype: float
 
     """
-    today_gyr = 13.8
-
     # decode the parameters
     MAH_lgmO = params["MAH_lgmO"]
     MAH_logtc = params["MAH_logtc"]  # DEFAULT_MAH_PARAMS[1]
@@ -76,25 +93,21 @@ def mean_sfr(params, z_obs):
     tup_param_sfh = DiffstarUParams(tuple(list_param_ms), tuple(list_param_q))
     tup_param_mah = DiffmahParams(*list_param_mah)
 
-    tarr = np.linspace(0.1, today_gyr, 100)
+    # tarr = np.linspace(0.1, TODAY_GYR, 100)
     # sfh_gal = sfh_singlegal(tarr, list_param_mah , list_param_ms, list_param_q,\
     #                        ms_param_type="unbounded", q_param_type="unbounded"\
     #                       )
 
-    sfh_gal = calc_sfh_singlegal(tup_param_sfh, tup_param_mah, tarr)
-
-    # need age of universe when the light was emitted
-    t_obs = age_at_z(z_obs, *DEFAULT_COSMOLOGY)  # age of the universe in Gyr at z_obs
-    t_obs = t_obs[0]  # age_at_z function returns an array, but SED functions accept a float for this argument
+    sfh_gal = calc_sfh_singlegal(tup_param_sfh, tup_param_mah, T_ARR)
 
     # clear sfh in future
     # sfh_gal = jnp.where(tarr<t_obs, sfh_gal, 0)
 
-    return t_obs, tarr, sfh_gal
+    return sfh_gal
 
 
-@partial(jit, static_argnums=-1)
-def ssp_spectrum_fromparam(params, z_obs, ssp_file=None):
+@jit
+def ssp_spectrum_fromparam(params, z_obs, ssp_data):
     """Return the SED of SSP DSPS with original wavelength range wihout and with dust
 
     :param params: parameters for the fit
@@ -103,24 +116,19 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_file=None):
     :param z_obs: redshift at which the model SSP should be calculated
     :type z_obs: float
 
-    :param ssp_file: SSP library location
-    :type z_obs: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
     :return: the wavelength and the spectrum with dust and no dust
     :rtype: float
 
     """
-    if ssp_file is None:
-        from process_fors2.fetchData import DEFAULTS_DICT
-
-        fullfilename_ssp_data = DEFAULTS_DICT["DSPS HDF5"]
-        ssp_data = load_ssp_templates(fn=fullfilename_ssp_data)
-    else:
-        fullfilename_ssp_data = os.path.abspath(ssp_file)
-        ssp_data = load_ssp_templates(fn=fullfilename_ssp_data)
-
     # compute the SFR
-    t_obs, gal_t_table, gal_sfr_table = mean_sfr(params, z_obs)
+    # need age of universe when the light was emitted
+    t_obs = age_at_z(z_obs, *DEFAULT_COSMOLOGY)  # age of the universe in Gyr at z_obs
+    t_obs = t_obs[0]  # age_at_z function returns an array, but SED functions accept a float for this argument
+
+    gal_sfr_table = mean_sfr(params, z_obs)
 
     # age-dependant metallicity
     gal_lgmet_young = 2.0  # log10(Z)
@@ -129,7 +137,7 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_file=None):
 
     # compute the SED_info object
     sed_info = calc_rest_sed_sfh_table_lognormal_mdf_agedep(
-        gal_t_table, gal_sfr_table, gal_lgmet_young, gal_lgmet_old, gal_lgmet_scatter, ssp_data.ssp_lgmet, ssp_data.ssp_lg_age_gyr, ssp_data.ssp_flux, t_obs
+        T_ARR, gal_sfr_table, gal_lgmet_young, gal_lgmet_old, gal_lgmet_scatter, ssp_data.ssp_lgmet, ssp_data.ssp_lg_age_gyr, ssp_data.ssp_flux, t_obs
     )
     # dust attenuation parameters
     Av = params["AV"]
@@ -152,8 +160,8 @@ def _calc_mag(ssp_wls, sed_fnu, filt_wls, filt_transm, z_obs):
     return calc_obs_mag(ssp_wls, sed_fnu, filt_wls, filt_transm, z_obs, *DEFAULT_COSMOLOGY)
 
 
-@partial(jit, static_argnums=-1)
-def mean_mags(X, params, z_obs, ssp_file=None):
+@jit
+def mean_mags(X, params, z_obs, ssp_data):
     """Return the photometric magnitudes for the given filters transmission
     in X : predict the magnitudes in Filters
 
@@ -166,8 +174,8 @@ def mean_mags(X, params, z_obs, ssp_file=None):
     :param z_obs: redshift of the observations
     :type z_obs: float
 
-    :param ssp_file: SSP library location
-    :type ssp_file: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
     :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
     :rtype: float
@@ -175,7 +183,7 @@ def mean_mags(X, params, z_obs, ssp_file=None):
     """
 
     # get the restframe spectra without and with dust attenuation
-    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_file)
+    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_data)
 
     # decode the two lists
     list_wls_filters = X[0]
@@ -188,8 +196,8 @@ def mean_mags(X, params, z_obs, ssp_file=None):
     return mags_predictions
 
 
-@partial(jit, static_argnums=-1)
-def mean_colors(X, params, z_obs, ssp_file=None):
+@jit
+def mean_colors(X, params, z_obs, ssp_data):
     """mean_colors returns the photometric magnitudes for the given filters transmission in X : predict the magnitudes in filters
 
     :param X: Tuple of filters to be used (Galex, SDSS, Vircam)
@@ -201,13 +209,13 @@ def mean_colors(X, params, z_obs, ssp_file=None):
     :param z_obs: redshift of the observations
     :type z_obs: float
 
-    :param ssp_file: SSP library location
-    :type ssp_file: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
     :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
     :rtype: float
     """
-    mags = mean_mags(X, params, z_obs, ssp_file=None)
+    mags = mean_mags(X, params, z_obs, ssp_data)
     return mags[:-1] - mags[1:]
 
 
@@ -253,8 +261,8 @@ def mean_ugri_sedpy(X, params, z_obs):
 '''
 
 
-@partial(jit, static_argnums=3)
-def mean_spectrum(wls, params, z_obs, ssp_file=None):
+@jit
+def mean_spectrum(wls, params, z_obs, ssp_data):
     """Return the Model of SSP spectrum including Dust at the wavelength wls
 
     :param wls: wavelengths of the spectrum in rest frame
@@ -266,8 +274,8 @@ def mean_spectrum(wls, params, z_obs, ssp_file=None):
     :param z_obs: redshift at which the model SSP should be calculated
     :type z_obs: float
 
-    :param ssp_file: SSP library location
-    :type z_obs: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
     :return: the spectrum
     :rtype: float
@@ -275,7 +283,7 @@ def mean_spectrum(wls, params, z_obs, ssp_file=None):
     """
 
     # get the restframe spectra without and with dust attenuation
-    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_file)
+    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_data)
 
     # interpolate with interpax which is differentiable
     # Fobs = jnp.interp(wls, ssp_data.ssp_wave, sed_attenuated)
@@ -284,8 +292,8 @@ def mean_spectrum(wls, params, z_obs, ssp_file=None):
     return Fobs
 
 
-@partial(jit, static_argnums=5)
-def mean_lines(wls, params, z_obs, refmod, reflines, ssp_file=None):
+@jit
+def mean_lines(wls, params, z_obs, refmod, reflines, ssp_data):
     """
     Estimates the contribution of spectral lines to the flux density yielded by DSPS with parameters `params`.
 
@@ -301,15 +309,15 @@ def mean_lines(wls, params, z_obs, refmod, reflines, ssp_file=None):
         GELATO model of the flux density (in Lsun/Hz) (includes the contribution of SSP and spetral lines).
     reflines : array
         Contribution of the spectral lines to the flux density (in Lsun/Hz).
-    ssp_file : path or str, optional
-        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    ssp_data : namedtuple
+        SSP library as loaded from DSPS.
 
     Returns
     -------
     array
         Flux density in Lsun/Hz : should be near 0. outside of spectral lines, non-zero in lines' regions.
     """
-    fnu_rest = mean_spectrum(wls, params, z_obs, ssp_file)  # in Lsun / Hz
+    fnu_rest = mean_spectrum(wls, params, z_obs, ssp_data)  # in Lsun / Hz
     return fnu_rest - refmod + reflines
 
 
@@ -345,8 +353,8 @@ def calc_eqw(sur_wls, sur_spec, lin):
     return ew
 
 
-@partial(jit, static_argnums=6)
-def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs, ssp_file=None):
+@jit
+def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs, ssp_data):
     r"""
     Negative log-likelihood ($\Chi^2$) of the SPS defined by the parameters `p` with respect to previously known spectral lines.
 
@@ -364,8 +372,8 @@ def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs, ssp_file=None):
         Estimated errors in the flux densities.
     z_obs : int or float
         Redshift of the object.
-    ssp_file : path or str, optional
-        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    ssp_data : namedtuple
+        SSP library as loaded from DSPS.
 
     Returns
     -------
@@ -373,12 +381,12 @@ def lik_lines(p, wls, refmod, reflines, fnuerr, z_obs, ssp_file=None):
         Value of the negative log-likelihood ($\Chi^2$).
     """
     params = {name: p[k] for k, name in enumerate(_DUMMY_P_ADQ.PARAM_NAMES_FLAT)}
-    resid = trapz(mean_lines(wls, params, z_obs, refmod, reflines, ssp_file), x=wls) - trapz(reflines, x=wls)
+    resid = trapz(mean_lines(wls, params, z_obs, refmod, reflines, ssp_data), x=wls) - trapz(reflines, x=wls)
     return jnp.sum((resid / fnuerr) ** 2)
 
 
-@partial(jit, static_argnums=6)
-def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file=None):
+@jit
+def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_data):
     r"""
     Negative log-likelihood ($\Chi^2$) of the SPS defined by the parameters `p` with respect to previously known spectral lines.
 
@@ -396,8 +404,8 @@ def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file=None):
         Dispersions of the reference equivalent widths of the studied lines.
     z_obs : int or float
         Redshift of the object.
-    ssp_file : path or str, optional
-        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    ssp_data : namedtuple
+        SSP library as loaded from DSPS.
 
     Returns
     -------
@@ -405,7 +413,7 @@ def lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file=None):
         Value of the negative log-likelihood ($\Chi^2$).
     """
     params = {name: p[k] for k, name in enumerate(_DUMMY_P_ADQ.PARAM_NAMES_FLAT)}
-    spec = mean_spectrum(surwls, params, z_obs, ssp_file)
+    spec = mean_spectrum(surwls, params, z_obs, ssp_data)
     # surwls, _, spec = ssp_spectrum_fromparam(params, z_obs)
     rew_predictions = calc_eqw(surwls, spec, rews_wls)
     resid = rew_predictions - rews
@@ -420,16 +428,16 @@ surwls : array
 ## END BACKUP ##
 
 
-@partial(jit, static_argnums=5)
-def lik_spec(p, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
+@jit
+def lik_spec(p, wls, F, sigma_obs, z_obs, ssp_data) -> float:
     """
     neg loglikelihood(parameters,x,y,sigmas) for the spectrum
 
     :param p: flat array of parameters to fit
     :param z_obs: redshift of the observations
     :type z_obs: float
-    :param ssp_file: SSP library location
-    :type z_obs: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
     :return: the chi2 value
     :rtype: float
@@ -441,22 +449,22 @@ def lik_spec(p, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
     # scaleF =  params["SCALE"]
 
     # residuals
-    resid = mean_spectrum(wls, params, z_obs, ssp_file) - F  # *scaleF
+    resid = mean_spectrum(wls, params, z_obs, ssp_data) - F  # *scaleF
     ev = (resid / sigma_obs) ** 2  # jnp.sum((resid/(sigma_obs*jnp.sqrt(scaleF)))** 2)
 
     return jnp.sum(ev)
 
 
-@partial(jit, static_argnums=-1)
-def lik_spec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
+@jit
+def lik_spec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_data) -> float:
     """
     neg loglikelihood(parameters,x,y,sigmas) for the spectrum
 
     :param p: flat array of parameters to fit
     :param z_obs: redshift of the observations
     :type z_obs: float
-    :param ssp_file: SSP library location
-    :type z_obs: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
 
     :return: the chi2 value
@@ -469,22 +477,22 @@ def lik_spec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=None) -
     # scaleF =  params["SCALE"]
 
     # residuals
-    resid = mean_spectrum(wls, params, z_obs, ssp_file) - F  # *scaleF
+    resid = mean_spectrum(wls, params, z_obs, ssp_data) - F  # *scaleF
     ev = (resid / sigma_obs) ** 2  # jnp.sum((resid/(sigma_obs*jnp.sqrt(scaleF)))** 2)
 
     return jnp.sum(ev)
 
 
-@partial(jit, static_argnums=-1)
-def lik_normspec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=None) -> float:
+@jit
+def lik_normspec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_data) -> float:
     """
     neg loglikelihood(parameters,x,y,sigmas) for the spectrum
 
     :param p: flat array of parameters to fit
     :param z_obs: redshift of the observations
     :type z_obs: float
-    :param ssp_file: SSP library location
-    :type z_obs: path or str
+    :param ssp_data: SSP library as loaded from DSPS
+    :type ssp_data: namedtuple
 
 
     :return: the chi2 value
@@ -494,7 +502,7 @@ def lik_normspec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=Non
     params = {_DUMMY_P_ADQ.PARAM_NAMES_FLAT[k]: val for k, val in enumerate(pars)}
 
     # Normalize spectra to try and get rid of scaling parameter
-    sps_spec = mean_spectrum(wls, params, z_obs, ssp_file)
+    sps_spec = mean_spectrum(wls, params, z_obs, ssp_data)
     _norm_fors = trapz(F, x=wls)
     _norm_sps = trapz(sps_spec, x=wls)
 
@@ -504,8 +512,8 @@ def lik_normspec_from_mag(p_tofit, p_fix, wls, F, sigma_obs, z_obs, ssp_file=Non
     return jnp.sum((resid / (sigma_obs / jnp.sqrt(_norm_fors))) ** 2)
 
 
-@partial(jit, static_argnums=-1)
-def lik_mag_partial(p_tofit, p_fix, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
+@jit
+def lik_mag_partial(p_tofit, p_fix, xf, mags_measured, sigma_mag_obs, z_obs, ssp_data):
     """
     neg loglikelihood(parameters,x,y,sigmas) for the photometry
     """
@@ -513,28 +521,28 @@ def lik_mag_partial(p_tofit, p_fix, xf, mags_measured, sigma_mag_obs, z_obs, ssp
     pars = jnp.concatenate((p_fix, p_tofit), axis=None)  # As of now, parameters must be correctly ordered at fucntion call. In this case, all parameters to fit must be after all fixed parameters.
     params = {_DUMMY_P_ADQ.PARAM_NAMES_FLAT[k]: val for k, val in enumerate(pars)}
 
-    all_mags_predictions = mean_mags(xf, params, z_obs, ssp_file)
+    all_mags_predictions = mean_mags(xf, params, z_obs, ssp_data)
     resid = mags_measured - all_mags_predictions
 
     return jnp.sum((resid / sigma_mag_obs) ** 2)
 
 
-@partial(jit, static_argnums=-1)
-def lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
+@jit
+def lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_data):
     """
     neg loglikelihood(parameters,x,y,sigmas) for the photometry
     """
 
     params = {name: p[k] for k, name in enumerate(_DUMMY_P_ADQ.PARAM_NAMES_FLAT)}
 
-    all_mags_predictions = mean_mags(xf, params, z_obs, ssp_file)
+    all_mags_predictions = mean_mags(xf, params, z_obs, ssp_data)
     resid = mags_measured - all_mags_predictions
 
     return jnp.sum((resid / sigma_mag_obs) ** 2)
 
 
-@partial(jit, static_argnums=-1)
-def lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
+@jit
+def lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_data):
     """
     neg loglikelihood(parameters,x,y,sigmas) for the photometry
     """
@@ -544,7 +552,7 @@ def lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file=None):
     cols_msr = mags_measured[:-1] - mags_measured[1:]
     sigma_cols = jnp.power(jnp.power(sigma_mag_obs[:-1], 2) + jnp.power(sigma_mag_obs[1:], 2), 0.5)
 
-    all_cols_predictions = mean_colors(xf, params, z_obs, ssp_file)
+    all_cols_predictions = mean_colors(xf, params, z_obs, ssp_data)
     resid = cols_msr - all_cols_predictions
 
     return jnp.sum((resid / sigma_cols) ** 2)
@@ -566,8 +574,8 @@ def lik_ugri_sedpy(p, xf, mags_measured, sigma_mag_obs, z_obs):
 '''
 
 
-@partial(jit, static_argnums=-1)
-def lik_comb(p, xc, datac, sigmac, z_obs, weight=0.5, ssp_file=None):
+@jit
+def lik_comb(p, xc, datac, sigmac, z_obs, ssp_data, weight=0.5):
     """
     neg loglikelihood(parameters,xc,yc,sigmasc) combining the spectroscopy and the photometry
 
@@ -578,14 +586,14 @@ def lik_comb(p, xc, datac, sigmac, z_obs, weight=0.5, ssp_file=None):
     weight must be between 0 and 1
     """
 
-    resid_spec = lik_spec(p, xc[0], datac[0], sigmac[0], z_obs, ssp_file)
-    resid_phot = lik_mag(p, xc[1], datac[1], sigmac[1], z_obs, ssp_file)
+    resid_spec = lik_spec(p, xc[0], datac[0], sigmac[0], z_obs, ssp_data)
+    resid_phot = lik_mag(p, xc[1], datac[1], sigmac[1], z_obs, ssp_data)
 
     return weight * resid_phot + (1 - weight) * resid_spec
 
 
-@partial(jit, static_argnums=-1)
-def lik_mag_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rews_err, z_obs, weight_mag=0.5, ssp_file=None):
+@jit
+def lik_mag_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rews_err, z_obs, ssp_data, weight_mag=0.5):
     r"""
     neg loglikelihood(parameters,xc,yc,sigmasc) combining the lines rest equivalent widths and the photometry
 
@@ -611,8 +619,8 @@ def lik_mag_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rew
         Redshift of the object.
     weight_mag : float, optional
         Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
-    ssp_file : path or str, optional
-        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    ssp_data : namedtuple
+        SSP library as loaded from DSPS.
 
     Returns
     -------
@@ -620,14 +628,14 @@ def lik_mag_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rew
         Value of the negative log-likelihood ($\Chi^2$).
     """
 
-    resid_spec = lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file)
-    resid_phot = lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file)
+    resid_spec = lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_data)
+    resid_phot = lik_mag(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_data)
 
     return weight_mag * resid_phot + (1 - weight_mag) * resid_spec
 
 
-@partial(jit, static_argnums=-1)
-def lik_colidx_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rews_err, z_obs, weight_mag=0.5, ssp_file=None):
+@jit
+def lik_colidx_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, rews_err, z_obs, ssp_data, weight_mag=0.5):
     r"""
     neg loglikelihood(parameters,xc,yc,sigmasc) combining the lines rest equivalent widths and the photometry
 
@@ -653,8 +661,8 @@ def lik_colidx_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, 
         Redshift of the object.
     weight_mag : float, optional
         Weight of the fit on photometry. 1-weight_mag is affected to the fit on rest equivalent widths. Must be between 0.0 and 1.0. The default is 0.5.
-    ssp_file : path or str, optional
-        SSP library location. If None, loads the defaults file from `process_fors2.fetchData`. The default is None.
+    ssp_data : namedtuple
+        SSP library as loaded from DSPS.
 
     Returns
     -------
@@ -662,8 +670,8 @@ def lik_colidx_rew(p, xf, mags_measured, sigma_mag_obs, surwls, rews_wls, rews, 
         Value of the negative log-likelihood ($\Chi^2$).
     """
 
-    resid_spec = lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_file)
-    resid_phot = lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_file)
+    resid_spec = lik_rew(p, surwls, rews_wls, rews, rews_err, z_obs, ssp_data)
+    resid_phot = lik_colidx(p, xf, mags_measured, sigma_mag_obs, z_obs, ssp_data)
 
     return weight_mag * resid_phot + (1 - weight_mag) * resid_spec
 

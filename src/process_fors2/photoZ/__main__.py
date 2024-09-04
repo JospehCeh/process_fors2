@@ -40,7 +40,7 @@ def main(args):
     Main function to start an external call to the photoZ module. Arguments must be the JSON configuration file.
     """
     conf_json = args[1] if len(args) > 1 else "./defaults.json"  # le premier argument de args est toujours `__main__.py` ; attention à la localisation du fichier !
-    inputs = json_to_inputs(conf_json)["photoZ"]
+    inputs = json_to_inputs(conf_json)
 
     z_grid, templates_dict, obs_arr = load_data_for_run(inputs)
 
@@ -81,7 +81,7 @@ def main(args):
     def estim_zp(observ, prior=True):
         # c = observ.AB_colors[observ.valid_colors]
         # c_err = observ.AB_colerrs[observ.valid_colors]
-        if prior and observ.valid_filters[inputs["i_band_num"]]:
+        if prior and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
             chi2_dict = jax.tree_map(lambda sps_templ: neg_log_posterior(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
         else:
             chi2_dict = jax.tree_map(lambda sps_templ: neg_log_likelihood(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
@@ -91,7 +91,7 @@ def main(args):
     def is_obs(elt):
         return isinstance(elt, Observation)
 
-    dict_of_results_dict = jax.tree_map(lambda elt: extract_pdz(estim_zp(elt, prior=inputs["prior"]), z_grid), obs_arr, is_leaf=is_obs)
+    dict_of_results_dict = jax.tree_map(lambda elt: extract_pdz(estim_zp(elt, prior=inputs["photoZ"]["prior"]), z_grid), obs_arr, is_leaf=is_obs)
 
     """Old-fashioned way making expensive use of pandas
     df_gal = pd.DataFrame()
@@ -313,9 +313,9 @@ def main(args):
     debug.print("{c} empty observations : {l}", c=empty_counts, l=empty_list)
     """
 
-    if inputs["save results"]:
+    if inputs["photoZ"]["save results"]:
         # df_gal.to_pickle(f"{inputs['run name']}_results_summary.pkl")
-        with open(f"{inputs['run name']}_posteriors_dict.pkl", "wb") as handle:
+        with open(f"{inputs['photoZ']['run name']}_posteriors_dict.pkl", "wb") as handle:
             pickle.dump(dict_of_results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return 0

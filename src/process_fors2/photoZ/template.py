@@ -10,7 +10,6 @@ Created on Thu Aug 1 12:59:33 2024
 
 import pickle
 from collections import namedtuple
-from functools import partial
 
 from jax import jit, tree_map, vmap
 from jax import numpy as jnp
@@ -41,8 +40,8 @@ def read_params(pickle_file):
     return new_dict
 
 
-@partial(jit, static_argnums=-1)
-def templ_mags(X, params, z_obs, ssp_file=None):
+@jit
+def templ_mags(X, params, z_obs, ssp_data):
     """Return the photometric magnitudes for the given filters transmission
     in X : predict the magnitudes in Filters
 
@@ -55,8 +54,8 @@ def templ_mags(X, params, z_obs, ssp_file=None):
     :param z_obs: redshift of the observations
     :type z_obs: float
 
-    :param ssp_file: SSP library location
-    :type ssp_file: path or str
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
 
     :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
     :rtype: float
@@ -67,7 +66,7 @@ def templ_mags(X, params, z_obs, ssp_file=None):
     from dsps import calc_obs_mag, calc_rest_mag
     from dsps.cosmology import DEFAULT_COSMOLOGY
 
-    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_file)
+    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_obs, ssp_data)
 
     # decode the two lists
     list_wls_filters = X[0]
@@ -81,11 +80,11 @@ def templ_mags(X, params, z_obs, ssp_file=None):
     return mags_predictions
 
 
-v_mags = vmap(templ_mags, in_axes=(None, None, 0))
+v_mags = vmap(templ_mags, in_axes=(None, None, 0, None))
 
 
 # @jit
-def calc_nuvk(wls, params_dict, zobs):
+def calc_nuvk(wls, params_dict, zobs, ssp_data):
     """calc_nuvk _summary_
 
     :param wls: _description_
@@ -99,16 +98,16 @@ def calc_nuvk(wls, params_dict, zobs):
     """
     from process_fors2.photoZ import NIR_filt, NUV_filt, ab_mag
 
-    rest_sed = mean_spectrum(wls, params_dict, zobs)
+    rest_sed = mean_spectrum(wls, params_dict, zobs, ssp_data)
     nuv = ab_mag(NUV_filt.wavelengths, NUV_filt.transmission, wls, rest_sed)
     nir = ab_mag(NIR_filt.wavelengths, NIR_filt.transmission, wls, rest_sed)
     return nuv - nir
 
 
-v_nuvk = vmap(calc_nuvk, in_axes=(None, None, 0))
+v_nuvk = vmap(calc_nuvk, in_axes=(None, None, 0, None))
 
 
-def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
+def make_sps_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3):
     """make_sps_templates _summary_
 
     :param params_dict: _description_
@@ -119,6 +118,8 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     :type redz: _type_
     :param wl_grid: _description_
     :type wl_grid: _type_
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
     :param id_imag: _description_, defaults to 3
     :type id_imag: int, optional
     :return: _description_
@@ -127,7 +128,7 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, id_imag=3):
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
     # nuvk = v_nuvk(wl_grid, params_dict, redz)
-    template_mags = v_mags(filt_tup, params_dict, redz)
+    template_mags = v_mags(filt_tup, params_dict, redz, ssp_data)
     nuvk = template_mags[:, -2] - template_mags[:, -1]
     colors = template_mags[:, :-3] - template_mags[:, 1:-2]
     i_mag = template_mags[:, id_imag]

@@ -45,7 +45,7 @@ DustLaw = namedtuple('DustLaw', ['name', 'EBV', 'transmission'])
 # conf_json = 'EmuLP/COSMOS2020-with-FORS2-HSC_only-jax-CC-togglePriorTrue-opa.json' # attention à la localisation du fichier !
 
 
-def load_data_for_run(inputs):
+def load_data_for_run(inp_glob):
     """load_data_for_run _summary_
 
     :param inputs: _description_
@@ -54,7 +54,16 @@ def load_data_for_run(inputs):
     :rtype: _type_
     """
     from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, Observation, get_2lists, load_filt, load_galaxy, make_sps_templates, read_params, sedpyFilter
+    from process_fors2.stellarPopSynthesis import load_ssp
 
+    _ssp_file = (
+        None
+        if (inp_glob["fitDSPS"]["ssp_file"].lower() == "default" or inp_glob["fitDSPS"]["ssp_file"] == "" or inp_glob["fitDSPS"]["ssp_file"] is None)
+        else os.path.abspath(inp_glob["fitDSPS"]["ssp_file"])
+    )
+    ssp_data = load_ssp(_ssp_file)
+
+    inputs = inp_glob["photoZ"]
     z_grid = jnp.arange(inputs["Z_GRID"]["z_min"], inputs["Z_GRID"]["z_max"] + inputs["Z_GRID"]["z_step"], inputs["Z_GRID"]["z_step"])
 
     wl_grid = jnp.arange(inputs["WL_GRID"]["lambda_min"], inputs["WL_GRID"]["lambda_max"] + inputs["WL_GRID"]["lambda_step"], inputs["WL_GRID"]["lambda_step"])
@@ -71,7 +80,7 @@ def load_data_for_run(inputs):
     Xfilt = get_2lists(filters_arr)
     sps_temp_pkl = os.path.abspath(inputs["Templates"])
     sps_par_dict = read_params(sps_temp_pkl)
-    templ_dict = jax.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, wl_grid, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
+    templ_dict = jax.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, wl_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
 
     print("Loading observations :")
     data_path = os.path.abspath(inputs["Dataset"]["path"])
@@ -133,7 +142,7 @@ def load_data_for_analysis(conf_json):
     :return: _description_
     :rtype: _type_
     """
-    inputs = json_to_inputs(conf_json)
+    inputs = json_to_inputs(conf_json)["photoZ"]
     from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, Observation, get_2lists, load_filt, load_galaxy, make_jcosmo, make_sps_templates, read_params, sedpyFilter
 
     cosmo = make_jcosmo(inputs["Cosmology"]["h0"])

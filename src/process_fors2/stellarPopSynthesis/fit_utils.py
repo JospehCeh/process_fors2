@@ -381,7 +381,7 @@ def plot_fit_ssp_spectroscopy(params, Xspec_data_rest, Yspec_data_rest, EYspec_d
     return None
 
 
-def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, ax=None):
+def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, ssp_data, subtit, ax=None):
     """
     Plot SSP model fitted with combined spectro and photometric data.
     Both data are rescaled and set to rest-frame.
@@ -402,16 +402,18 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     :type EYphot_data_rest: jax array of floats
     :param z_obs: redshift of observed galaxy object
     :type z_obs: float
-    :param ax: matplotlib axis to plot the figure, default None
-    :type ax: matplotlib axis
+    :param ssp_data: SSP data
+    :type ssp_data: namedtuple
     :param subtit: info on the photometric data on the corresponding spectrum
     :type subtitle: str
+    :param ax: matplotlib axis to plot the figure, default None
+    :type ax: matplotlib axis
     :return: plot the figure
     :rtype: None
 
     """
     # calculate the SED model from fitted parameters
-    x, y_nodust, y_dust = ssp_spectrum_fromparam(params, z_obs)
+    x, y_nodust, y_dust = ssp_spectrum_fromparam(params, z_obs, ssp_data)
 
     if ax is None:
         _, ax = plt.subplots(1, 1)
@@ -446,7 +448,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
 
     # xphot , yphot, eyphot = Xphot_data_rest,Yphot_data_rest,EYphot_data_rest
     l3 = ax_phot.errorbar(xphot, yphot, yerr=eyphot, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
-    mean_mag = mean_mags(X, params, z_obs)
+    mean_mag = mean_mags(X, params, z_obs, ssp_data)
     l4 = ax_phot.scatter(xphot, mean_mag, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
 
     title = "DSPS fit (obs. frame)"
@@ -478,7 +480,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     return None
 
 
-def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, subtit, plot_phot=True, ax=None):
+def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspec_data_rest, X, Xphot_data_rest, Yphot_data_rest, EYphot_data_rest, z_obs, ssp_data, subtit, plot_phot=True, ax=None):
     """
     Plot input model (combined spectro and photometric data).
 
@@ -498,6 +500,8 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
     :type EYphot_data_rest: jax array of floats
     :param z_obs: redshift of observed galaxy object
     :type z_obs: float
+    :param ssp_data: SSP data
+    :type ssp_data: namedtuple
     :param ax: matplotlib axis to plot the figure, default None
     :type ax: matplotlib axis
     :param subtit: info on the photometric data on the corresponding spectrum
@@ -508,7 +512,7 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
 
     """
     # calculate the SED model from fitted parameters
-    x, y_nodust, y_dust = ssp_spectrum_fromparam(params, z_obs)
+    x, y_nodust, y_dust = ssp_spectrum_fromparam(params, z_obs, ssp_data)
 
     ymax = y_nodust.max()
     ylim_max = ymax * 3.0
@@ -671,14 +675,18 @@ def plot_SFH(params, z_obs, subtit, ax=None):
     :return: plot the figure
     :rtype: None
     """
+    from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z
 
-    t_obs, tarr, sfh_gal = mean_sfr(params, z_obs)
+    from .fitter_dsps import T_ARR
 
+    sfh_gal = mean_sfr(params, z_obs)
+    t_obs = age_at_z(z_obs, *DEFAULT_COSMOLOGY)  # age of the universe in Gyr at z_obs
+    t_obs = t_obs[0]  # age_at_z function returns an array, but SED functions accept a float for this argument
     if ax is None:
         _, ax = plt.subplots(1, 1)
 
     # plot star formation history
-    ax.plot(tarr, sfh_gal, "-k", lw=2)
+    ax.plot(T_ARR, sfh_gal, "-k", lw=2)
     ax.axvline(t_obs, color="red")
 
     sfr_max = sfh_gal.max() * 1.1
@@ -713,7 +721,11 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     -------
     None
     """
+    from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z
+
     from process_fors2.stellarPopSynthesis import paramslist_to_dict
+
+    from .fitter_dsps import T_ARR
 
     if ax is None:
         _, ax = plt.subplots(1, 1)
@@ -723,8 +735,11 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     for tag, fit_dict in results_dict.items():
         dict_params_fit = paramslist_to_dict(fit_dict["fit_params"], params_names)
         data_dict = dict_for_fit[tag]
-        t_obs, tarr, sfh_gal = mean_sfr(dict_params_fit, data_dict["redshift"])
+        sfh_gal = mean_sfr(dict_params_fit, data_dict["redshift"])
         sfh_list.append(sfh_gal)
+
+    t_obs = age_at_z(data_dict["redshift"], *DEFAULT_COSMOLOGY)  # age of the universe in Gyr at z_obs
+    t_obs = t_obs[0]  # age_at_z function returns an array, but SED functions accept a float for this argument
 
     sfh_list = np.array(sfh_list)
 
@@ -732,8 +747,8 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     std_sfh = np.std(sfh_list, axis=0)
 
     # plot star formation history
-    ax.plot(tarr, mean_sfh, "-k", lw=1)
-    ax.fill_between(tarr, mean_sfh + std_sfh, mean_sfh - std_sfh, color="gray", alpha=0.5)
+    ax.plot(T_ARR, mean_sfh, "-k", lw=1)
+    ax.fill_between(T_ARR, mean_sfh + std_sfh, mean_sfh - std_sfh, color="gray", alpha=0.5)
     ax.axvline(t_obs, color="red")
 
     sfr_max = (mean_sfh + std_sfh).max() * 1.1
@@ -751,7 +766,7 @@ def plot_SFH_bootstrap(dict_for_fit, results_dict, params_names, ax=None):
     return None
 
 
-def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_names, ax=None):
+def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_names, ssp_data, ax=None):
     """
     Plot SSP model fitted with combined spectro and photometric data.
     Both data are set to observation frame.
@@ -764,6 +779,8 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
         Path to the HDF5 file gathering outputs from GELATO run.
     params_names : list of str
         Name of the fitted parameters for dictionary creation.
+    ssp_data : namedtuple
+        SSP data from DSPS
     ax : matplotlib axes, optional
         Axes to plot the results on. If None, a new axes objetc is created. The default is None.
 
@@ -791,8 +808,8 @@ def plot_bootstrap_ssp_spectrophotometry(dict_for_fit, results_dict, params_name
             xspec_r, yspec, eyspec, xphot = data_dict["wavelengths"], data_dict["fnu"], data_dict["fnu_err"], data_dict["wl_mean_filters"]
 
         # calculate the SED model from fitted parameters
-        x, y_nodust, y_dust = ssp_spectrum_fromparam(dict_params_fit, data_dict["redshift"])
-        mean_mag = mean_mags(data_dict["filters"], dict_params_fit, data_dict["redshift"])
+        x, y_nodust, y_dust = ssp_spectrum_fromparam(dict_params_fit, data_dict["redshift"], ssp_data)
+        mean_mag = mean_mags(data_dict["filters"], dict_params_fit, data_dict["redshift"], ssp_data)
         calc_ynodust.append(y_nodust)
         calc_ydust.append(y_dust)
         calc_mags.append(mean_mag)
