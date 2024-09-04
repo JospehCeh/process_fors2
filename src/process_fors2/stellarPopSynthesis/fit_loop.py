@@ -21,10 +21,10 @@ import subprocess
 from collections import OrderedDict
 
 import jax
-import jax.numpy as jnp
 import jaxopt
 import matplotlib.pyplot as plt
 import numpy as np
+from jax import numpy as jnp
 from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.gaussian_process import GaussianProcessRegressor, kernels
 from tqdm import tqdm
@@ -314,7 +314,7 @@ def fit_rew(data_dict, ssp_data):
     return dict_out
 
 
-# @partial(jit, statis_argnums=[-1])
+# @jit
 def fit_mags_and_rew(data_dict, ssp_data, weight_mag=0.5):
     """
     Function to fit SPS on both observed magnitudes and rest equivalent widths with DSPS.
@@ -336,7 +336,7 @@ def fit_mags_and_rew(data_dict, ssp_data, weight_mag=0.5):
     from process_fors2.stellarPopSynthesis import lik_mag_rew
 
     lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=1000)
-    surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
+    surechwls = jnp.arange(jnp.min(data_dict["wavelengths"]), jnp.max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_comb = lbfgsb_comb.run(
         init_params,
@@ -363,6 +363,7 @@ def fit_mags_and_rew(data_dict, ssp_data, weight_mag=0.5):
     return dict_out
 
 
+# @jit
 def fit_colidx_and_rew(data_dict, ssp_data, weight_mag=0.5):
     """
     Function to fit SPS on both observed magnitudes and rest equivalent widths with DSPS.
@@ -384,7 +385,7 @@ def fit_colidx_and_rew(data_dict, ssp_data, weight_mag=0.5):
     from process_fors2.stellarPopSynthesis import lik_colidx_rew
 
     lbfgsb_comb = jaxopt.ScipyBoundedMinimize(fun=lik_colidx_rew, method="L-BFGS-B", maxiter=1000)
-    surechwls = jnp.arange(min(data_dict["wavelengths"]), max(data_dict["wavelengths"]) + 0.1, 0.1)
+    surechwls = jnp.arange(jnp.min(data_dict["wavelengths"]), jnp.max(data_dict["wavelengths"]) + 0.1, 0.1)
     # Removed the argument surwls from the REW likelihood to try and fix crashes.
     res_comb = lbfgsb_comb.run(
         init_params,

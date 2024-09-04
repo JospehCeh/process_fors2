@@ -25,6 +25,7 @@ import pickle
 import sys
 
 import jax
+from jax import jit
 
 from process_fors2.fetchData import json_to_inputs
 
@@ -77,7 +78,7 @@ def main(args):
         """
         return isinstance(cont, SPS_Templates)
 
-    # @partial(jit, static_argnums=(1,2))
+    @jit
     def estim_zp(observ, prior=True):
         # c = observ.AB_colors[observ.valid_colors]
         # c_err = observ.AB_colerrs[observ.valid_colors]

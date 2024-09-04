@@ -108,7 +108,7 @@ def val_neg_log_posterior(z_val, templ_cols, gal_cols, gel_colerrs, gal_iab, tem
 vmap_neg_log_posterior = vmap(val_neg_log_posterior, in_axes=(0, 0, None, None, None, 0))
 
 
-# @jit
+@jit
 def neg_log_posterior(sps_temp, obs_gal):
     """neg_log_posterior _summary_
 
@@ -143,7 +143,7 @@ def val_neg_log_likelihood(templ_cols, gal_cols, gel_colerrs):
 vmap_neg_log_likelihood = vmap(val_neg_log_likelihood, in_axes=(0, None, None))
 
 
-# @jit
+@jit
 def neg_log_likelihood(sps_temp, obs_gal):
     """neg_log_likelihood _summary_
 
