@@ -1251,7 +1251,7 @@ def main(args):
         classif_tags = []
         classif_tgt = inputs["bootstrap_classif"]  # "Composite", "LINER", "Seyferts", "Star-forming" ou "NC"
         for tag, dictag in merged_attrs.items():
-            if dictag["Classification"].lower() == classif_tgt.lower():
+            if (dictag["Classification"].lower() == classif_tgt.lower()) or classif_tgt == "":
                 classif_tags.append(tag)
         classif_tags = np.array(classif_tags)
         list_tags = np.intersect1d(mags_tags, classif_tags)

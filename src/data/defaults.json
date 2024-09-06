@@ -196,6 +196,7 @@
             "lambda_step": 1.0
         },
         "Templates": "/home/chevalier/runProcessFors2/DSPS_pickles_fit_mags+rews_test/fitparams_mags+rews_test_1_to_10.pickle",
+        "Mode": "SPS",
         "Filters": {
             "0": {
                 "name": "cosmos_u_new",

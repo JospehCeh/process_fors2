@@ -135,6 +135,80 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3
     return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
 
 
+@jit
+def templ_mags_legacy(X, params, z_ref, z_obs, ssp_data):
+    """Return the photometric magnitudes for the given filters transmission
+    in X : predict the magnitudes in Filters
+
+    :param X: Tuple of filters to be used (Galex, SDSS, Vircam)
+    :type X: a 2-tuple of lists (one element is a list of wavelengths and the other is a list of corresponding transmissions - each element of these lists corresponds to a filter).
+
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+
+    :param z_ref: redshift of the galaxy used as template
+    :type z_ref: float
+
+    :param z_obs: redshift of the observations
+    :type z_obs: float
+
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+
+    :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
+    :rtype: float
+
+    """
+
+    # get the restframe spectra without and with dust attenuation
+    from dsps import calc_obs_mag, calc_rest_mag
+    from dsps.cosmology import DEFAULT_COSMOLOGY
+
+    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(params, z_ref, ssp_data)
+
+    # decode the two lists
+    list_wls_filters = X[0]
+    list_transm_filters = X[1]
+
+    obs_mags = tree_map(lambda x, y: calc_obs_mag(ssp_wave, sed_attenuated, x, y, z_obs, *DEFAULT_COSMOLOGY), list_wls_filters[:-2], list_transm_filters[:-2])
+    rest_mags = tree_map(lambda x, y: calc_rest_mag(ssp_wave, sed_attenuated, x, y), list_wls_filters[-2:], list_transm_filters[-2:])
+
+    mags_predictions = jnp.concatenate((jnp.array(obs_mags), jnp.array(rest_mags)))
+
+    return mags_predictions
+
+
+v_mags_legacy = vmap(templ_mags_legacy, in_axes=(None, None, None, 0, None))
+
+
+def make_legacy_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3):
+    """make_sps_templates _summary_
+
+    :param params_dict: _description_
+    :type params_dict: _type_
+    :param filt_tup: _description_
+    :type filt_tup: _type_
+    :param redz: _description_
+    :type redz: _type_
+    :param wl_grid: _description_
+    :type wl_grid: _type_
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+    :param id_imag: _description_, defaults to 3
+    :type id_imag: int, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    name = params_dict.pop("tag")
+    z_sps = params_dict.pop("redshift")
+    # nuvk = v_nuvk(wl_grid, params_dict, redz)
+    template_mags = v_mags_legacy(filt_tup, params_dict, z_sps, redz, ssp_data)
+    nuvk = template_mags[:, -2] - template_mags[:, -1]
+    colors = template_mags[:, :-3] - template_mags[:, 1:-2]
+    i_mag = template_mags[:, id_imag]
+    return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
+
+
 """OLD FUNCTIONS FOR REFERENCE
 def make_base_template(ident, specfile, wl_grid):
     wl, _lums = np.loadtxt(os.path.abspath(specfile), unpack=True)

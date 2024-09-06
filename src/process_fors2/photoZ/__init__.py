@@ -15,11 +15,12 @@ from .galaxy import (
     vmap_nz_prior,
     z_prior_val,
 )
-from .template import BaseTemplate, SPS_Templates, make_sps_templates, read_params, v_mags
+from .template import BaseTemplate, SPS_Templates, make_legacy_templates, make_sps_templates, read_params, v_mags, v_mags_legacy
 
 __all__ = [
     "DATALOC",
     "make_sps_templates",
+    "make_legacy_templates",
     "BaseTemplate",
     "SPS_Templates",
     "read_params",
@@ -32,6 +33,7 @@ __all__ = [
     "load_data_for_run",
     "extract_pdz",
     "v_mags",
+    "v_mags_legacy",
     "Cosmo",
     "make_jcosmo",
     "nz_prior_core",

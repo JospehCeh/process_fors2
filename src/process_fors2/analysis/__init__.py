@@ -1,4 +1,4 @@
-from .galclassif import bpt_classif
+from .galclassif import Ka03_nii, Ke01_nii, Ke01_oi, Ke01_sii, Ke06_oi, Ke06_sii, bpt_classif, lim_HII_comp, lim_seyf_liner
 from .photomtools import (
     C_KMS,
     U_FL,
@@ -38,5 +38,13 @@ __all__ = [
     "U_FL",
     "U_LSUNperHz",
     "C_KMS",
+    "Ka03_nii",
+    "Ke01_nii",
+    "Ke01_oi",
+    "Ke01_sii",
+    "Ke06_oi",
+    "Ke06_sii",
     "bpt_classif",
+    "lim_HII_comp",
+    "lim_seyf_liner",
 ]
