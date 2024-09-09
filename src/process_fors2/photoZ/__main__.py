@@ -24,6 +24,7 @@
 import pickle
 import sys
 
+# from functools import partial
 import jax
 from jax import jit
 
@@ -78,11 +79,13 @@ def main(args):
         """
         return isinstance(cont, SPS_Templates)
 
+    # @partial(jit, static_argnums=1)
+    # def estim_zp(observ, prior=True):
     @jit
-    def estim_zp(observ, prior=True):
+    def estim_zp(observ):
         # c = observ.AB_colors[observ.valid_colors]
         # c_err = observ.AB_colerrs[observ.valid_colors]
-        if prior and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
+        if inputs["photoZ"]["prior"] and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
             chi2_dict = jax.tree_map(lambda sps_templ: neg_log_posterior(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
         else:
             chi2_dict = jax.tree_map(lambda sps_templ: neg_log_likelihood(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
@@ -92,7 +95,7 @@ def main(args):
     def is_obs(elt):
         return isinstance(elt, Observation)
 
-    dict_of_results_dict = jax.tree_map(lambda elt: extract_pdz(estim_zp(elt, prior=inputs["photoZ"]["prior"]), z_grid), obs_arr, is_leaf=is_obs)
+    dict_of_results_dict = jax.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
 
     """Old-fashioned way making expensive use of pandas
     df_gal = pd.DataFrame()
