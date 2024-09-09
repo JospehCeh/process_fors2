@@ -66,7 +66,7 @@ def load_data_for_run(inp_glob):
     inputs = inp_glob["photoZ"]
     z_grid = jnp.arange(inputs["Z_GRID"]["z_min"], inputs["Z_GRID"]["z_max"] + inputs["Z_GRID"]["z_step"], inputs["Z_GRID"]["z_step"])
 
-    wl_grid = jnp.arange(inputs["WL_GRID"]["lambda_min"], inputs["WL_GRID"]["lambda_max"] + inputs["WL_GRID"]["lambda_step"], inputs["WL_GRID"]["lambda_step"])
+    # wl_grid = jnp.arange(inputs["WL_GRID"]["lambda_min"], inputs["WL_GRID"]["lambda_max"] + inputs["WL_GRID"]["lambda_step"], inputs["WL_GRID"]["lambda_step"])
 
     filters_dict = inputs["Filters"]
     for _f in filters_dict:
@@ -81,9 +81,9 @@ def load_data_for_run(inp_glob):
     sps_temp_pkl = os.path.abspath(inputs["Templates"])
     sps_par_dict = read_params(sps_temp_pkl)
     if "sps" in inputs["Mode"].lower():
-        templ_dict = jax.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, wl_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
+        templ_dict = jax.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
     else:
-        templ_dict = jax.tree_map(lambda dico: make_legacy_templates(dico, Xfilt, z_grid, wl_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
+        templ_dict = jax.tree_map(lambda dico: make_legacy_templates(dico, Xfilt, z_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
 
     print("Loading observations :")
     data_path = os.path.abspath(inputs["Dataset"]["path"])

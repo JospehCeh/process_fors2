@@ -107,7 +107,7 @@ def calc_nuvk(wls, params_dict, zobs, ssp_data):
 v_nuvk = vmap(calc_nuvk, in_axes=(None, None, 0, None))
 
 
-def make_sps_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3):
+def make_sps_templates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
     """make_sps_templates _summary_
 
     :param params_dict: _description_
@@ -116,8 +116,6 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3
     :type filt_tup: _type_
     :param redz: _description_
     :type redz: _type_
-    :param wl_grid: _description_
-    :type wl_grid: _type_
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :param id_imag: _description_, defaults to 3
@@ -127,7 +125,6 @@ def make_sps_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
-    # nuvk = v_nuvk(wl_grid, params_dict, redz)
     template_mags = v_mags(filt_tup, params_dict, redz, ssp_data)
     nuvk = template_mags[:, -2] - template_mags[:, -1]
     colors = template_mags[:, :-3] - template_mags[:, 1:-2]
@@ -181,7 +178,7 @@ def templ_mags_legacy(X, params, z_ref, z_obs, ssp_data):
 v_mags_legacy = vmap(templ_mags_legacy, in_axes=(None, None, None, 0, None))
 
 
-def make_legacy_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_imag=3):
+def make_legacy_templates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
     """make_sps_templates _summary_
 
     :param params_dict: _description_
@@ -190,8 +187,6 @@ def make_legacy_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_ima
     :type filt_tup: _type_
     :param redz: _description_
     :type redz: _type_
-    :param wl_grid: _description_
-    :type wl_grid: _type_
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :param id_imag: _description_, defaults to 3
@@ -201,7 +196,6 @@ def make_legacy_templates(params_dict, filt_tup, redz, wl_grid, ssp_data, id_ima
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
-    # nuvk = v_nuvk(wl_grid, params_dict, redz)
     template_mags = v_mags_legacy(filt_tup, params_dict, z_sps, redz, ssp_data)
     nuvk = template_mags[:, -2] - template_mags[:, -1]
     colors = template_mags[:, :-3] - template_mags[:, 1:-2]
