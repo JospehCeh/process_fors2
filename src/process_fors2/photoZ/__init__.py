@@ -1,4 +1,4 @@
-from .analysis import extract_pdz, load_data_for_run
+from .analysis import extract_pdz, extract_pdz_allchi2, load_data_for_run
 from .cosmology import DATALOC, Cosmo, make_jcosmo, nz_prior_core, prior_alpt0, prior_ft, prior_kt, prior_ktf, prior_pcal, prior_zot
 from .filter import NIR_filt, NUV_filt, ab_mag, get_2lists, load_filt, sedpyFilter
 from .galaxy import (
@@ -15,7 +15,7 @@ from .galaxy import (
     vmap_nz_prior,
     z_prior_val,
 )
-from .template import BaseTemplate, SPS_Templates, make_legacy_templates, make_sps_templates, read_params, v_mags, v_mags_legacy
+from .template import BaseTemplate, SPS_Templates, make_legacy_templates, make_sps_templates, read_params, templ_mags, templ_mags_legacy, v_mags, v_mags_legacy
 
 __all__ = [
     "DATALOC",
@@ -32,6 +32,9 @@ __all__ = [
     "load_filt",
     "load_data_for_run",
     "extract_pdz",
+    "extract_pdz_allchi2",
+    "templ_mags",
+    "templ_mags_legacy",
     "v_mags",
     "v_mags_legacy",
     "Cosmo",

@@ -453,7 +453,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
 
     title = "DSPS fit (obs. frame)"
     ax.set_title(title)
-    ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+    # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
     ymax = y_nodust.max()
     ylim_max = ymax * 3.0
@@ -468,7 +468,7 @@ def plot_fit_ssp_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYs
     ax.set_xlabel("$\\lambda\\ [\\AA]$")
     ax.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
     ax_phot.set_ylabel("$m_{AB}$")
-    ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+    # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
 
     ax.set_xlim(1.5e3, 5e4)
     ax.set_ylim(ylim_min, ylim_max)
@@ -549,7 +549,7 @@ def plot_input_spectrophotometry(params, Xspec_data_rest, Yspec_data_rest, EYspe
 
     title = "DSPS inputs (obs. frame)"
     ax.set_title(title)
-    ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+    # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
     ax.set_xlabel("$\\lambda\\ [\\AA]$")
     ax.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
