@@ -109,8 +109,33 @@ def load_data_for_run(inp_glob):
     return z_grid, templ_dict, obs_arr
 
 
-def extract_pdz(chi2_res, z_grid):
-    """extract_pdz _summary_
+def extract_pdz(pdf_res, z_grid):
+    """pdf_res _summary_
+
+    :param chi2_res: _description_
+    :type chi2_res: _type_
+    :param z_grid: _description_
+    :type z_grid: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    pdf_dict = pdf_res[0]
+    zs = pdf_res[1]
+    pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
+    # print(f"DEBUG extract_pdz : {exp_arr.shape}")
+    _n2 = jnp.trapezoid(jnp.sum(pdf_arr, axis=0), x=z_grid)
+    pdf_arr = pdf_arr / _n2
+    pdz_dict = {}
+    for key, val in pdf_dict.items():
+        joint_pdz = val / _n2
+        evidence = jnp.trapezoid(joint_pdz, x=z_grid)
+        pdz_dict.update({key: {"SED evidence": evidence}})
+    pdz_dict.update({"PDZ": jnp.sum(pdf_arr, axis=0), "z_spec": zs})
+    return pdz_dict
+
+
+def extract_pdz_fromchi2(chi2_res, z_grid):
+    """extract_pdz_fromchi2 _summary_
 
     :param chi2_res: _description_
     :type chi2_res: _type_
@@ -138,32 +163,28 @@ def extract_pdz(chi2_res, z_grid):
     return pdz_dict
 
 
-def extract_pdz_allchi2(chi2_res, z_grid):
-    """extract_pdz_allchi2 _summary_
+def extract_pdz_allseds(pdf_res, z_grid):
+    """extract_pdz_allseds _summary_
 
-    :param chi2_res: _description_
-    :type chi2_res: _type_
+    :param pdf_res: _description_
+    :type pdf_res: _type_
     :param z_grid: _description_
     :type z_grid: _type_
     :return: _description_
     :rtype: _type_
     """
-    chi2_dict = chi2_res[0]
-    zs = chi2_res[1]
-    chi2_arr = jnp.array([chi2_templ for _, chi2_templ in chi2_dict.items()])
-    _n1 = jnp.max(chi2_arr)
-    chi2_arr = 10 * chi2_arr / _n1
-    exp_arr = jnp.exp(-0.5 * chi2_arr)
+    pdf_dict = pdf_res[0]
+    zs = pdf_res[1]
+    pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
     # print(f"DEBUG extract_pdz : {exp_arr.shape}")
-    _n2 = jnp.trapezoid(jnp.sum(exp_arr, axis=0), x=z_grid)
-    exp_arr = exp_arr / _n2
+    _n2 = jnp.trapezoid(jnp.sum(pdf_arr, axis=0), x=z_grid)
+    pdf_arr = pdf_arr / _n2
     pdz_dict = {}
-    for key, val in chi2_dict.items():
-        chiarr = 10 * val / _n1
-        joint_pdz = jnp.exp(-0.5 * chiarr) / _n2
+    for key, val in pdf_dict.items():
+        joint_pdz = val / _n2
         evidence = jnp.trapezoid(joint_pdz, x=z_grid)
         pdz_dict.update({key: {"p(z, sed)": joint_pdz, "SED evidence": evidence}})
-    pdz_dict.update({"PDZ": jnp.sum(exp_arr, axis=0), "z_spec": zs})
+    pdz_dict.update({"PDZ": jnp.sum(pdf_arr, axis=0), "z_spec": zs})
     return pdz_dict
 
 

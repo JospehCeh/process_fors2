@@ -1,4 +1,4 @@
-from .analysis import extract_pdz, extract_pdz_allchi2, load_data_for_run
+from .analysis import extract_pdz, extract_pdz_fromchi2, extract_pdz_seds, load_data_for_run
 from .cosmology import DATALOC, Cosmo, make_jcosmo, nz_prior_core, prior_alpt0, prior_ft, prior_kt, prior_ktf, prior_pcal, prior_zot
 from .filter import NIR_filt, NUV_filt, ab_mag, get_2lists, load_filt, sedpyFilter
 from .galaxy import (
@@ -32,7 +32,8 @@ __all__ = [
     "load_filt",
     "load_data_for_run",
     "extract_pdz",
-    "extract_pdz_allchi2",
+    "extract_pdz_seds",
+    "extract_pdz_fromchi2",
     "templ_mags",
     "templ_mags_legacy",
     "v_mags",
