@@ -120,9 +120,8 @@ def neg_log_posterior(sps_temp, obs_gal):
     :rtype: _type_
     """
     _sel = obs_gal.valid_colors
-    neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
-    prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
-    return jnp.exp(-0.5 * (neglog_lik - 1000.0)) * prior_val
+    neglog_post = vmap_neg_log_posterior(sps_temp.z_grid, sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel], obs_gal.ref_i_AB, sps_temp.nuvk)
+    return neglog_post
 
 
 @jit
@@ -158,7 +157,39 @@ def neg_log_likelihood(sps_temp, obs_gal):
     """
     _sel = obs_gal.valid_colors
     neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
-    return jnp.exp(0.5 * neglog_lik)
+    return neglog_lik
+
+
+def likelihood(sps_temp, obs_gal):
+    """likelihood _summary_
+
+    :param sps_temp: _description_
+    :type sps_temp: _type_
+    :param obs_gal: _description_
+    :type obs_gal: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    _sel = obs_gal.valid_colors
+    neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
+    return jnp.exp(-0.5 * neglog_lik)
+
+
+# @jit
+def posterior(sps_temp, obs_gal):
+    """posterior _summary_
+
+    :param sps_temp: _description_
+    :type sps_temp: _type_
+    :param obs_gal: _description_
+    :type obs_gal: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    _sel = obs_gal.valid_colors
+    neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
+    prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
+    return jnp.exp(-0.5 * (neglog_lik - 1000.0)) * prior_val
 
 
 ## Old functions for reference:

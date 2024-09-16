@@ -32,7 +32,7 @@ from process_fors2.fetchData import json_to_inputs
 # from jax import debug
 # from jax import numpy as jnp
 # from tqdm import tqdm
-from process_fors2.photoZ import Observation, SPS_Templates, extract_pdz, load_data_for_run, neg_log_likelihood, neg_log_posterior
+from process_fors2.photoZ import Observation, SPS_Templates, extract_pdz, likelihood, load_data_for_run, posterior
 
 
 def main(args):
@@ -84,11 +84,11 @@ def main(args):
         # c = observ.AB_colors[observ.valid_colors]
         # c_err = observ.AB_colerrs[observ.valid_colors]
         if inputs["photoZ"]["prior"] and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
-            chi2_dict = jax.tree_map(lambda sps_templ: neg_log_posterior(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+            probz_dict = jax.tree_map(lambda sps_templ: posterior(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
         else:
-            chi2_dict = jax.tree_map(lambda sps_templ: neg_log_likelihood(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+            probz_dict = jax.tree_map(lambda sps_templ: likelihood(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
         # z_phot_loc = jnp.nanargmin(chi2_arr)
-        return chi2_dict, observ.z_spec  # chi2_arr, z_phot_loc
+        return probz_dict, observ.z_spec  # chi2_arr, z_phot_loc
 
     def is_obs(elt):
         return isinstance(elt, Observation)

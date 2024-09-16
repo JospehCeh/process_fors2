@@ -147,15 +147,15 @@ def extract_pdz_fromchi2(chi2_res, z_grid):
     chi2_dict = chi2_res[0]
     zs = chi2_res[1]
     chi2_arr = jnp.array([chi2_templ for _, chi2_templ in chi2_dict.items()])
-    _n1 = jnp.max(chi2_arr)
-    chi2_arr = 10 * chi2_arr / _n1
+    _n1 = 100.0  # jnp.max(chi2_arr)
+    chi2_arr = chi2_arr - _n1  # 10 * chi2_arr / _n1
     exp_arr = jnp.exp(-0.5 * chi2_arr)
     # print(f"DEBUG extract_pdz : {exp_arr.shape}")
     _n2 = jnp.trapezoid(jnp.sum(exp_arr, axis=0), x=z_grid)
     exp_arr = exp_arr / _n2
     pdz_dict = {}
     for key, val in chi2_dict.items():
-        chiarr = 10 * val / _n1
+        chiarr = val - _n1
         joint_pdz = jnp.exp(-0.5 * chiarr) / _n2
         evidence = jnp.trapezoid(joint_pdz, x=z_grid)
         pdz_dict.update({key: {"SED evidence": evidence}})
