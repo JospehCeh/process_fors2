@@ -189,7 +189,7 @@ def posterior(sps_temp, obs_gal):
     _sel = obs_gal.valid_colors
     neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
     prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
-    return jnp.exp(-0.5 * (neglog_lik)) * prior_val
+    return jnp.exp(-0.5 * (neglog_lik - 10000.0)) * prior_val
 
 
 ## Old functions for reference:
