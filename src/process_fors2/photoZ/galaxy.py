@@ -187,9 +187,14 @@ def posterior(sps_temp, obs_gal):
     :rtype: _type_
     """
     _sel = obs_gal.valid_colors
-    neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
+    chi2_arr = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
+    # neglog_lik = chi2_arr - 500.
+    _n1 = 10.0 / jnp.max(chi2_arr)
+    neglog_lik = _n1 * chi2_arr
     prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
-    return jnp.exp(-0.5 * (neglog_lik - 500.0)) * prior_val
+    # res = jnp.exp(-0.5 * neglog_lik) * prior_val
+    res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
+    return res
 
 
 ## Old functions for reference:
