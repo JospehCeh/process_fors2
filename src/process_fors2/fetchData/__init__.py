@@ -11,9 +11,13 @@ from .manipulate import (
     gelato_xmatch_todict,
     gelatoToH5,
     loadDataInH5,
+    photoZtoHDF5,
     readH5FileAttributes,
+    readPhotoZHDF5,
+    readTemplatesHDF5,
     starlightToH5,
     tableForGelato,
+    templatesToH5,
 )
 from .queries import _getTargetCoordinates, getFors2FitsTable, json_to_inputs, queryGalexMast, queryTargetInSimbad, readKids
 
@@ -39,4 +43,8 @@ __all__ = [
     "tableForGelato",
     "crossmatchToGelato",
     "gelato_tables_from_dsps",
+    "readPhotoZHDF5",
+    "readTemplatesHDF5",
+    "photoZtoHDF5",
+    "templatesToH5",
 ]

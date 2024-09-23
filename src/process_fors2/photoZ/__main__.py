@@ -21,7 +21,6 @@
 #
 #
 
-import pickle
 import sys
 
 import jax
@@ -93,7 +92,7 @@ def main(args):
     def is_obs(elt):
         return isinstance(elt, Observation)
 
-    dict_of_results_dict = jax.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
+    tree_of_results_dict = jax.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
 
     """Old-fashioned way making expensive use of pandas
     df_gal = pd.DataFrame()
@@ -316,10 +315,13 @@ def main(args):
     """
 
     if inputs["photoZ"]["save results"]:
-        # df_gal.to_pickle(f"{inputs['run name']}_results_summary.pkl")
-        with open(f"{inputs['photoZ']['run name']}_posteriors_dict.pkl", "wb") as handle:
-            pickle.dump(dict_of_results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        from process_fors2.fetchData import photoZtoHDF5
 
+        # df_gal.to_pickle(f"{inputs['run name']}_results_summary.pkl")
+        # with open(f"{inputs['photoZ']['run name']}_posteriors_dict.pkl", "wb") as handle:
+        #    pickle.dump(tree_of_results_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        resfile = photoZtoHDF5(f"{inputs['photoZ']['run name']}_posteriors_dict.h5", tree_of_results_dict)
+        print(resfile)
     return 0
 
 

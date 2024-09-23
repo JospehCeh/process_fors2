@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 from astropy.table import Table
 from dsps.cosmology import DEFAULT_COSMOLOGY, luminosity_distance_to_z  # in Mpc
+from jax import numpy as jnp
 from scipy.ndimage import gaussian_filter1d
 from sedpy import observate
 from tqdm import tqdm
@@ -948,3 +949,108 @@ def gelato_tables_from_dsps(dsps_pickle_dir, ssp_file=None):
     writepath = os.path.join(outdir, "specs_for_GELATO.fits")
     objlist.write(writepath, format="fits", overwrite=True)
     print(f"Done ! List of objects written in {writepath}.")
+
+
+def templatesToH5(outfilename, templ_dict):
+    """
+    Writes the SED templates used for photo-z in an HDF5 for a quicker use in future runs.
+    Mimics the structure of the class SPS_Templates = namedtuple("SPS_Templates", ["name", "redshift", "z_grid", "i_mag", "colors", "nuvk"]) from process_fors2.photoZ.
+
+    Parameters
+    ----------
+    outfilename : str or path
+        Name of the `HDF5` file that will be written.
+    templ_dict : dict
+        Dictionary object containing the SED templates.
+
+    Returns
+    -------
+    path
+        Absolute path to the written file - if successful.
+    """
+    fileout = os.path.abspath(outfilename)
+
+    with h5py.File(fileout, "w") as h5out:
+        for key, templ in templ_dict.items():
+            groupout = h5out.create_group(key)
+            groupout.attrs["name"] = templ.name
+            groupout.attrs["redshift"] = templ.redshift
+            groupout.create_dataset("z_grid", data=templ.z_grid, compression="gzip", compression_opts=9)
+            groupout.create_dataset("i_mag", data=templ.i_mag, compression="gzip", compression_opts=9)
+            groupout.create_dataset("colors", data=templ.colors, compression="gzip", compression_opts=9)
+            groupout.create_dataset("nuvk", data=templ.nuvk, compression="gzip", compression_opts=9)
+
+    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
+    return ret
+
+
+def readTemplatesHDF5(h5file):
+    """readTemplatesHDF5 loads the SED templates for photo-z from the specified HDF5 and returns them as a dictionary of objects
+    SPS_Templates = namedtuple("SPS_Templates", ["name", "redshift", "z_grid", "i_mag", "colors", "nuvk"]) from process_fors2.photoZ
+
+    :param h5file: Path to the HDF5 containing the SED templates data.
+    :type h5file: str or path-like object
+    :return: The dictionary of SPS_Templates objects.
+    :rtype: dictionary
+    """
+    from process_fors2.photoZ import SPS_Templates
+
+    filein = os.path.abspath(h5file)
+    out_dict = {}
+    with h5py.File(filein, "r") as h5in:
+        for key in h5in:
+            grp = h5in.get(key)
+            out_dict.update(
+                {
+                    key: SPS_Templates(
+                        grp.attrs.get("name"), grp.attrs.get("redshift"), jnp.array(grp.get("z_grid")), jnp.array(grp.get("i_mag")), jnp.array(grp.get("colors")), jnp.array(grp.get("nuvk"))
+                    )
+                }
+            )
+    return out_dict
+
+
+def photoZtoHDF5(outfilename, pz_list):
+    """photoZtoHDF5 Saves the pytree of photo-z results (list of dicts) in an HDF5 file.
+
+    :param outfilename: Name of the `HDF5` file that will be written.
+    :type outfilename: str or path-like object
+    :param pz_list: List of dictionaries containing the photo-z results.
+    :type pz_list: list
+    :return: Absolute path to the written file - if successful.
+    :rtype: str or path-like object
+    """
+    fileout = os.path.abspath(outfilename)
+
+    with h5py.File(fileout, "w") as h5out:
+        for i, posts_dic in enumerate(pz_list):
+            groupout = h5out.create_group(i)
+            groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
+            groupout.create_dataset("PDZ", data=posts_dic.pop("z_spec"), compression="gzip", compression_opts=9)
+            for templ, tdic in posts_dic.items():
+                groupout.attrs[f"{templ} evidence"] = tdic["SED evidence"]
+
+    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
+    return ret
+
+
+def readPhotoZHDF5(h5file):
+    """readPhotoZHDF5 Reads the photo-z results file and generates the corresponding pytree (list of dictionaries) for analysis.
+
+    :param h5file: Path to the HDF5 containing the photo-z results.
+    :type h5file: str or path-like object
+    :return: List of photo-z results dicts as computed by process_fors2.photoZ.
+    :rtype: list
+    """
+    filein = os.path.abspath(h5file)
+    out_list = []
+    with h5py.File(filein, "r") as h5in:
+        for key in h5in:
+            grp = h5in.get(key)
+            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get["z_spec"]}
+            for attr in grp.attrs:
+                if "evidence" in attr:
+                    templ = attr.split(" ")[0]
+                    obs_dict.update({templ: {"SED evidence": grp.attrs.get(attr)}})
+            out_list.append(obs_dict)
+    return out_list
