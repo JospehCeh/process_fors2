@@ -1024,7 +1024,7 @@ def photoZtoHDF5(outfilename, pz_list):
 
     with h5py.File(fileout, "w") as h5out:
         for i, posts_dic in enumerate(pz_list):
-            groupout = h5out.create_group(i)
+            groupout = h5out.create_group(f"{i}")
             groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
             groupout.create_dataset("PDZ", data=posts_dic.pop("z_spec"), compression="gzip", compression_opts=9)
             for templ, tdic in posts_dic.items():
