@@ -1024,10 +1024,13 @@ def photoZtoHDF5(outfilename, pz_list):
 
     with h5py.File(fileout, "w") as h5out:
         for i, posts_dic in enumerate(pz_list):
+            print(f"{i}")
             groupout = h5out.create_group(f"{i}")
+            print(posts_dic["z_spec"])
             groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
             groupout.create_dataset("PDZ", data=posts_dic.pop("PDZ"), compression="gzip", compression_opts=9)
             for templ, tdic in posts_dic.items():
+                print(tdic["SED evidence"])
                 groupout.attrs[f"{templ} evidence"] = tdic["SED evidence"]
 
     ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
@@ -1047,7 +1050,7 @@ def readPhotoZHDF5(h5file):
     with h5py.File(filein, "r") as h5in:
         for key in h5in:
             grp = h5in.get(key)
-            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get["z_spec"]}
+            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec")}
             for attr in grp.attrs:
                 if "evidence" in attr:
                     templ = attr.split(" ")[0]
