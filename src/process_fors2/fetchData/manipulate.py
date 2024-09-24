@@ -951,7 +951,7 @@ def gelato_tables_from_dsps(dsps_pickle_dir, ssp_file=None):
     print(f"Done ! List of objects written in {writepath}.")
 
 
-def templatesToH5(outfilename, templ_dict):
+def templatesToHDF5(outfilename, templ_dict):
     """
     Writes the SED templates used for photo-z in an HDF5 for a quicker use in future runs.
     Mimics the structure of the class SPS_Templates = namedtuple("SPS_Templates", ["name", "redshift", "z_grid", "i_mag", "colors", "nuvk"]) from process_fors2.photoZ.
@@ -1026,7 +1026,7 @@ def photoZtoHDF5(outfilename, pz_list):
         for i, posts_dic in enumerate(pz_list):
             groupout = h5out.create_group(f"{i}")
             groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
-            groupout.create_dataset("PDZ", data=posts_dic.pop("z_spec"), compression="gzip", compression_opts=9)
+            groupout.create_dataset("PDZ", data=posts_dic.pop("PDZ"), compression="gzip", compression_opts=9)
             for templ, tdic in posts_dic.items():
                 groupout.attrs[f"{templ} evidence"] = tdic["SED evidence"]
 
@@ -1054,3 +1054,105 @@ def readPhotoZHDF5(h5file):
                     obs_dict.update({templ: {"SED evidence": grp.attrs.get(attr)}})
             out_list.append(obs_dict)
     return out_list
+
+
+def dspsFitToHDF5(outfilename, dsps_dict):
+    """dspsFitToHDF5 _summary_
+
+    :param outfilename: _description_
+    :type outfilename: _type_
+    :param dsps_dict: _description_
+    :type dsps_dict: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fileout = os.path.abspath(outfilename)
+
+    from process_fors2.stellarPopSynthesis import SSPParametersFit, paramslist_to_dict
+
+    _pars = SSPParametersFit()
+
+    with h5py.File(fileout, "w") as h5out:
+        for key, gal in dsps_dict.items():
+            groupout = h5out.create_group(key, track_order=True)
+            params_dict = paramslist_to_dict(gal["fit_params"], _pars.PARAM_NAMES_FLAT)
+            params_dict.update({"redshift": gal["zobs"], "tag": key})
+            for kkey, val in params_dict.items():
+                groupout.attrs[kkey] = val
+
+    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
+    return ret
+
+
+def readDSPSHDF5(h5file):
+    """readDSPSHDF5 _summary_
+
+    :param h5file: _description_
+    :type h5file: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    filein = os.path.abspath(h5file)
+    out_dict = {}
+    with h5py.File(filein, "r") as h5in:
+        for key, grp in h5in.items():
+            out_dict.update({key: {_k: _v for _k, _v in grp.attrs.items()}})
+    return out_dict
+
+
+def _recursive_dict_to_hdf5(group, attrs):
+    for key, item in attrs.items():
+        if isinstance(item, dict):
+            sub_group = group.create_group(key, track_order=True)
+            _recursive_dict_to_hdf5(sub_group, item)
+        else:
+            group.attrs[key] = item
+
+
+def dspsBootstrapToHDF5(outfilename, dsps_bs_dict):
+    """dspsBootstrapToHDF5 _summary_
+
+    :param outfilename: _description_
+    :type outfilename: _type_
+    :param dsps_bs_dict: _description_
+    :type dsps_bs_dict: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fileout = os.path.abspath(outfilename)
+
+    from process_fors2.stellarPopSynthesis import SSPParametersFit, paramslist_to_dict
+
+    _pars = SSPParametersFit()
+
+    with h5py.File(fileout, "w") as h5out:
+        for key, fit in dsps_bs_dict.items():
+            fitgroupout = h5out.create_group(key, track_order=True)
+            for kkey, gal in fit.items():
+                galgroupout = fitgroupout.create_group(kkey, track_order=True)
+                params_dict = paramslist_to_dict(gal["fit_params"], _pars.PARAM_NAMES_FLAT)
+                params_dict.update({"redshift": gal["zobs"], "tag": key})
+                for kkkey, val in params_dict.items():
+                    galgroupout.attrs[kkkey] = val
+
+    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
+    return ret
+
+
+def readDSPSBootstrapHDF5(h5file):
+    """readDSPSBootstrapHDF5 _summary_
+
+    :param h5file: _description_
+    :type h5file: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    filein = os.path.abspath(h5file)
+    out_dict = {}
+    with h5py.File(filein, "r") as h5in:
+        for key, grp in h5in.items():
+            fit_dict = {}
+            for kkey, ggrp in grp.items():
+                fit_dict.update({kkey: {_k: _v for _k, _v in ggrp.attrs.items()}})
+            out_dict.update({key: fit_dict})
+    return out_dict

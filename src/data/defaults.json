@@ -173,7 +173,7 @@
         "last_spec": 10,
         "fit_type": "mags+rews",
         "use_clean": false,
-        "weight_mag": 0.5,
+        "weight_mag": 0.9,
         "ssp_file": "default",
         "remove_galex": true,
         "remove_fuv": true,
@@ -195,7 +195,11 @@
             "lambda_max": 25100.0,
             "lambda_step": 1.0
         },
-        "Templates": "/home/chevalier/runProcessFors2/DSPS_pickles_fit_mags+rews_test/fitparams_mags+rews_test_1_to_10.pickle",
+        "Templates": {
+            "input": "/home/chevalier/runProcessFors2/DSPS_hdf5_fit_mags+rews/fitparams_mags+rews_1_to_10.h5",
+            "output": "SEDtempl_SPS_mags+rews_1_to_10.h5",
+            "overwrite": false
+        },
         "Mode": "SPS",
         "Filters": {
             "0": {

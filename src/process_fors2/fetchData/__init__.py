@@ -5,6 +5,8 @@ from .manipulate import (
     crossmatchFors2KidsGalex,
     crossmatchToGelato,
     dsps_to_gelato,
+    dspsBootstrapToHDF5,
+    dspsFitToHDF5,
     filterCrossMatch,
     fors2ToH5,
     gelato_tables_from_dsps,
@@ -12,12 +14,14 @@ from .manipulate import (
     gelatoToH5,
     loadDataInH5,
     photoZtoHDF5,
+    readDSPSBootstrapHDF5,
+    readDSPSHDF5,
     readH5FileAttributes,
     readPhotoZHDF5,
     readTemplatesHDF5,
     starlightToH5,
     tableForGelato,
-    templatesToH5,
+    templatesToHDF5,
 )
 from .queries import _getTargetCoordinates, getFors2FitsTable, json_to_inputs, queryGalexMast, queryTargetInSimbad, readKids
 
@@ -46,5 +50,9 @@ __all__ = [
     "readPhotoZHDF5",
     "readTemplatesHDF5",
     "photoZtoHDF5",
-    "templatesToH5",
+    "templatesToHDF5",
+    "dspsBootstrapToHDF5",
+    "dspsFitToHDF5",
+    "readDSPSBootstrapHDF5",
+    "readDSPSHDF5",
 ]

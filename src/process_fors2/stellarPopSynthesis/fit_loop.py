@@ -16,7 +16,6 @@
 # ## Imports and general settings
 import copy
 import os
-import pickle
 import subprocess
 from collections import OrderedDict
 
@@ -33,8 +32,6 @@ from process_fors2.analysis import bpt_classif, convert_flux_torestframe, get_fn
 from process_fors2.fetchData import gelato_xmatch_todict
 
 from .dsps_params import SSPParametersFit
-
-jax.config.update("jax_enable_x64", True)
 
 plt.style.use("default")
 plt.rcParams["figure.figsize"] = (9, 5)
@@ -1229,7 +1226,7 @@ def main(args):
     int
         0 if exited correctly.
     """
-    from process_fors2.fetchData import json_to_inputs
+    from process_fors2.fetchData import dspsBootstrapToHDF5, dspsFitToHDF5, json_to_inputs
     from process_fors2.fetchData.queries import FORS2DATALOC
 
     conf_json = args[3] if len(args) > 3 else os.path.join(FORS2DATALOC, "defaults.json")  # attention à la localisation du fichier !
@@ -1243,7 +1240,7 @@ def main(args):
 
     if inputs["bootstrap"]:
         concat_dicts = {}
-        outdir = os.path.abspath("./DSPS_pickles_bootstraps")
+        outdir = os.path.abspath("./DSPS_hdf5_bootstraps")
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
         merged_attrs = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=True)
@@ -1292,10 +1289,11 @@ def main(args):
                     os.path.join(outdir, f"bootstrap_{len(_weight_mag)}plots_{tag}.png"),
                 ]
             )
-        filename_params = os.path.join(outdir, f"bootstrap_params_{classif_tgt}_FUV-{not inputs['remove_fuv']}_NUV-{not inputs['remove_galex']}_KiDS-{not inputs['remove_visible']}.pickle")
+        filename_params = os.path.join(outdir, f"bootstrap_params_{classif_tgt}_FUV-{not inputs['remove_fuv']}_NUV-{not inputs['remove_galex']}_KiDS-{not inputs['remove_visible']}.h5")
         # filename_params = os.path.join(outdir, f"bootstrap_params_{inputs['bootstrap_id']}_{fitname}.pickle")
-        with open(filename_params, "wb") as outf:
-            pickle.dump(concat_dicts, outf)
+        # with open(filename_params, "wb") as outf:
+        #    pickle.dump(concat_dicts, outf)
+        status = dspsBootstrapToHDF5(filename_params, concat_dicts)
         subprocess.run(
             [
                 "convert",
@@ -1325,15 +1323,17 @@ def main(args):
         if "spec" in _fit_type.lower():
             fitname = f"{fitname}_clean" if _useclean else f"{fitname}_raw"
 
-        outdir = os.path.abspath(f"./DSPS_pickles_fit_{fitname}")
+        outdir = os.path.abspath(f"./DSPS_hdf5_fit_{fitname}")
         if not os.path.isdir(outdir):
             os.makedirs(outdir)
 
         _ = make_fit_plots(dict_fors2_for_fit, fit_results_dict, outdir, fitname=fitname, start=low_bound, end=high_bound)
 
-        filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}_to_{high_bound}.pickle")
-        with open(filename_params, "wb") as outf:
-            pickle.dump(fit_results_dict, outf)
+        filename_params = os.path.join(outdir, f"fitparams_{fitname}_{low_bound+1}_to_{high_bound}.h5")
+        # with open(filename_params, "wb") as outf:
+        #    pickle.dump(fit_results_dict, outf)
+        status = dspsFitToHDF5(filename_params, fit_results_dict)
+    print(status)
     return 0
 
 
