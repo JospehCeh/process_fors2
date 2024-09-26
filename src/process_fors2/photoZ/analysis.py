@@ -136,8 +136,13 @@ def extract_pdz(pdf_res, z_grid):
     for key, val in pdf_dict.items():
         joint_pdz = val / _n2
         evidence = jnp.trapezoid(joint_pdz, x=z_grid)
-        pdz_dict.update({key: {"SED evidence": evidence}})
-    pdz_dict.update({"PDZ": jnp.sum(pdf_arr, axis=0), "z_spec": zs})
+        z_ml = z_grid[jnp.nanargmax(joint_pdz)]
+        z_avg = jnp.trapezoid(z_grid * joint_pdz / evidence, x=z_grid)
+        pdz_dict.update({key: {"evidence_SED": evidence, "z_ML_SED": z_ml, "z_mean_SED": z_avg}})
+    pdz = jnp.sum(pdf_arr, axis=0)
+    z_ML = z_grid[jnp.nanargmax(pdz)]
+    z_MEAN = jnp.trapezoid(z_grid * pdz, x=z_grid)
+    pdz_dict.update({"PDZ": jnp.column_stack(z_grid, pdz), "z_spec": zs, "z_ML": z_ML, "z_mean": z_MEAN})
     return pdz_dict
 
 

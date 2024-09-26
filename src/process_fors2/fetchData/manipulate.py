@@ -1025,10 +1025,15 @@ def photoZtoHDF5(outfilename, pz_list):
     with h5py.File(fileout, "w") as h5out:
         for i, posts_dic in enumerate(pz_list):
             groupout = h5out.create_group(f"{i}")
-            groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
             groupout.create_dataset("PDZ", data=posts_dic.pop("PDZ"), compression="gzip", compression_opts=9)
+            groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
+            groupout.attrs["z_ML"] = posts_dic.pop("z_ML")
+            groupout.attrs["z_mean"] = posts_dic.pop("z_mean")
             for templ, tdic in posts_dic.items():
-                groupout.attrs[f"{templ} evidence"] = tdic["SED evidence"]
+                grp_sed = groupout.create_group(templ)
+                grp_sed.attrs["evidence_SED"] = tdic["evidence_SED"]
+                grp_sed.attrs["z_ML_SED"] = tdic["z_ML_SED"]
+                grp_sed.attrs["z_mean_SED"] = tdic["z_mean_SED"]
 
     ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
     return ret
@@ -1045,13 +1050,11 @@ def readPhotoZHDF5(h5file):
     filein = os.path.abspath(h5file)
     out_list = []
     with h5py.File(filein, "r") as h5in:
-        for key in h5in:
-            grp = h5in.get(key)
-            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec")}
-            for attr in grp.attrs:
-                if "evidence" in attr:
-                    templ = attr.split(" ")[0]
-                    obs_dict.update({templ: {"SED evidence": grp.attrs.get(attr)}})
+        for key, grp in h5in.items():
+            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean")}
+            for templ, grp_sed in grp.items():
+                if isinstance(grp_sed, dict):
+                    obs_dict.update({templ: grp_sed.attrs})
             out_list.append(obs_dict)
     return out_list
 
