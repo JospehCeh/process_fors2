@@ -1029,6 +1029,7 @@ def photoZtoHDF5(outfilename, pz_list):
             groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
             groupout.attrs["z_ML"] = posts_dic.pop("z_ML")
             groupout.attrs["z_mean"] = posts_dic.pop("z_mean")
+            groupout.attrs["z_med"] = posts_dic.pop("z_med")
             for templ, tdic in posts_dic.items():
                 grp_sed = groupout.create_group(templ)
                 grp_sed.attrs["evidence_SED"] = tdic["evidence_SED"]
@@ -1051,10 +1052,10 @@ def readPhotoZHDF5(h5file):
     out_list = []
     with h5py.File(filein, "r") as h5in:
         for key, grp in h5in.items():
-            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean")}
+            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean"), "z_med": grp.attrs.get("z_med")}
             for templ, grp_sed in grp.items():
-                if isinstance(grp_sed, dict):
-                    obs_dict.update({templ: grp_sed.attrs})
+                if "SPEC" in templ:
+                    obs_dict.update({templ: {_k: _att for _k, _att in grp_sed.attrs.items()}})
             out_list.append(obs_dict)
     return out_list
 
