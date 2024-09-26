@@ -125,7 +125,7 @@ def _cdf(z, pdz):
 @jax.jit
 def _median(z, pdz):
     cdz = _cdf(z, pdz)
-    medz = z[jnp.nonzero(cdz >= 0.5)][0]
+    medz = z[jnp.nonzero(cdz >= 0.5, size=1)][0]
     return medz
 
 
