@@ -123,8 +123,9 @@ def _cdf(z, pdz):
 
 
 @jax.jit
-def _median(z, cdz):
-    medz = z[jnp.where(cdz >= 0.5)][0]
+def _median(z, pdz):
+    cdz = _cdf(z, pdz)
+    medz = z[jnp.nonzero(cdz >= 0.5)][0]
     return medz
 
 
@@ -152,8 +153,7 @@ def extract_pdz(pdf_res, z_grid):
         z_avg = jnp.trapezoid(z_grid * joint_pdz / evidence, x=z_grid)
         pdz_dict.update({key: {"evidence_SED": evidence, "z_ML_SED": z_ml, "z_mean_SED": z_avg}})
     pdz = jnp.nansum(pdf_arr, axis=0)
-    cdz = _cdf(z_grid, pdz)
-    z_med = _median(z_grid, cdz)
+    z_med = _median(z_grid, pdz)
     z_ML = z_grid[jnp.nanargmax(pdz)]
     z_MEAN = jnp.trapezoid(z_grid * pdz, x=z_grid)
     pdz_dict.update({"PDZ": jnp.column_stack((z_grid, pdz)), "z_spec": zs, "z_ML": z_ML, "z_mean": z_MEAN, "z_med": z_med})
