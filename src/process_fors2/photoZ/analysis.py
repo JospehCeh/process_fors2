@@ -142,7 +142,7 @@ def extract_pdz(pdf_res, z_grid):
     pdz = jnp.sum(pdf_arr, axis=0)
     z_ML = z_grid[jnp.nanargmax(pdz)]
     z_MEAN = jnp.trapezoid(z_grid * pdz, x=z_grid)
-    pdz_dict.update({"PDZ": jnp.column_stack(z_grid, pdz), "z_spec": zs, "z_ML": z_ML, "z_mean": z_MEAN})
+    pdz_dict.update({"PDZ": jnp.column_stack((z_grid, pdz)), "z_spec": zs, "z_ML": z_ML, "z_mean": z_MEAN})
     return pdz_dict
 
 
