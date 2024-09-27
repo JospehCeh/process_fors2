@@ -1,0 +1,24 @@
+ADP.2019-02-11T13:02:24.808 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2019-02-11T13:02:24.807 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T13:00:30.250 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2019-02-11T13:02:24.809 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T12:56:25.450 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T13:00:30.251 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T13:02:11.610 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T13:00:30.252 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T12:56:25.449 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T13:02:11.609 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T12:56:25.448 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+
+ADP.2018-12-21T13:02:11.608 cutout configurations: {"position":"13.5125deg -28.39944deg","radius":"0.166667deg","spectralName":null,"bandRangeStart":null,"bandRangeStop":null,"outputFile":null,"outputFileName":"00:54:03_-28:23:58"}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        

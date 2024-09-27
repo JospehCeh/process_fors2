@@ -14,14 +14,28 @@ classifiers = [
     "Programming Language :: Python",
 ]
 dynamic = ["version"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "ipykernel", # Support for Jupyter notebooks
     "numpy",
     "astropy",
     "h5py",
     "astroquery",
-    "pandas"
+    "pandas",
+    "astro-sedpy",
+    "scipy",
+    "scikit-learn",
+    "tqdm",
+    "ipympl",
+    "seaborn",
+    "diffstar",
+    "jax",
+    "jaxlib",
+    "jaxopt",
+    "dsps",
+    "interpax",
+    "arviz",
+    "jax_cosmo"
 ]
 
 [project.urls]
@@ -36,6 +50,7 @@ dev = [
     "sphinx", # Used to automatically generate documentation
     "sphinx-rtd-theme", # Used to render documentation
     "sphinx-autoapi", # Used to automatically generate api documentation
+    "sphinx_copybutton", # necessary at commit time
     "ruff", # Used for static linting of files
     # if you add dependencies here while experimenting in a notebook and you
     # want that notebook to render in your documentation, please add the
@@ -62,16 +77,16 @@ testpaths = [
 ]
 
 [tool.black]
-line-length = 300
-target-version = ["py39"]
+line-length = 200
+target-version = ["py310"]
 
 [tool.isort]
 profile = "black"
-line_length = 300
+line_length = 200
 
 [tool.ruff]
-line-length = 300
-target-version = "py39"
+line-length = 200
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [
@@ -114,9 +129,11 @@ ignore = [
     "UP028", # Allow yield in for loop
     "N806",
     "N802",
+    "N803",
     "B007",
     "D417",
-    "SIM118"
+    "SIM118",
+    "SIM105"
 ]
 
 [tool.coverage.run]

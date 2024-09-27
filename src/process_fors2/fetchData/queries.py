@@ -7,6 +7,7 @@ Created on Mon Feb 26 17:17:01 2024
 @author: joseph
 """
 
+import json
 import os
 
 import astropy.coordinates as coord
@@ -40,10 +41,30 @@ BOX_SIZE = (11 * u.arcmin).to(u.deg)
 
 GALEX_TABLE = "queryMAST_GALEXDR6_RXJ0054.0-2823_11arcmin.fits"
 GLXTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", GALEX_TABLE)
-KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_12arcmin.fits"
+KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_rad15arcmin_SG1.fits"
 KIDSTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", KIDS_TABLE)
 
 _defaults = {"Target": TARGET, "Simbad name": OBJ_SIMBAD, "Vizier catalog": CATALOG_VIZIER, "FITS location": TABLE_PATH, "GALEX FITS": GLXTBL_PATH, "KiDS FITS": KIDSTBL_PATH, "Box size": BOX_SIZE}
+
+
+def json_to_inputs(conf_json):
+    """
+    Load JSON configuration file and return inputs dictionary.
+
+    Parameters
+    ----------
+    conf_json : path or str
+        Path to the configuration file in JSON format.
+
+    Returns
+    -------
+    dict
+        Dictionary of inputs `{param_name: value}`.
+    """
+    conf_json = os.path.abspath(conf_json)
+    with open(conf_json, "r") as inpfile:
+        inputs = json.load(inpfile)
+    return inputs
 
 
 def queryTargetInSimbad(target=TARGET):
