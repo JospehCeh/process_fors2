@@ -33,14 +33,14 @@ NIR_filt = sedpyFilter(99, _wls, nir_transm)
 
 
 def sort(wl, trans):
-    """sort _summary_
+    """sort Sort the filter's transmission in ascending order of wavelengths
 
-    :param wl: _description_
-    :type wl: _type_
-    :param trans: _description_
-    :type trans: _type_
-    :return: _description_
-    :rtype: _type_
+    :param wls: Filter's wavelengths
+    :type wls: array
+    :param trans: Filter's transmissions
+    :type trans: array
+    :return: sorted wavelengths and transmission
+    :rtype: tuple(array, array)
     """
     _inds = jnp.argsort(wl)
     wls = wl[_inds]
@@ -49,28 +49,28 @@ def sort(wl, trans):
 
 
 def lambda_mean(wls, trans):
-    """lambda_mean _summary_
+    """lambda_mean Computes the mean wavelength of a filter
 
-    :param wls: _description_
-    :type wls: _type_
-    :param trans: _description_
-    :type trans: _type_
-    :return: _description_
-    :rtype: _type_
+    :param wls: Filter's wavelengths
+    :type wls: array
+    :param trans: Filter's transmissions
+    :type trans: array
+    :return: the mean wavelength of the filter wrt transmission values
+    :rtype: float
     """
     mean_wl = jnp.trapezoid(wls * trans, wls) / jnp.trapezoid(trans, wls)
     return mean_wl
 
 
 def clip_filter(wls, trans):
-    """clip_filter _summary_
+    """clip_filter Clips a filter to its non-zero transmission range (removes the edges where transmission is zero)
 
-    :param wls: _description_
-    :type wls: _type_
-    :param trans: _description_
-    :type trans: _type_
-    :return: _description_
-    :rtype: _type_
+    :param wls: Filter's wavelengths
+    :type wls: array
+    :param trans: Filter's transmissions
+    :type trans: array
+    :return: clipped wavelegths and transmissions and associated descriptors
+    :rtype: tuple of arrays and floats
     """
     _indToKeep = np.where(trans >= 0.01 * np.max(trans))[0]
     new_wls = wls[_indToKeep]
@@ -83,16 +83,16 @@ def clip_filter(wls, trans):
 
 
 def transform(wls, trans, trans_type):
-    """transform _summary_
+    """transform Transforms a filter according to its transmission type
 
-    :param wls: _description_
-    :type wls: _type_
-    :param trans: _description_
-    :type trans: _type_
-    :param trans_type: _description_
-    :type trans_type: _type_
-    :return: _description_
-    :rtype: _type_
+    :param wls: Filter's wavelengths
+    :type wls: array
+    :param trans: Filter's transmission
+    :type trans: array
+    :param trans_type: Description of transmission type : number of photons or energy
+    :type trans_type: str
+    :return: Mean wavelength and transformed transmission
+    :rtype: tuple(float, array)
     """
     mean_wl = lambda_mean(wls, trans)
     new_trans = jnp.array(trans * wls / mean_wl) if trans_type.lower() == "photons" and mean_wl > 0.0 else trans
@@ -100,16 +100,16 @@ def transform(wls, trans, trans_type):
 
 
 def load_filt(ident, filterfile, trans_type):
-    """load_filt _summary_
+    """load_filt Loads and processes the filter data from the specified file
 
-    :param ident: _description_
-    :type ident: _type_
-    :param filterfile: _description_
-    :type filterfile: _type_
-    :param trans_type: _description_
-    :type trans_type: _type_
-    :return: _description_
-    :rtype: _type_
+    :param ident: Filter's identifier
+    :type ident: str or int
+    :param filterfile: Text (ASCII) file from which to read the filter's data
+    :type filterfile: str or path-like
+    :param trans_type: Description of transmission type : number of photons or energy
+    :type trans_type: str
+    :return: Filter's data : identifier, wavelengths and transmission values
+    :rtype: tuple(str or int, array, array)
     """
     __wls, __trans = np.loadtxt(os.path.abspath(filterfile), unpack=True)
     _wls, _trans = jnp.array(__wls), jnp.array(__trans)

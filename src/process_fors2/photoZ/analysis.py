@@ -46,12 +46,12 @@ DustLaw = namedtuple('DustLaw', ['name', 'EBV', 'transmission'])
 
 
 def load_data_for_run(inp_glob):
-    """load_data_for_run _summary_
+    """load_data_for_run Generates input data from the inputs configuration dictionary
 
-    :param inputs: _description_
-    :type inputs: _type_
-    :return: _description_
-    :rtype: _type_
+    :param inp_glob: input configuration and settings
+    :type inp_glob: dict
+    :return: data for photo-z evaluation : redshift grid, templates dictionary and the list of observations
+    :rtype: tuple of jax.ndarray, dictionary, list
     """
     from process_fors2.fetchData import readDSPSHDF5, readTemplatesHDF5, templatesToHDF5
     from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, Observation, get_2lists, load_filt, load_galaxy, make_legacy_templates, make_sps_templates, sedpyFilter
@@ -130,14 +130,15 @@ def _median(z, pdz):
 
 
 def extract_pdz(pdf_res, z_grid):
-    """pdf_res _summary_
+    """extract_pdz Computes and returns the marginilized Probability Density function of redshifts and associated statistics for a single observation ;
+    additional point estimates are also computed for each galaxy template for various analytic needs.
 
-    :param chi2_res: _description_
-    :type chi2_res: _type_
-    :param z_grid: _description_
-    :type z_grid: _type_
-    :return: _description_
-    :rtype: _type_
+    :param pdf_res: Output of photo-z estimation on a single observation
+    :type pdf_res: tuple of (dict, float)
+    :param z_grid: Grid of redshift values on which the likelihood was computed
+    :type z_grid: jax array
+    :return: Marginalized Probability Density function of redshift values and associated summarized statistics
+    :rtype: dict
     """
     pdf_dict = pdf_res[0]
     zs = pdf_res[1]
@@ -161,14 +162,14 @@ def extract_pdz(pdf_res, z_grid):
 
 
 def extract_pdz_fromchi2(chi2_res, z_grid):
-    """extract_pdz_fromchi2 _summary_
+    r"""extract_pdz_fromchi2 Similar to extract_pdz except takes $\chi^2$ values as inputs - Computes and returns the marginilized Probability Density function of redshifts
 
-    :param chi2_res: _description_
-    :type chi2_res: _type_
-    :param z_grid: _description_
-    :type z_grid: _type_
-    :return: _description_
-    :rtype: _type_
+    :param chi2_res: Output of photo-z estimation on a single observation, given as the results of $\chi^2$ values, not likelihood.
+    :type chi2_res: tuple of (dict, float)
+    :param z_grid: Grid of redshift values on which the likelihood was computed
+    :type z_grid: jax array
+    :return: Marginalized Probability Density function of redshift values and *evidence* value for each galaxy template
+    :rtype: dict
     """
     chi2_dict = chi2_res[0]
     zs = chi2_res[1]
@@ -185,19 +186,20 @@ def extract_pdz_fromchi2(chi2_res, z_grid):
         joint_pdz = jnp.exp(-0.5 * chiarr) / _n2
         evidence = jnp.trapezoid(joint_pdz, x=z_grid)
         pdz_dict.update({key: {"SED evidence": evidence}})
-    pdz_dict.update({"PDZ": jnp.nansum(exp_arr, axis=0), "z_spec": zs})
+    pdz_dict.update({"PDZ": jnp.column_stack((z_grid, jnp.nansum(exp_arr, axis=0))), "z_spec": zs})
     return pdz_dict
 
 
 def extract_pdz_allseds(pdf_res, z_grid):
-    """extract_pdz_allseds _summary_
+    """extract_pdz_allseds Computes and returns the marginilized Probability Density function of redshifts for a single observation ;
+    The conditional probability density is also computed for each galaxy template.
 
-    :param pdf_res: _description_
-    :type pdf_res: _type_
-    :param z_grid: _description_
-    :type z_grid: _type_
-    :return: _description_
-    :rtype: _type_
+    :param pdf_res: Output of photo-z estimation on a single observation
+    :type pdf_res: tuple of (dict, float)
+    :param z_grid: Grid of redshift values on which the likelihood was computed
+    :type z_grid: jax array
+    :return: Marginalized Probability Density function of redshift values and conditional PDF for each template.
+    :rtype: dict
     """
     pdf_dict = pdf_res[0]
     zs = pdf_res[1]
@@ -215,12 +217,12 @@ def extract_pdz_allseds(pdf_res, z_grid):
 
 
 def load_data_for_analysis(conf_json):
-    """load_data_for_analysis _summary_
+    """load_data_for_analysis DEPRECATED - Similar to `load_data_for_run` but for analysis purposes. Inherited from `EmuLP` and not maintained since : might work, might not.
 
-    :param conf_json: _description_
-    :type conf_json: _type_
-    :return: _description_
-    :rtype: _type_
+    :param conf_json: `JSON` configuration file location
+    :type conf_json: str or path-like
+    :return: Data useful for analysis of photometric redshifts estimation
+    :rtype: tuple of array-like and tree-like (dict) data
     """
     inputs = json_to_inputs(conf_json)["photoZ"]
     from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, Observation, get_2lists, load_filt, load_galaxy, make_jcosmo, make_sps_templates, read_params, sedpyFilter
