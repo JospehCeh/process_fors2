@@ -47,12 +47,12 @@ prior_pars_E_S0, prior_pars_Sbc, prior_pars_Scd, prior_pars_Irr = prior_params_s
 
 @jit
 def prior_mod(nuvk):
-    """prior_mod _summary_
+    """prior_mod Determines the model (galaxy morphology) for which to compute the prior value.
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: Model Id
+    :rtype: int
     """
     val = (
         prior_pars_Irr.mod
@@ -65,12 +65,12 @@ def prior_mod(nuvk):
 
 @jit
 def prior_zot(nuvk):
-    """prior_zot _summary_
+    """prior_zot Determines the z0 value of the prior function
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: z0
+    :rtype: float
     """
     val = (
         prior_pars_Irr.zot
@@ -83,12 +83,12 @@ def prior_zot(nuvk):
 
 @jit
 def prior_alpt0(nuvk):
-    """prior_alpt0 _summary_
+    """prior_alpt0 Determines the alpha0 value in the prior function (power law)
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: alpha0
+    :rtype: float
     """
     val = (
         prior_pars_Irr.alpt0
@@ -101,12 +101,12 @@ def prior_alpt0(nuvk):
 
 @jit
 def prior_kt(nuvk):
-    """prior_kt _summary_
+    """prior_kt Determines the k value in the prior function
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: k
+    :rtype: float
     """
     val = (
         prior_pars_Irr.kt
@@ -119,12 +119,12 @@ def prior_kt(nuvk):
 
 @jit
 def prior_pcal(nuvk):
-    """prior_pcal _summary_
+    """prior_pcal Determines p_cal value in the prior function
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: p_cal
+    :rtype: float
     """
     val = (
         prior_pars_Irr.pcal
@@ -137,12 +137,12 @@ def prior_pcal(nuvk):
 
 @jit
 def prior_ktf(nuvk):
-    """prior_ktf _summary_
+    """prior_ktf Determines the Ktf value in the prior function
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: k_tf
+    :rtype: float
     """
     val = (
         prior_pars_Irr.mod
@@ -155,12 +155,12 @@ def prior_ktf(nuvk):
 
 @jit
 def prior_ft(nuvk):
-    """prior_ft _summary_
+    """prior_ft Determines the ft value in the prior function
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: ft
+    :rtype: float
     """
     val = (
         prior_pars_Irr.mod
@@ -174,15 +174,15 @@ def prior_ft(nuvk):
 # Compute the metric distance dmet in Mpc : dlum = dmet*(1+z), dang = dmet/(1+z) = dlum/(1+z)^2
 @partial(jit, static_argnums=0)
 def distMet(cosmo, z):
-    """distMet _summary_
+    """distMet Computes the metric (comoving) distance dmet in Mpc : dlum = dmet*(1+z), dang = dmet/(1+z) = dlum/(1+z)^2
 
-    :param cosmo: _description_
-    :type cosmo: _type_
-    :param z: _description_
-    :type z: _type_
-    :raises RuntimeError: _description_
-    :return: _description_
-    :rtype: _type_
+    :param cosmo: Cosmology within which to compute the distances.
+    :type cosmo: Cosmology object
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :raises RuntimeError: the specified cosmology does not allow the computation of a distance.
+    :return: Metric (comoving) distance un Mpc
+    :rtype: float
     """
     dmet, ao = 0.0, 1.0
     # case without the cosmological constant
@@ -214,28 +214,28 @@ def distMet(cosmo, z):
 
 @partial(jit, static_argnums=0)
 def distLum(cosmo, z):
-    """distLum _summary_
+    """distLum Computes the luminosity distance dlum in Mpc : dlum = dmet*(1+z), dang = dmet/(1+z) = dlum/(1+z)^2
 
-    :param cosmo: _description_
-    :type cosmo: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosmo: Cosmology within which to compute the distances.
+    :type cosmo: Cosmology object
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :return: Luminosity distance un Mpc
+    :rtype: float
     """
     return distMet(cosmo, z) * (1 + z)
 
 
 @partial(jit, static_argnums=0)
 def distAng(cosmo, z):
-    """distAng _summary_
+    """distAng Computes the anguar diameter distance dang in Mpc : dlum = dmet*(1+z), dang = dmet/(1+z) = dlum/(1+z)^2
 
-    :param cosmo: _description_
-    :type cosmo: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosmo: Cosmology within which to compute the distances.
+    :type cosmo: Cosmology object
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :return: Angular diameter distance un Mpc
+    :rtype: float
     """
     return distMet(cosmo, z) / (1 + z)
 
@@ -243,14 +243,14 @@ def distAng(cosmo, z):
 # Compute the distance modulus
 @partial(jit, static_argnums=0)
 def distMod(cosmo, z):
-    """distMod _summary_
+    r"""distMod Compute the distance modulus $d = 5 \log (d_{lum}[pc])-5$, i.e. the difference between absolute and observed magnitudes.
 
-    :param cosmo: _description_
-    :type cosmo: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosmo: Cosmology within which to compute the distances.
+    :type cosmo: Cosmology object
+    :param z: Redshift value for which to compute the distance modulus.
+    :type z: float
+    :return: Distance modulus in units of magnitudes
+    :rtype: float
     """
     # funz = 0.
     # if (z >= 1.e-10):
@@ -261,15 +261,17 @@ def distMod(cosmo, z):
 ## as a function of cosmology.  Age given in year !!
 ## Note : use lambda0 non zero if Omega_o+lambda_o=1
 def time(cosmo, z):
-    """time _summary_
+    """time Compute cosmological time from redshift=infinity to z as a function of cosmology.
+    Age given in year !!
+    Note : use lambda0 non zero if Omega_o+lambda_o=1
 
-    :param cosmo: _description_
-    :type cosmo: _type_
-    :param z: _description_
-    :type z: _type_
-    :raises RuntimeError: _description_
-    :return: _description_
-    :rtype: _type_
+    :param cosmo: Cosmology within which to compute the distances.
+    :type cosmo: Cosmology object
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :raises RuntimeError: the specified cosmology does not allow the computation of a distance.
+    :return: Lookback time corresponding to the redshift in the specified cosmology
+    :rtype: float
     """
     timy = 0.0
     val = 0.0
@@ -301,12 +303,12 @@ def time(cosmo, z):
 
 
 def make_jcosmo(H0):
-    """make_jcosmo _summary_
+    """make_jcosmo Generates the cosmology object for the given H0 value, as implemented in the `jax_cosmo` module.
 
-    :param H0: _description_
-    :type H0: _type_
-    :return: _description_
-    :rtype: _type_
+    :param H0: Current value for the Universe's expansion rate, aka Hubble's constant.
+    :type H0: float
+    :return: Cosmology for the specified H0 value, according to Planck 2015 data.
+    :rtype: jax_cosmo.Planck15
     """
     return jc.Planck15(h=H0 / 100.0)
 
@@ -314,42 +316,42 @@ def make_jcosmo(H0):
 # JAX versions
 # @partial(jit, static_argnums=0)
 def calc_distM(cosm, z):
-    """calc_distM _summary_
+    """calc_distM Computes the radial comoving distance at given redshift within the specified `jax_cosmo` cosmology.
 
-    :param cosm: _description_
-    :type cosm: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosm: Cosmology object
+    :type cosm: jax_cosmo.Planck15
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :return: Radial comoving distance un Mpc
+    :rtype: float
     """
     return jc.background.radial_comoving_distance(cosm, jc.utils.z2a(z)) / cosm.h
 
 
 # @partial(jit, static_argnums=0)
 def calc_distLum(cosm, z):
-    """calc_distLum _summary_
+    """calc_distLum Computes the luminosity distance at given redshift within the specified `jax_cosmo` cosmology.
 
-    :param cosm: _description_
-    :type cosm: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosm: Cosmology object
+    :type cosm: jax_cosmo.Planck15
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :return: Luminosity distance un Mpc
+    :rtype: float
     """
     return (1.0 + z) * jc.background.radial_comoving_distance(cosm, jc.utils.z2a(z)) / cosm.h
 
 
 # @partial(jit, static_argnums=0)
 def calc_distAng(cosm, z):
-    """calc_distAng _summary_
+    """calc_distAng Computes the angular diameter distance at given redshift within the specified `jax_cosmo` cosmology.
 
-    :param cosm: _description_
-    :type cosm: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosm: Cosmology object
+    :type cosm: jax_cosmo.Planck15
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :return: Angular diameter distance un Mpc
+    :rtype: float
     """
     return jc.background.angular_diameter_distance(cosm, jc.utils.z2a(z)) / cosm.h
 
@@ -357,26 +359,26 @@ def calc_distAng(cosm, z):
 # Compute the distance modulus
 # @partial(jit, static_argnums=0)
 def calc_distMod(cosm, z):
-    """calc_distMod _summary_
+    r"""calc_distMod Compute the distance modulus $d = 5 \log (d_{lum}[pc])-5$, i.e. the difference between absolute and observed magnitudes.
 
-    :param cosm: _description_
-    :type cosm: _type_
-    :param z: _description_
-    :type z: _type_
-    :return: _description_
-    :rtype: _type_
+    :param cosm: Cosmology object
+    :type cosm: jax_cosmo.Planck15
+    :param z: Redshift value for which to compute the distance.
+    :type z: float
+    :return: Distance modulus in units of magnitudes
+    :rtype: float
     """
     return 5.0 * jnp.log10(calc_distLum(cosm, z) * 1.0e6) - 5.0
 
 
 @partial(jit, static_argnums=0)
 def nz_prior_params(nuvk):
-    """nz_prior_params _summary_
+    """nz_prior_params Returns all parameters values to compute the parametric n(z) prior for a galaxy SED template, from its UV-IR color index.
 
-    :param nuvk: _description_
-    :type nuvk: _type_
-    :return: _description_
-    :rtype: _type_
+    :param nuvk: Emitted UV-IR color index of the galaxy
+    :type nuvk: float
+    :return: Prior parameters
+    :rtype: tuple(floats)
     """
     if nuvk > 4.25:
         # Case E/S0
@@ -414,26 +416,26 @@ def nz_prior_params(nuvk):
 
 @jit
 def nz_prior_core(z, imag, alpt0, zot, kt, pcal, ktf_m, ft_m):
-    """nz_prior_core _summary_
+    """nz_prior_core Computes the n(z) prior value in function of input parameters, as done in LEPHARE for the COSMOS2020 catalog, from VVDS data.
 
-    :param z: _description_
-    :type z: _type_
-    :param imag: _description_
-    :type imag: _type_
-    :param alpt0: _description_
-    :type alpt0: _type_
-    :param zot: _description_
-    :type zot: _type_
-    :param kt: _description_
-    :type kt: _type_
-    :param pcal: _description_
-    :type pcal: _type_
-    :param ktf_m: _description_
-    :type ktf_m: _type_
-    :param ft_m: _description_
-    :type ft_m: _type_
-    :return: _description_
-    :rtype: _type_
+    :param z: Redshift at which the prior is evaluated
+    :type z: float
+    :param imag: AB-magnitude in i band at which the prior is evaluated
+    :type imag: float
+    :param alpt0: alpt0 prior parameter value
+    :type alpt0: float
+    :param zot: zot prior parameter value
+    :type zot: float
+    :param kt: kt prior parameter value
+    :type kt: float
+    :param pcal: pcal prior parameter value
+    :type pcal: float
+    :param ktf_m: ktf_m prior parameter value
+    :type ktf_m: float
+    :param ft_m: ft_m prior parameter value
+    :type ft_m: float
+    :return: Prior probability density at z, i_mag for the given galaxy SED template.
+    :rtype: float
     """
     # kk = imag-20.
     # zmax = zot + kt*(imag-20.)

@@ -23,12 +23,12 @@ SPS_Templates = namedtuple("SPS_Templates", ["name", "redshift", "z_grid", "i_ma
 
 
 def read_params(pickle_file):
-    """read_params _summary_
+    """read_params Reads the parameters to syntheticise an SED in DSPS from the specified pickle file.
 
-    :param pickle_file: _description_
-    :type pickle_file: _type_
-    :return: _description_
-    :rtype: _type_
+    :param pickle_file: Pickle file location
+    :type pickle_file: str or path-like
+    :return: DSPS input parameters
+    :rtype: dict
     """
     new_dict = {}
     with open(pickle_file, "rb") as pkl:
@@ -85,16 +85,16 @@ v_mags = vmap(templ_mags, in_axes=(None, None, 0, None))
 
 # @jit
 def calc_nuvk(wls, params_dict, zobs, ssp_data):
-    """calc_nuvk _summary_
+    """calc_nuvk Computes the theoretical emitted NUV-IR color index of a reference galaxy.
 
-    :param wls: _description_
-    :type wls: _type_
-    :param params_dict: _description_
-    :type params_dict: _type_
-    :param zobs: _description_
-    :type zobs: _type_
-    :return: _description_
-    :rtype: _type_
+    :param wls: Wavelengths
+    :type wls: array
+    :param params_dict: DSPS input parameters to compute the restframe NUV and NIR photometry.
+    :type params_dict: dict
+    :param zobs: Redshift value
+    :type zobs: float
+    :return: NUV-NIR color index
+    :rtype: float
     """
     from process_fors2.photoZ import NIR_filt, NUV_filt, ab_mag
 
@@ -108,20 +108,20 @@ v_nuvk = vmap(calc_nuvk, in_axes=(None, None, 0, None))
 
 
 def make_sps_templates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
-    """make_sps_templates _summary_
+    """make_sps_templates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
 
-    :param params_dict: _description_
-    :type params_dict: _type_
-    :param filt_tup: _description_
-    :type filt_tup: _type_
-    :param redz: _description_
-    :type redz: _type_
+    :param params_dict: DSPS input parameters
+    :type params_dict: dict
+    :param filt_tup: Filters in which to compute the photometry of the templates, given as a tuple of two arrays : one for wavelengths, one for transmissions.
+    :type filt_tup: tuple of arrays
+    :param redz: redshift grid on which to compute the templates photometry
+    :type redz: array
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
-    :param id_imag: _description_, defaults to 3
+    :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
     :type id_imag: int, optional
-    :return: _description_
-    :rtype: _type_
+    :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
+    :rtype: SPS_Templates object (namedtuple)
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")
@@ -179,20 +179,22 @@ v_mags_legacy = vmap(templ_mags_legacy, in_axes=(None, None, None, 0, None))
 
 
 def make_legacy_templates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
-    """make_sps_templates _summary_
+    """make_sps_templates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
+    Contrary to `make_sps_template`, this methods only shifts the restframe SED and does not reevaluate the stellar population at each redshift.
+    Mainly used for comparative studies as other existing photoZ codes such as BPZ and LEPHARE will do this and more.
 
-    :param params_dict: _description_
-    :type params_dict: _type_
-    :param filt_tup: _description_
-    :type filt_tup: _type_
-    :param redz: _description_
-    :type redz: _type_
+    :param params_dict: DSPS input parameters
+    :type params_dict: dict
+    :param filt_tup: Filters in which to compute the photometry of the templates, given as a tuple of two arrays : one for wavelengths, one for transmissions.
+    :type filt_tup: tuple of arrays
+    :param redz: redshift grid on which to compute the templates photometry
+    :type redz: array
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
-    :param id_imag: _description_, defaults to 3
+    :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
     :type id_imag: int, optional
-    :return: _description_
-    :rtype: _type_
+    :return: Templates for photoZ estimation, NOT accounting for the Star Formation History up to the redshift value.
+    :rtype: SPS_Templates object (namedtuple)
     """
     name = params_dict.pop("tag")
     z_sps = params_dict.pop("redshift")

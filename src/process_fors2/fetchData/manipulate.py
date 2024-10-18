@@ -1061,14 +1061,14 @@ def readPhotoZHDF5(h5file):
 
 
 def dspsFitToHDF5(outfilename, dsps_dict):
-    """dspsFitToHDF5 _summary_
+    """dspsFitToHDF5 Stores the results of DSPS fitting procedures (parameters and redshift) into the specified HDF5 file.
 
-    :param outfilename: _description_
-    :type outfilename: _type_
-    :param dsps_dict: _description_
-    :type dsps_dict: _type_
-    :return: _description_
-    :rtype: _type_
+    :param outfilename: Name of the `HDF5` file that will be written.
+    :type outfilename: str or path-like object
+    :param dsps_dict: Dictionary of DSPS fits outputs : contains DSPS parameters and redshit values for each galaxy
+    :type dsps_dict: dict
+    :return: Absolute path to the written file - if successful.
+    :rtype: str or path-like object
     """
     fileout = os.path.abspath(outfilename)
 
@@ -1089,12 +1089,13 @@ def dspsFitToHDF5(outfilename, dsps_dict):
 
 
 def readDSPSHDF5(h5file):
-    """readDSPSHDF5 _summary_
+    """readDSPSHDF5 Reads the contents of the HDF5 that stores the results of DSPS fitting procedure.
+    Useful to generate templates for photo-z estimation in `process_fors2.photoZ`.
 
-    :param h5file: _description_
-    :type h5file: _type_
-    :return: _description_
-    :rtype: _type_
+    :param h5file: Path to the HDF5 file containing the DSPS fitting results.
+    :type h5file: str or path-like
+    :return: Dictionary of DSPS parameters written as attributes in the HDF5 file
+    :rtype: dict
     """
     filein = os.path.abspath(h5file)
     out_dict = {}
@@ -1114,14 +1115,15 @@ def _recursive_dict_to_hdf5(group, attrs):
 
 
 def dspsBootstrapToHDF5(outfilename, dsps_bs_dict):
-    """dspsBootstrapToHDF5 _summary_
+    """dspsBootstrapToHDF5 Stores the results of DSPS fitting procedures (parameters and redshift) into the specified HDF5 file.
+    Adapted to the bootstrapped method used to evaluate the dispersion in SFH/SED due to errors in magnitudes used as references.
 
-    :param outfilename: _description_
-    :type outfilename: _type_
-    :param dsps_bs_dict: _description_
-    :type dsps_bs_dict: _type_
-    :return: _description_
-    :rtype: _type_
+    :param outfilename: Name of the `HDF5` file that will be written.
+    :type outfilename: str or path-like object
+    :param dsps_bs_dict: Dictionary of DSPS fits outputs : contains DSPS parameters and redshit values for each galaxy $\times$ the number of bootstrap samples
+    :type dsps_bs_dict: dict
+    :return: Absolute path to the written file - if successful.
+    :rtype: str or path-like object
     """
     fileout = os.path.abspath(outfilename)
 
@@ -1144,12 +1146,13 @@ def dspsBootstrapToHDF5(outfilename, dsps_bs_dict):
 
 
 def readDSPSBootstrapHDF5(h5file):
-    """readDSPSBootstrapHDF5 _summary_
+    """readDSPSBootstrapHDF5 Similar to `readDSPSHDF5` but for the bootstrap version  - Reads the contents of the HDF5 that stores the results of DSPS fitting procedure.
+    Useful to generate templates for photo-z estimation in `process_fors2.photoZ` and, more importantly in this case, analysis purpose.
 
-    :param h5file: _description_
-    :type h5file: _type_
-    :return: _description_
-    :rtype: _type_
+    :param h5file: Path to the HDF5 file containing the DSPS fitting results.
+    :type h5file: str or path-like
+    :return: Dictionary of DSPS parameters written as attributes in the HDF5 file
+    :rtype: dict
     """
     filein = os.path.abspath(h5file)
     out_dict = {}
