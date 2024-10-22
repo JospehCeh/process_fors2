@@ -219,6 +219,29 @@ def posterior(sps_temp, obs_gal):
     return res
 
 
+def posterior_fluxRatio(sps_temp, obs_gal):
+    r"""posterior Computes the posterior distribution of redshifts for a combination of template x observation.
+    Uses the $\chi^2$ distribution in flux-ratio space instead of color space.
+
+    :param sps_temp: SPS template to be used as reference
+    :type sps_temp: SPS_template object (namedtuple)
+    :param obs_gal: Observed galaxy
+    :type obs_gal: Observation object (namedtuple)
+    :return: posterior probability values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right) \times prior$) along the redshift grid
+    :rtype: jax array
+    """
+    _sel = obs_gal.valid_colors
+    obs, ref, err = col_to_fluxRatio(obs_gal.AB_colors[_sel], sps_temp.colors[:, _sel], obs_gal.AB_colerrs[_sel])
+    chi2_arr = vmap_neg_log_likelihood(ref, obs, err)
+    # neglog_lik = chi2_arr - 500.
+    _n1 = 10.0 / jnp.max(chi2_arr)
+    neglog_lik = _n1 * chi2_arr
+    prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
+    # res = jnp.exp(-0.5 * neglog_lik) * prior_val
+    res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
+    return res
+
+
 ## Old functions for reference:
 """
 def noV_est_chi2(gal_fab, gal_fab_err, zp, base_temp_lums, extinc_arr, filters, cosmo, wl_grid, opacities):
