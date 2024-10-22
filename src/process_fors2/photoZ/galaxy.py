@@ -42,6 +42,26 @@ def load_galaxy(photometry, ismag, id_i_band=3):
 
 
 @jit
+def col_to_fluxRatio(obs, ref, err):
+    r"""col_to_fluxRatio Computes the equivalent data in flux (linear) space from the input in magnitude (logarithmic) space.
+    Useful to switch from a $\chi^2$ minimisation in color-space or in flux space.
+
+    :param obs: Observed color index
+    :type obs: float or array
+    :param ref: Reference (template) color index
+    :type ref: float or array
+    :param err: Observed noise (aka errors, dispersion)
+    :type err: float or array
+    :return: $\left( 10^{-0.4 obs}, 10^{-0.4 ref}, 10^{-0.4 err} \right)$
+    :rtype: 3-tuple of (float or array)
+    """
+    obs_f = jnp.power(10.0, -0.4 * obs)
+    ref_f = jnp.power(10.0, -0.4 * ref)
+    err_f = obs_f * (jnp.power(10.0, -0.4 * err) - 1)  # coindetable
+    return obs_f, ref_f, err_f
+
+
+@jit
 def chi_term(obs, ref, err):
     r"""chi_term Compute one term in the $\chi^2$ formula, *i.e.* for one photometric band.
 
@@ -177,6 +197,23 @@ def likelihood(sps_temp, obs_gal):
     return jnp.exp(-0.5 * neglog_lik)
 
 
+def likelihood_fluxRatio(sps_temp, obs_gal):
+    r"""likelihood Computes the likelihood of redshifts for a combination of template x observation.
+    Uses the $\chi^2$ distribution in flux-ratio space instead of color space.
+
+    :param sps_temp: SPS template to be used as reference
+    :type sps_temp: SPS_template object (namedtuple)
+    :param obs_gal: Observed galaxy
+    :type obs_gal: Observation object (namedtuple)
+    :return: likelihood values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right)$) along the redshift grid
+    :rtype: jax array
+    """
+    _sel = obs_gal.valid_colors
+    obs, ref, err = col_to_fluxRatio(obs_gal.AB_colors[_sel], sps_temp.colors[:, _sel], obs_gal.AB_colerrs[_sel])
+    neglog_lik = vmap_neg_log_likelihood(ref, obs, err)
+    return jnp.exp(-0.5 * neglog_lik)
+
+
 # @jit
 def posterior(sps_temp, obs_gal):
     r"""posterior Computes the posterior distribution of redshifts for a combination of template x observation.
@@ -190,6 +227,29 @@ def posterior(sps_temp, obs_gal):
     """
     _sel = obs_gal.valid_colors
     chi2_arr = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
+    # neglog_lik = chi2_arr - 500.
+    _n1 = 10.0 / jnp.max(chi2_arr)
+    neglog_lik = _n1 * chi2_arr
+    prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
+    # res = jnp.exp(-0.5 * neglog_lik) * prior_val
+    res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
+    return res
+
+
+def posterior_fluxRatio(sps_temp, obs_gal):
+    r"""posterior Computes the posterior distribution of redshifts for a combination of template x observation.
+    Uses the $\chi^2$ distribution in flux-ratio space instead of color space.
+
+    :param sps_temp: SPS template to be used as reference
+    :type sps_temp: SPS_template object (namedtuple)
+    :param obs_gal: Observed galaxy
+    :type obs_gal: Observation object (namedtuple)
+    :return: posterior probability values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right) \times prior$) along the redshift grid
+    :rtype: jax array
+    """
+    _sel = obs_gal.valid_colors
+    obs, ref, err = col_to_fluxRatio(obs_gal.AB_colors[_sel], sps_temp.colors[:, _sel], obs_gal.AB_colerrs[_sel])
+    chi2_arr = vmap_neg_log_likelihood(ref, obs, err)
     # neglog_lik = chi2_arr - 500.
     _n1 = 10.0 / jnp.max(chi2_arr)
     neglog_lik = _n1 * chi2_arr
