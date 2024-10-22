@@ -42,6 +42,26 @@ def load_galaxy(photometry, ismag, id_i_band=3):
 
 
 @jit
+def col_to_fluxRatio(obs, ref, err):
+    r"""col_to_fluxRatio Computes the equivalent data in flux (linear) space from the input in magnitude (logarithmic) space.
+    Useful to switch from a $\chi^2$ minimisation in color-space or in flux space.
+
+    :param obs: Observed color index
+    :type obs: float or array
+    :param ref: Reference (template) color index
+    :type ref: float or array
+    :param err: Observed noise (aka errors, dispersion)
+    :type err: float or array
+    :return: $\left( 10^{-0.4 obs}, 10^{-0.4 ref}, 10^{-0.4 err} \right)$
+    :rtype: 3-tuple of (float or array)
+    """
+    obs_f = jnp.power(10.0, -0.4 * obs)
+    ref_f = jnp.power(10.0, -0.4 * ref)
+    err_f = ref_f * (jnp.power(10.0, -0.4 * err) - 1)  # coindetable
+    return obs_f, ref_f, err_f
+
+
+@jit
 def chi_term(obs, ref, err):
     r"""chi_term Compute one term in the $\chi^2$ formula, *i.e.* for one photometric band.
 

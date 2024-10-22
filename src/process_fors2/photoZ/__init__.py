@@ -4,6 +4,7 @@ from .filter import NIR_filt, NUV_filt, ab_mag, get_2lists, load_filt, sedpyFilt
 from .galaxy import (
     Observation,
     chi_term,
+    col_to_fluxRatio,
     likelihood,
     load_galaxy,
     neg_log_likelihood,
@@ -54,6 +55,7 @@ __all__ = [
     "Observation",
     "load_galaxy",
     "chi_term",
+    "col_to_fluxRatio",
     "neg_log_posterior",
     "val_neg_log_posterior",
     "vmap_chi_term",
