@@ -57,7 +57,7 @@ def col_to_fluxRatio(obs, ref, err):
     """
     obs_f = jnp.power(10.0, -0.4 * obs)
     ref_f = jnp.power(10.0, -0.4 * ref)
-    err_f = ref_f * (jnp.power(10.0, -0.4 * err) - 1)  # coindetable
+    err_f = obs_f * (jnp.power(10.0, -0.4 * err) - 1)  # coindetable
     return obs_f, ref_f, err_f
 
 
