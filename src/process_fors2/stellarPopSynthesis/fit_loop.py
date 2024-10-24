@@ -959,35 +959,35 @@ def fit_loop(
     if "line" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on spectral lines... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_lines(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_lines(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "spec" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed spectra... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_spec(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_spec(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "gelato" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on GELATO models... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_gelmod(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_gelmod(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "mag" in fit_type.lower() and "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_mags_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "col" in fit_type.lower() and "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed color indices and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_colidx_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_colidx_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "col" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed color indices... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_colidx(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_colidx(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_rew(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
-        fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+        fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_mags(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
 
     return dict_fors2_for_fit, fit_results_dict, low_bound, high_bound
 
@@ -1065,23 +1065,23 @@ def fit_bootstrap(
         if "mag" in fit_type.lower() and "rew" in fit_type.lower():
             if not quiet:
                 print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-            fit_results_dict = jax.tree_map(lambda dico: fit_mags_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
+            fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_mags_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
         elif "col" in fit_type.lower() and "rew" in fit_type.lower():
             if not quiet:
                 print("Fitting SPS on observed color indices and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-            fit_results_dict = jax.tree_map(lambda dico: fit_colidx_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
+            fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_colidx_and_rew(dico, ssp_data, weight_mag), dict_fors2_for_fit, is_leaf=has_redshift)
         elif "col" in fit_type.lower():
             if not quiet:
                 print("Fitting SPS on observed color indices... it may take (more than) a few minutes, please be patient.")
-            fit_results_dict = jax.tree_map(lambda dico: fit_colidx(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+            fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_colidx(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
         elif "rew" in fit_type.lower():
             if not quiet:
                 print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-            fit_results_dict = jax.tree_map(lambda dico: fit_rew(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+            fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_rew(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
         else:
             if not quiet:
                 print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
-            fit_results_dict = jax.tree_map(lambda dico: fit_mags(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
+            fit_results_dict = jax.tree_util.tree_map(lambda dico: fit_mags(dico, ssp_data), dict_fors2_for_fit, is_leaf=has_redshift)
 
         return dict_fors2_for_fit, fit_results_dict
     except IndexError:

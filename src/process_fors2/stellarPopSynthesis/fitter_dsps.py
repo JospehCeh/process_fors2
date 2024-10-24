@@ -189,7 +189,7 @@ def mean_mags(X, params, z_obs, ssp_data):
     list_wls_filters = X[0]
     list_transm_filters = X[1]
 
-    mags_predictions = jax.tree_map(lambda x, y: calc_obs_mag(ssp_wave, sed_attenuated, x, y, z_obs, *DEFAULT_COSMOLOGY), list_wls_filters, list_transm_filters)
+    mags_predictions = jax.tree_util.tree_map(lambda x, y: calc_obs_mag(ssp_wave, sed_attenuated, x, y, z_obs, *DEFAULT_COSMOLOGY), list_wls_filters, list_transm_filters)
 
     mags_predictions = jnp.array(mags_predictions)
 
@@ -253,7 +253,7 @@ def mean_ugri_sedpy(X, params, z_obs):
 
     # calculate magnitudes in observation frame
     # mags_predictions = observate.getSED(wls_o, flam_o, filterlist=sdss_filts)
-    mags_predictions = jax.tree_map(lambda x, y: ab_mag(x, y, ssp_wave, sed_attenuated), list_wls_filters, list_transm_filters)
+    mags_predictions = jax.tree_util.tree_map(lambda x, y: ab_mag(x, y, ssp_wave, sed_attenuated), list_wls_filters, list_transm_filters)
 
     mags_predictions = jnp.array(mags_predictions)
 

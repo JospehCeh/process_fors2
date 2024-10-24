@@ -11,8 +11,9 @@ Created on Thu Aug 1 12:59:33 2024
 import pickle
 from collections import namedtuple
 
-from jax import jit, tree_map, vmap
+from jax import jit, vmap
 from jax import numpy as jnp
+from jax.tree_util import tree_map
 
 from process_fors2.stellarPopSynthesis import SSPParametersFit, mean_spectrum, paramslist_to_dict, ssp_spectrum_fromparam
 
