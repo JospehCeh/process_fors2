@@ -9,7 +9,6 @@ import os
 from functools import partial
 
 import jax
-import jax.numpy as jnp
 from diffmah.defaults import DiffmahParams
 from diffstar import calc_sfh_singlegal  # sfh_singlegal
 from diffstar.defaults import DiffstarUParams  # , DEFAULT_Q_PARAMS
@@ -18,6 +17,7 @@ from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z
 from dsps.dust.att_curves import _frac_transmission_from_k_lambda, sbl18_k_lambda
 from interpax import interp1d
 from jax import jit, vmap
+from jax import numpy as jnp
 from jax.numpy import trapezoid as trapz
 
 from .dsps_params import SSPParametersFit
