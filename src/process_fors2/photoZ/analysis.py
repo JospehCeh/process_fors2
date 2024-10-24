@@ -85,9 +85,9 @@ def load_data_for_run(inp_glob):
         sps_temp_h5 = os.path.abspath(inputs["Templates"]["input"])
         sps_par_dict = readDSPSHDF5(sps_temp_h5)
         if "sps" in inputs["Mode"].lower():
-            templ_dict = jax.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
+            templ_dict = jax.tree_util.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
         else:
-            templ_dict = jax.tree_map(lambda dico: make_legacy_templates(dico, Xfilt, z_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
+            templ_dict = jax.tree_util.tree_map(lambda dico: make_legacy_templates(dico, Xfilt, z_grid, ssp_data, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
         _ = templatesToHDF5(inputs["Templates"]["output"], templ_dict)
     else:
         templ_dict = readTemplatesHDF5(inputs["Templates"]["output"])
@@ -254,7 +254,7 @@ def load_data_for_analysis(conf_json):
     Xfilt = get_2lists(filters_arr)
     sps_temp_pkl = os.path.abspath(inputs["Templates"])
     sps_par_dict = read_params(sps_temp_pkl)
-    templ_dict = jax.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, wl_grid, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
+    templ_dict = jax.tree_util.tree_map(lambda dico: make_sps_templates(dico, Xfilt, z_grid, wl_grid, id_imag=inputs["i_band_num"]), sps_par_dict, is_leaf=has_redshift)
 
     """Old-fashioned way
     templates_dict = inputs['Templates']

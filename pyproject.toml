@@ -28,6 +28,7 @@ dependencies = [
     "tqdm",
     "ipympl",
     "seaborn",
+    "diffmah",
     "diffstar",
     "jax",
     "jaxlib",
