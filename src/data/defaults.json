@@ -196,7 +196,7 @@
             "lambda_step": 1.0
         },
         "Templates": {
-            "input": "/home/chevalier/runProcessFors2/DSPS_hdf5_fit_mags+rews/fitparams_mags+rews_1_to_10.h5",
+            "input": "../../src/data/photoz/fitparams_mags+rews_1_to_10.h5",
             "output": "SEDtempl_SPS_mags+rews_1_to_10.h5",
             "overwrite": false
         },
@@ -235,7 +235,7 @@
         },
         "i_band_num": 3,
         "Dataset": {
-            "path": "COSMOS2020_emu_hscOnly.inp",
+            "path": "../../src/data/photoz/COSMOS2020_emu_hscOnly_CC_allzinf3.inp",
             "type": "F"
         },
         "Opacity": "opa/OPACITY.dat",
@@ -246,6 +246,6 @@
         "z_spec analysis": false,
         "NMOD": 5,
         "save results": true,
-        "run name": "process_fors2_pz_COSMOS2020-HSC_only"
+        "run name": "process_fors2_pz_COSMOS2020-defaultRun"
     }
 }

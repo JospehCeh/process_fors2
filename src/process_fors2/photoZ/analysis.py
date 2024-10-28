@@ -216,6 +216,74 @@ def extract_pdz_allseds(pdf_res, z_grid):
     return pdz_dict
 
 
+def run_from_inputs(inputs):
+    """run_from_inputs Run the photometric redshifts estimation with the given input settings.
+
+    :param inputs: Input settings for the photoZ run. Can be loaded from a `JSON` file using `process_fors2.fetchData.json_to_inputs`.
+    :type inputs: dict
+    :return: Photo-z estimation results. These are not written to disk within this function.
+    :rtype: list (tree-like)
+    """
+    from process_fors2.photoZ import Observation, SPS_Templates, likelihood, likelihood_fluxRatio, load_data_for_run, posterior, posterior_fluxRatio
+
+    z_grid, templates_dict, obs_arr = load_data_for_run(inputs)
+
+    """Dust and Opacity are normally included in DSPS calculations
+    ebvs_in_use = jnp.array([d.EBV for d in dust_arr])
+    laws_in_use = jnp.array([0 if d.name == "Calzetti" else 1 for d in dust_arr])
+
+    _old_dir = os.getcwd()
+    _path = os.path.abspath(__file__)
+    _dname = os.path.dirname(_path)
+    os.chdir(_dname)
+    opa_path = os.path.abspath(inputs['Opacity'])
+    #ebv_prior_file = inputs['E(B-V) prior file']
+    #ebv_prior_df = pd.read_pickle(ebv_prior_file)
+    #cols_to_stack = tuple(ebv_prior_df[col].values for col in ebv_prior_df.columns)
+    #ebv_prior_arr = jnp.column_stack(cols_to_stack)
+    os.chdir(_old_dir)
+
+    _selOpa = (wl_grid < 1300.)
+    wls_opa = wl_grid[_selOpa]
+    opa_zgrid, opacity_grid = extinction.load_opacity(opa_path, wls_opa)
+    extrap_ones = jnp.ones((len(z_grid), len(wl_grid)-len(wls_opa)))
+    """
+
+    print("Photometric redshift estimation (please be patient, this may take a couple of hours on large datasets) :")
+
+    def has_sps_template(cont):
+        return isinstance(cont, SPS_Templates)
+
+    # @partial(jit, static_argnums=1)
+    # def estim_zp(observ, prior=True):
+    # @jit
+    def estim_zp(observ):
+        # c = observ.AB_colors[observ.valid_colors]
+        # c_err = observ.AB_colerrs[observ.valid_colors]
+        if inputs["photoZ"]["prior"] and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
+            probz_dict = (
+                jax.tree_util.tree_map(lambda sps_templ: posterior(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+                if inputs["photoZ"]["use_colors"]
+                else jax.tree_util.tree_map(lambda sps_templ: posterior_fluxRatio(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+            )
+        else:
+            probz_dict = (
+                jax.tree_util.tree_map(lambda sps_templ: likelihood(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+                if inputs["photoZ"]["use_colors"]
+                else jax.tree_util.tree_map(lambda sps_templ: likelihood_fluxRatio(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+            )
+        # z_phot_loc = jnp.nanargmin(chi2_arr)
+        return probz_dict, observ.z_spec  # chi2_arr, z_phot_loc
+
+    def is_obs(elt):
+        return isinstance(elt, Observation)
+
+    tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
+    print("All done !")
+
+    return tree_of_results_dict
+
+
 def load_data_for_analysis(conf_json):
     """load_data_for_analysis DEPRECATED - Similar to `load_data_for_run` but for analysis purposes. Inherited from `EmuLP` and not maintained since : might work, might not.
 
