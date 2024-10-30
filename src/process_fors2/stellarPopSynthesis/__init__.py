@@ -50,6 +50,7 @@ from .fitter_dsps import (
     mean_spectrum,
     ssp_spectrum_fromparam,
 )
+from .write_fsps_data_to_disk import write_fsps_data
 
 __all__ = [
     "FilterInfo",
@@ -93,6 +94,7 @@ __all__ = [
     "fit_bootstrap",
     "make_fit_plots",
     "make_bootstrap_plot",
+    "write_fsps_data",
 ]
 
 """

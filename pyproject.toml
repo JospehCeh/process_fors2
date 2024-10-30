@@ -33,6 +33,7 @@ dependencies = [
     "jax",
     "jaxlib",
     "jaxopt",
+    "fsps",
     "dsps",
     "interpax",
     "arviz",
