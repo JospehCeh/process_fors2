@@ -59,7 +59,7 @@ dev = [
     "nbconvert", # Needed for pre-commit check to clear output from Python notebooks
     "nbsphinx", # Used to integrate Python notebooks into Sphinx documentation
     "ipython", # Also used in building notebooks into Sphinx
-    "asv==0.6.3", # Used to compute performance benchmarks
+    "asv==0.6.4", # Used to compute performance benchmarks
 ]
 
 [build-system]
