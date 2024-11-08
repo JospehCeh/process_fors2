@@ -1,4 +1,4 @@
-from .analysis import extract_pdz, extract_pdz_allseds, extract_pdz_fromchi2, load_data_for_run
+from .analysis import extract_pdz, extract_pdz_allseds, extract_pdz_fromchi2, load_data_for_run, run_from_inputs
 from .cosmology import DATALOC, Cosmo, make_jcosmo, nz_prior_core, prior_alpt0, prior_ft, prior_kt, prior_ktf, prior_pcal, prior_zot
 from .filter import NIR_filt, NUV_filt, ab_mag, get_2lists, load_filt, sedpyFilter
 from .galaxy import (
@@ -56,6 +56,7 @@ __all__ = [
     "prior_pcal",
     "prior_ktf",
     "prior_ft",
+    "run_from_inputs",
     "Observation",
     "load_galaxy",
     "chi_term",
