@@ -73,7 +73,8 @@ def run_gelato():
     args = Utility.parseArgs()
 
     # Parameters
-    p = ConstructParams.construct(args.Parameters)
+    _p = ConstructParams.construct(args.Parameters)
+    p = _p["gelato"]  # To account for the multilayer JSON configuration file
 
     ## Create Directory for Output
     outpath = os.path.abspath(p["OutFolder"])
