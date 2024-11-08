@@ -18,7 +18,15 @@ from dsps.dust.att_curves import _frac_transmission_from_k_lambda, sbl18_k_lambd
 from interpax import interp1d
 from jax import jit, vmap
 from jax import numpy as jnp
-from jax.numpy import trapezoid as trapz
+
+try:
+    from jax.numpy import trapezoid as trapz
+except ImportError:
+    try:
+        from jax.scipy.integrate import trapezoid as trapz
+    except ImportError:
+        from jax.numpy import trapz
+
 
 from .dsps_params import SSPParametersFit
 from .met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
