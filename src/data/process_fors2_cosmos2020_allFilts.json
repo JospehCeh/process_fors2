@@ -351,7 +351,9 @@
         "i_band_num": 4,
         "Dataset": {
             "path": "COSMOS2020_emu_CC.inp",
-            "type": "F"
+            "type": "F",
+            "format": "ASCII",
+            "overwrite": false
         },
         "Opacity": "opa/OPACITY.dat",
         "Estimator": "chi2",

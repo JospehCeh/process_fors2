@@ -1010,8 +1010,29 @@ def readTemplatesHDF5(h5file):
     return out_dict
 
 
-def photoZtoHDF5(outfilename, pz_list):
-    """photoZtoHDF5 Saves the pytree of photo-z results (list of dicts) in an HDF5 file.
+def photoZtoHDF5(outfilename, pz_out_dict):
+    """photoZtoHDF5 _summary_
+
+    :param outfilename: _description_
+    :type outfilename: _type_
+    :param pz_out_dict: _description_
+    :type pz_out_dict: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fileout = os.path.abspath(outfilename)
+
+    with h5py.File(fileout, "w") as h5out:
+        groupout = h5out.create_group("pz_outputs")
+        for key, jarray in pz_out_dict.items():
+            groupout.create_dataset(key, data=jarray, compression="gzip", compression_opts=9)
+
+    ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
+    return ret
+
+
+def photoZ_listObsToHDF5(outfilename, pz_list):
+    """photoZ_listObsToHDF5 Saves the pytree of photo-z results (list of dicts) in an HDF5 file.
 
     :param outfilename: Name of the `HDF5` file that will be written.
     :type outfilename: str or path-like object
@@ -1042,6 +1063,20 @@ def photoZtoHDF5(outfilename, pz_list):
 
 def readPhotoZHDF5(h5file):
     """readPhotoZHDF5 Reads the photo-z results file and generates the corresponding pytree (list of dictionaries) for analysis.
+
+    :param h5file: Path to the HDF5 containing the photo-z results.
+    :type h5file: str or path-like object
+    :return: Dictionary of photo-z results as computed by process_fors2.photoZ.
+    :rtype: dict
+    """
+    filein = os.path.abspath(h5file)
+    with h5py.File(filein, "r") as h5in:
+        pzout_dict = {key: jnp.array(jarray) for key, jarray in h5in.get("pz_outputs").items()}
+    return pzout_dict
+
+
+def readPhotoZHDF5_fromListObs(h5file):
+    """readPhotoZHDF5_fromListObs Reads the photo-z results file and generates the corresponding pytree (list of dictionaries) for analysis.
 
     :param h5file: Path to the HDF5 containing the photo-z results.
     :type h5file: str or path-like object
@@ -1163,3 +1198,124 @@ def readDSPSBootstrapHDF5(h5file):
                 fit_dict.update({kkey: {_k: _v for _k, _v in ggrp.attrs.items()}})
             out_dict.update({key: fit_dict})
     return out_dict
+
+
+def readCatalogHDF5(h5file, filt_names, group="catalog"):
+    """readCatalogHDF5 _summary_
+
+    :param h5file: _description_
+    :type h5file: _type_
+    :param filt_names: _description_
+    :type filt_names: _type_
+    :param group: _description_, defaults to 'catalog'
+    :type group: str, optional
+    :return: tuple containing AB magnitudes, corresponding errors and spectroscopic redshift as arrays.
+    :rtype: tuple of arrays
+    """
+    df_cat = pd.read_hdf(os.path.abspath(h5file), key=group)
+    magnames = [f"mag_{filt}" for filt in filt_names]
+    magerrs = [f"mag_err_{filt}" for filt in filt_names]
+    obs_mags = jnp.array(df_cat[magnames])
+    obs_mags_errs = jnp.array(df_cat[magerrs])
+    try:
+        z_specs = jnp.array(df_cat["z_spec"])
+    except IndexError:
+        z_specs = jnp.full(obs_mags.shape[0], jnp.nan)
+    return obs_mags, obs_mags_errs, z_specs
+
+
+def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None):
+    """catalog_ASCIItoHDF5 _summary_
+
+    :param ascii_file: _description_
+    :type ascii_file: _type_
+    :param data_ismag: _description_
+    :type data_ismag: _type_
+    :param group: _description_, defaults to 'catalog'
+    :type group: str, optional
+    :param filt_names: _description_, defaults to None
+    :type filt_names: _type_, optional
+    :return: Absolute path to the written file - if successful.
+    :rtype: str or path-like object
+    """
+    if filt_names is None:
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
+    magnames = [f"mag_{filt}" for filt in filt_names]
+    magerrs = [f"mag_err_{filt}" for filt in filt_names]
+    N_FILT = len(filt_names)
+    data_file_arr = np.loadtxt(os.path.abspath(ascii_file))
+    has_zspec = data_file_arr.shape[1] == 1 + 2 * N_FILT + 1
+    no_zspec = data_file_arr.shape[1] == 1 + 2 * N_FILT
+    assert has_zspec or no_zspec, "Number of column in data does not match one of 1 + 2*n_filts + 1 (id, photometry, z_spec) or 1 + 2*n_filts (id, photometry).\
+        \nReview data or filters list."
+
+    from process_fors2.photoZ import vmap_load_magnitudes
+
+    all_mags, all_mags_err = vmap_load_magnitudes(data_file_arr[:, 1 : 2 * N_FILT + 1], data_ismag)
+
+    all_zs = data_file_arr[:, -1] if has_zspec else jnp.full(all_mags.shape[0], jnp.nan)
+
+    df_mags = pd.DataFrame(columns=magnames + magerrs + ["z_spec"], data=jnp.column_stack((all_mags, all_mags_err, all_zs)))
+
+    hdf_name = f"{os.path.splitext(os.path.basename(ascii_file))[0]}.h5"
+    outfilename = os.path.abspath(hdf_name)
+    df_mags.to_hdf(outfilename, key=group)
+    respath = outfilename if os.path.isfile(outfilename) else f"Unable to write data to {outfilename}"
+    return respath
+
+
+def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=None):
+    """pzInputsToHDF5 _summary_
+
+    :param h5file: _description_
+    :type h5file: _type_
+    :param clrs_ind: _description_
+    :type clrs_ind: _type_
+    :param clrs_ind_errs: _description_
+    :type clrs_ind_errs: _type_
+    :param z_specs: _description_
+    :type z_specs: _type_
+    :param i_mags: _description_
+    :type i_mags: _type_
+    :param filt_names: _description_, defaults to None
+    :type filt_names: _type_, optional
+    :return: Absolute path to the written file - if successful.
+    :rtype: str or path-like object
+    """
+    if filt_names is None:
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
+
+    color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+
+    color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+
+    df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "z_spec"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
+    outfilename = os.path.abspath(h5file)
+    df_clrs.to_hdf(outfilename, "pz_inputs")
+    respath = outfilename if os.path.isfile(outfilename) else f"Unable to write data to {outfilename}"
+    return respath
+
+
+def readPZinputsHDF5(h5file, filt_names=None):
+    """readPZinputsHDF5 _summary_
+
+    :param h5file: _description_
+    :type h5file: _type_
+    :param filt_names: _description_, defaults to None
+    :type filt_names: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    if filt_names is None:
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
+
+    color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+
+    color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+
+    df_clrs = pd.read_hdf(os.path.abspath(h5file), key="pz_inputs")
+    colrs = jnp.array(df_clrs[color_names])
+    colrs_errs = jnp.array(df_clrs[color_err_names])
+    i_mags = jnp.array(df_clrs["i_mag"])
+    z_specs = jnp.array(df_clrs["z_spec"])
+    return i_mags, colrs, colrs_errs, z_specs

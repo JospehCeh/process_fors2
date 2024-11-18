@@ -236,7 +236,9 @@
         "i_band_num": 3,
         "Dataset": {
             "path": "../../src/data/photoz/COSMOS2020_emu_hscOnly_CC_allzinf3.inp",
-            "type": "F"
+            "type": "F",
+            "format": "ASCII",
+            "overwrite": false
         },
         "Opacity": "opa/OPACITY.dat",
         "Estimator": "chi2",
