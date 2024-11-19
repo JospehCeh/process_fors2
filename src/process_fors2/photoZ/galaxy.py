@@ -304,14 +304,9 @@ def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     :rtype: jax array
     """
     chi2_arr = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
-    # neglog_lik = chi2_arr - 500.
     _n1 = 100.0 / jnp.nanmax(chi2_arr)
     neglog_lik = _n1 * chi2_arr
     prior_val = vmap_nz_prior(obs_iab, z_grid, nuvk)
-    from jax.debug import print
-
-    print(f"prior_shape={prior_val.shape}, likelihood shape={neglog_lik.shape}, scale={_n1}")
-    # res = jnp.exp(-0.5 * neglog_lik) * prior_val
     res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
     return res
 
