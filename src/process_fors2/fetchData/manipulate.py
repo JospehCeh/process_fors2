@@ -1239,7 +1239,7 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
     :rtype: str or path-like object
     """
     if filt_names is None:
-        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
+        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
     N_FILT = len(filt_names)
@@ -1283,7 +1283,7 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
     :rtype: str or path-like object
     """
     if filt_names is None:
-        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
+        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
 
     color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
@@ -1307,7 +1307,7 @@ def readPZinputsHDF5(h5file, filt_names=None):
     :rtype: _type_
     """
     if filt_names is None:
-        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
+        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
 
     color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 

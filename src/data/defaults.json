@@ -198,7 +198,7 @@
         "Templates": {
             "input": "../../src/data/photoz/fitparams_mags+rews_1_to_10.h5",
             "output": "SEDtempl_SPS_mags+rews_1_to_10.h5",
-            "overwrite": false
+            "overwrite": true
         },
         "Mode": "SPS",
         "Filters": {
@@ -238,11 +238,11 @@
             "path": "../../src/data/photoz/COSMOS2020_emu_hscOnly_CC_allzinf3.inp",
             "type": "F",
             "format": "ASCII",
-            "overwrite": false
+            "overwrite": true
         },
         "Opacity": "opa/OPACITY.dat",
         "Estimator": "chi2",
-        "prior": true,
+        "prior": false,
         "use_colors": true,
         "Evidence analysis": false,
         "z_spec analysis": false,

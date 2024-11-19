@@ -65,7 +65,7 @@ def load_magnitudes(photometry, ismag):
         _phot = jnp.array([photometry[2 * i] for i in range(len(photometry) // 2)])
         _phot_errs = jnp.array([photometry[2 * i + 1] for i in range(len(photometry) // 2)])
         _phot_ab = -2.5 * jnp.log10(_phot) - 48.6
-        _phot_ab_errs = -2.5 * jnp.log10(_phot_errs / _phot)
+        _phot_ab_errs = (2.5 / jnp.log(10)) * (_phot_errs / _phot)
         filters_to_use = jnp.logical_and(_phot > 0.0, _phot_errs > 0.0)
 
     mag_ab = jnp.where(filters_to_use, _phot_ab, jnp.nan)
@@ -89,7 +89,7 @@ def mags_to_i_and_colors(mags_arr, mags_err_arr, id_i_band):
     :return: _description_
     :rtype: _type_
     """
-    c_ab = mags_arr[:-1] - mags_err_arr[1:]
+    c_ab = mags_arr[:-1] - mags_arr[1:]
     c_ab_err = jnp.power(jnp.power(mags_err_arr[:-1], 2) + jnp.power(mags_err_arr[1:], 2), 0.5)
     i_ab = mags_arr[id_i_band]
 
@@ -305,9 +305,12 @@ def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     """
     chi2_arr = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
     # neglog_lik = chi2_arr - 500.
-    _n1 = 10.0 / jnp.max(chi2_arr)
+    _n1 = 100.0 / jnp.nanmax(chi2_arr)
     neglog_lik = _n1 * chi2_arr
     prior_val = vmap_nz_prior(obs_iab, z_grid, nuvk)
+    from jax.debug import print
+
+    print(f"prior_shape={prior_val.shape}, likelihood shape={neglog_lik.shape}, scale={_n1}")
     # res = jnp.exp(-0.5 * neglog_lik) * prior_val
     res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
     return res
