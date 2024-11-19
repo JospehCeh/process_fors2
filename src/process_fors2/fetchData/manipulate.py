@@ -1011,14 +1011,14 @@ def readTemplatesHDF5(h5file):
 
 
 def photoZtoHDF5(outfilename, pz_out_dict):
-    """photoZtoHDF5 _summary_
+    """photoZtoHDF5 Saves the dictionary of `process_fors2.photoZ` outputs to an `HDF5` file.
 
-    :param outfilename: _description_
-    :type outfilename: _type_
-    :param pz_out_dict: _description_
-    :type pz_out_dict: _type_
-    :return: _description_
-    :rtype: _type_
+    :param outfilename: Name of the `HDF5` file that will be written.
+    :type outfilename: str or path-like object
+    :param pz_out_dict: Dictionary of photo-z results : each item corresponds to the array of values of one result (identified by the key) for all input galaxies.
+    :type pz_out_dict: dict
+    :return: Absolute path to the written file - if successful.
+    :rtype: str or path-like object
     """
     fileout = os.path.abspath(outfilename)
 
@@ -1062,11 +1062,11 @@ def photoZ_listObsToHDF5(outfilename, pz_list):
 
 
 def readPhotoZHDF5(h5file):
-    """readPhotoZHDF5 Reads the photo-z results file and generates the corresponding pytree (list of dictionaries) for analysis.
+    """readPhotoZHDF5 Reads the photo-z results file and generates the corresponding pytree (dictionary) for analysis.
 
     :param h5file: Path to the HDF5 containing the photo-z results.
     :type h5file: str or path-like object
-    :return: Dictionary of photo-z results as computed by process_fors2.photoZ.
+    :return: Dictionary of photo-z results as computed by `process_fors2.photoZ`.
     :rtype: dict
     """
     filein = os.path.abspath(h5file)
@@ -1080,7 +1080,7 @@ def readPhotoZHDF5_fromListObs(h5file):
 
     :param h5file: Path to the HDF5 containing the photo-z results.
     :type h5file: str or path-like object
-    :return: List of photo-z results dicts as computed by process_fors2.photoZ.
+    :return: List of photo-z results dicts as computed by `process_fors2.photoZ`.
     :rtype: list
     """
     filein = os.path.abspath(h5file)
@@ -1200,18 +1200,22 @@ def readDSPSBootstrapHDF5(h5file):
     return out_dict
 
 
-def readCatalogHDF5(h5file, filt_names, group="catalog"):
-    """readCatalogHDF5 _summary_
+def readCatalogHDF5(h5file, group="catalog", filt_names=None):
+    """readCatalogHDF5 Reads the magnitudes and spectroscopic redshift (if available) from a dictionary-like catalog provided as an `HDF5` file.
+    Preliminary step for the `process_fors2.photoZ` calculations.
 
-    :param h5file: _description_
-    :type h5file: _type_
-    :param filt_names: _description_
-    :type filt_names: _type_
-    :param group: _description_, defaults to 'catalog'
+    :param h5file: Path to the HDF5 catalog file.
+    :type h5file: str or path-like
+    :param group: Identifier of the group to read within the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.read_hdf`. Defaults to 'catalog'.
     :type group: str, optional
+    :param filt_names: Names of filters to look for in the catalogs. Data recorded as `mag_[filter name]` and `mag_err_[filter name]` will be returned.
+    If None, defaults to LSST filters. Defaults to None.
+    :type filt_names: list of str, optional
     :return: tuple containing AB magnitudes, corresponding errors and spectroscopic redshift as arrays.
     :rtype: tuple of arrays
     """
+    if filt_names is None:
+        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
     df_cat = pd.read_hdf(os.path.abspath(h5file), key=group)
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
@@ -1225,16 +1229,17 @@ def readCatalogHDF5(h5file, filt_names, group="catalog"):
 
 
 def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None):
-    """catalog_ASCIItoHDF5 _summary_
+    """catalog_ASCIItoHDF5 Reads a catalog provided as an ASCII file (as in LEPHARE) containing either fluxes or magnitudes and saves it in an `HDF5` file containing AB-magnitudes.
 
-    :param ascii_file: _description_
-    :type ascii_file: _type_
-    :param data_ismag: _description_
-    :type data_ismag: _type_
-    :param group: _description_, defaults to 'catalog'
+    :param ascii_file: Path to the ASCII file containing catalog cata as an array that can be read with `numpy.loadtxt(ascii_file)`.
+    :type ascii_file: str or path-like
+    :param data_ismag: Whether the photometry in the file is given as AB-magnitudes or flux density (in erg/s/cm²/Hz). True for AB-magnitudes.
+    :type data_ismag: bool
+    :param group: Name of the group to write in the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.to_hdf`. Defaults to 'catalog'.
     :type group: str, optional
-    :param filt_names: _description_, defaults to None
-    :type filt_names: _type_, optional
+    :param filt_names: Names of filters to use as column names in the catalog. Data will be recored as `mag_[filter name]` and `mag_err_[filter name]`.
+    If None, defaults to LSST filters. Defaults to None.
+    :type filt_names: list of str, optional
     :return: Absolute path to the written file - if successful.
     :rtype: str or path-like object
     """
@@ -1265,20 +1270,23 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
 
 
 def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=None):
-    """pzInputsToHDF5 _summary_
+    """pzInputsToHDF5 Saves the photometry inputs as processed for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
+    Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
-    :param h5file: _description_
-    :type h5file: _type_
-    :param clrs_ind: _description_
-    :type clrs_ind: _type_
-    :param clrs_ind_errs: _description_
-    :type clrs_ind_errs: _type_
-    :param z_specs: _description_
-    :type z_specs: _type_
-    :param i_mags: _description_
-    :type i_mags: _type_
-    :param filt_names: _description_, defaults to None
-    :type filt_names: _type_, optional
+    :param h5file: Name for the HDF5 inputs file to be written.
+    :type h5file: str or path-like
+    :param clrs_ind: Array of color indices in magnitudes units
+    :type clrs_ind: array
+    :param clrs_ind_errs: Array of error on color indices in magnitudes units
+    :type clrs_ind_errs: array
+    :param z_specs: Array of spectroscopic redshifts (`jnp.nan` if unavailable in the catalog)
+    :type z_specs: array
+    :param i_mags: Array of magnitudes in i-band for nz prior computation.
+    :type i_mags: array
+    :param filt_names: Names of filters to use as column names in the catalog.
+    Color indices will be recorded as `[filter name i]-[filter name i+1]` and `[filter name i]-[filter name i+1]_err`.
+    If None, defaults to LSST filters. Defaults to None.
+    :type filt_names: list of str, optional
     :return: Absolute path to the written file - if successful.
     :rtype: str or path-like object
     """
@@ -1297,14 +1305,16 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
 
 
 def readPZinputsHDF5(h5file, filt_names=None):
-    """readPZinputsHDF5 _summary_
+    """readPZinputsHDF5 Reads pre-existing photometry inputs for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
+    Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
-    :param h5file: _description_
-    :type h5file: _type_
-    :param filt_names: _description_, defaults to None
-    :type filt_names: _type_, optional
-    :return: _description_
-    :rtype: _type_
+    :param h5file: Path to the HDF5 inputs file.
+    :type h5file: str or path-like
+    :param filt_names: Names of filters to look for in the catalogs. Color indices `[filter name i]-[filter name i+1]` and `[filter name i]-[filter name i+1]_err` will be returned.
+    If None, defaults to LSST filters. Defaults to None.
+    :type filt_names: list of str, optional
+    :return: 4-tuple of JAX arrays containing data to perform photo-z estimation (`jnp.nan` if missing) : mags in i-band ; color indices ; associated errors and spectro-z.
+    :rtype: tuple(arrays)
     """
     if filt_names is None:
         filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]

@@ -78,16 +78,16 @@ vmap_load_magnitudes = vmap(load_magnitudes, in_axes=(0, None))
 
 
 def mags_to_i_and_colors(mags_arr, mags_err_arr, id_i_band):
-    """mags_to_i_and_colors _summary_
+    """mags_to_i_and_colors Extracts magnitude in i-band and computes color indices and associated errors for photo-z estimation for a single observed galaxy (input).
 
-    :param mags_arr: _description_
-    :type mags_arr: _type_
-    :param mags_err_arr: _description_
-    :type mags_err_arr: _type_
-    :param id_i_band: _description_
+    :param mags_arr: AB-magnitudes of the galaxy from the input catalog
+    :type mags_arr: jax.array
+    :param mags_err_arr: Errors in AB-magnitudes of the galaxy from the input catalog
+    :type mags_err_arr: jax.array
+    :param id_i_band: Identifier of the i-band in the input catalog's photometric system. Starts from 0, such as `i_mag = mags_arr[id_i_band]`.
     :type id_i_band: int
-    :return: _description_
-    :rtype: _type_
+    :return: 3-tuple of JAX arrays containing processed input data : (i_mag ; color indices ; errors on color indices)
+    :rtype: tuple of jax.array
     """
     c_ab = mags_arr[:-1] - mags_arr[1:]
     c_ab_err = jnp.power(jnp.power(mags_err_arr[:-1], 2) + jnp.power(mags_err_arr[1:], 2), 0.5)
@@ -296,10 +296,12 @@ def likelihood_fluxRatio(sps_temp, obs_gal):
 def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     r"""posterior Computes the posterior distribution of redshifts for a combination of template x observation.
 
-    :param sps_temp: SPS template to be used as reference
-    :type sps_temp: SPS_template object (namedtuple)
-    :param obs_gal: Observed galaxy
-    :type obs_gal: Observation object (namedtuple)
+    :param sps_temp: Colors of SPS template to be used as reference
+    :type sps_temp: array of shape (n_redshift, n_colors)
+    :param obs_ab_colors: Observed colors for all galaxies
+    :type obs_ab_colors: array of shape (n_galaxies, n_colors)
+    :param obs_ab_colerrs: Observed noise of colors for all galaxies
+    :type obs_ab_colerrs: array of shape (n_galaxies, n_colors)
     :return: posterior probability values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right) \times prior$) along the redshift grid
     :rtype: jax array
     """

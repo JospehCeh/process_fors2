@@ -58,8 +58,8 @@ def load_data_for_run(inp_glob):
 
     :param inp_glob: input configuration and settings
     :type inp_glob: dict
-    :return: data for photo-z evaluation : redshift grid, templates dictionary and the list of observations
-    :rtype: tuple of jax.ndarray, dictionary, list
+    :return: data for photo-z evaluation : redshift grid, templates dictionary and the arrays of processed observed data (input catalog) (i mags ; colors ; errors on colors ; spectro-z).
+    :rtype: 6-tuple of jax.ndarray, dictionary, jax.ndarray, jax.ndarray, jax.ndarray, jax.ndarray
     """
     from process_fors2.fetchData import readDSPSHDF5, readTemplatesHDF5, templatesToHDF5
     from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, get_2lists, load_filt, make_legacy_templates, make_sps_templates, sedpyFilter
@@ -115,7 +115,7 @@ def load_data_for_run(inp_glob):
     if inputs["Dataset"]["overwrite"] or not (os.path.isfile(f"pz_inputs_{os.path.basename(h5catpath)}")):
         from process_fors2.fetchData import readCatalogHDF5
 
-        ab_mags, ab_mags_errs, z_specs = readCatalogHDF5(h5catpath, filters_names)
+        ab_mags, ab_mags_errs, z_specs = readCatalogHDF5(h5catpath, filt_names=filters_names)
 
         from .galaxy import vmap_mags_to_i_and_colors
 
@@ -180,11 +180,13 @@ vmap_mean = jax.vmap(_mean, in_axes=(None, 1))
 
 
 def extract_pdz(pdf_dict, zs, z_grid):
-    """extract_pdz Computes and returns the marginilized Probability Density function of redshifts and associated statistics for a single observation ;
-    additional point estimates are also computed for each galaxy template for various analytic needs.
+    """extract_pdz Computes and returns the marginilized Probability Density function of redshifts and associated statistics for all observations.
+    Each item of the `pdf_dict` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
 
-    :param pdf_res: Output of photo-z estimation on a single observation
-    :type pdf_res: tuple of (dict, float)
+    :param pdf_dict: Output of photo-z estimation as a dictonary of JAX arrays.
+    :type pdf_dict: dict of jax.ndarray
+    :param zs: Spectro-z values for input galaxies (NaNs if not available)
+    :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
     :type z_grid: jax array
     :return: Marginalized Probability Density function of redshift values and associated summarized statistics
