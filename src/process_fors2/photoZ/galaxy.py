@@ -11,7 +11,7 @@ Observation = namedtuple("Observation", ["num", "ref_i_AB", "AB_colors", "AB_col
 
 
 def load_galaxy(photometry, ismag, id_i_band=3):
-    """load_galaxy _summary_
+    """load_galaxy Returns all necessary data to instanciate an `Observation` object.
 
     :param photometry: fluxes or magnitudes and corresponding errors as read from an ASCII input file
     :type photometry: list or array-like
@@ -39,6 +39,74 @@ def load_galaxy(photometry, ismag, id_i_band=3):
         filters_to_use = jnp.isfinite(_phot)
     colors_to_use = jnp.array([b1 and b2 for (b1, b2) in zip(filters_to_use[:-1], filters_to_use[1:], strict=True)])
     return i_ab, c_ab, c_ab_err, filters_to_use, colors_to_use
+
+
+def load_magnitudes(photometry, ismag):
+    """load_magnitudes Returns the magnitudes and associated errors from photometric data that can be either fluxes or magnitudes.
+    Contrary to `load_galaxy`, this function does not compute color indices, identifies i-mag or returns the booleans.
+    Instead, it returns the data as JAX arrays with `nan` wherever data is missing.
+    This is more a helper to build on, especially aimed at converting ASCII data to a `DataFrame` or `HDF5` file,
+    and cannot be used directly to built an `Observation` object.
+
+    :param photometry: fluxes or magnitudes and corresponding errors as read from an ASCII input file
+    :type photometry: list or array-like
+    :param ismag: whether photometry is provided as AB-magnitudes or fluxes
+    :type ismag: bool
+    :return: Tuple containing the AB magnitudes (in AB mag units) and the corresponding errors.
+    :rtype: tuple
+    """
+    assert len(photometry) % 2 == 0, "Missing data in observations : check that magnitudes/fluxes and errors are available\n and listed as M (or F), error, M (or F), error, etc."
+
+    if ismag:
+        _phot_ab = jnp.array([photometry[2 * i] for i in range(len(photometry) // 2)])
+        _phot_ab_errs = jnp.array([photometry[2 * i + 1] for i in range(len(photometry) // 2)])
+        filters_to_use = jnp.logical_and(_phot_ab > -15.0, _phot_ab_errs < 50.0)
+    else:
+        _phot = jnp.array([photometry[2 * i] for i in range(len(photometry) // 2)])
+        _phot_errs = jnp.array([photometry[2 * i + 1] for i in range(len(photometry) // 2)])
+        _phot_ab = -2.5 * jnp.log10(_phot) - 48.6
+        _phot_ab_errs = (2.5 / jnp.log(10)) * (_phot_errs / _phot)
+        filters_to_use = jnp.logical_and(_phot > 0.0, _phot_errs > 0.0)
+
+    mag_ab = jnp.where(filters_to_use, _phot_ab, jnp.nan)
+    mag_ab_err = jnp.where(filters_to_use, _phot_ab_errs, jnp.nan)
+
+    return mag_ab, mag_ab_err
+
+
+vmap_load_magnitudes = vmap(load_magnitudes, in_axes=(0, None))
+
+
+def mags_to_i_and_colors(mags_arr, mags_err_arr, id_i_band):
+    """mags_to_i_and_colors Extracts magnitude in i-band and computes color indices and associated errors for photo-z estimation for a single observed galaxy (input).
+
+    :param mags_arr: AB-magnitudes of the galaxy from the input catalog
+    :type mags_arr: jax.array
+    :param mags_err_arr: Errors in AB-magnitudes of the galaxy from the input catalog
+    :type mags_err_arr: jax.array
+    :param id_i_band: Identifier of the i-band in the input catalog's photometric system. Starts from 0, such as `i_mag = mags_arr[id_i_band]`.
+    :type id_i_band: int
+    :return: 3-tuple of JAX arrays containing processed input data : (i_mag ; color indices ; errors on color indices)
+    :rtype: tuple of jax.array
+    """
+    c_ab = mags_arr[:-1] - mags_arr[1:]
+    c_ab_err = jnp.power(jnp.power(mags_err_arr[:-1], 2) + jnp.power(mags_err_arr[1:], 2), 0.5)
+    i_ab = mags_arr[id_i_band]
+
+    filters_to_use = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(mags_err_arr))
+
+    colors_to_use = jnp.array(tuple(jnp.logical_and(filters_to_use[i], filters_to_use[i + 1]) for i in range(len(filters_to_use) - 1)))
+
+    ab_colors = jnp.where(colors_to_use, c_ab, jnp.nan)
+    ab_cols_errs = jnp.where(colors_to_use, c_ab_err, jnp.nan)
+
+    use_i = filters_to_use[id_i_band]
+    i_mag_ab = jnp.where(use_i, i_ab, jnp.nan)
+
+    return i_mag_ab, ab_colors, ab_cols_errs
+
+
+vmap_mags_to_i_and_colors = vmap(mags_to_i_and_colors, in_axes=(0, 0, None))
 
 
 @jit
@@ -98,7 +166,10 @@ def z_prior_val(i_mag, zp, nuvk):
     return val_prior
 
 
-vmap_nz_prior = vmap(z_prior_val, in_axes=(None, 0, 0))  # vmap version to compute the prior value for a certain observation and a certain SED template at all redshifts
+vmap_nz_prior = vmap(
+    vmap(z_prior_val, in_axes=(0, None, None)),  # vmap version to compute the prior value for a certain observation and a certain SED template at all redshifts
+    in_axes=(None, 0, 0),
+)
 
 
 @jit
@@ -160,15 +231,37 @@ def val_neg_log_likelihood(templ_cols, gal_cols, gel_colerrs):
     :rtype: float
     """
     _chi = chi_term(gal_cols, templ_cols, gel_colerrs)
-    return jnp.sum(_chi) / len(_chi)
+    chi = jnp.where(jnp.isfinite(_chi), _chi, 0.0)
+    _count = jnp.sum(jnp.where(jnp.isfinite(_chi), 1.0, 0.0))
+    return jnp.sum(chi) / _count
 
 
-vmap_neg_log_likelihood = vmap(val_neg_log_likelihood, in_axes=(0, None, None))  # Same as above but for all templates.
+vmap_neg_log_likelihood = vmap(
+    vmap(val_neg_log_likelihood, in_axes=(None, 0, 0)),  # Same as above but for all observations...
+    in_axes=(0, None, None),  # ... and for all redshifts
+)
+
+
+@jit
+def likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
+    r"""likelihood Computes the likelihood of redshifts for a combination of template x observation.
+
+    :param sps_temp: Colors of SPS template to be used as reference
+    :type sps_temp: array of shape (n_redshift, n_colors)
+    :param obs_ab_colors: Observed colors for all galaxies
+    :type obs_ab_colors: array of shape (n_galaxies, n_colors)
+    :param obs_ab_colerrs: Observed noise of colors for all galaxies
+    :type obs_ab_colerrs: array of shape (n_galaxies, n_colors)
+    :return: likelihood values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right)$) along the redshift grid
+    :rtype: jax array
+    """
+    neglog_lik = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
+    return jnp.exp(-0.5 * neglog_lik)
 
 
 # @jit
 def neg_log_likelihood(sps_temp, obs_gal):
-    r"""neg_log_likelihood Computes the negative log likelihood of redshifts (aka $\chi^2$) for a combination of template x observation.
+    r"""DEPRECATED - neg_log_likelihood Computes the negative log likelihood of redshifts (aka $\chi^2$) for a combination of template x observation.
 
     :param sps_temp: SPS template to be used as reference
     :type sps_temp: SPS_template object (namedtuple)
@@ -182,23 +275,8 @@ def neg_log_likelihood(sps_temp, obs_gal):
     return neglog_lik
 
 
-def likelihood(sps_temp, obs_gal):
-    r"""likelihood Computes the likelihood of redshifts for a combination of template x observation.
-
-    :param sps_temp: SPS template to be used as reference
-    :type sps_temp: SPS_template object (namedtuple)
-    :param obs_gal: Observed galaxy
-    :type obs_gal: Observation object (namedtuple)
-    :return: likelihood values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right)$) along the redshift grid
-    :rtype: jax array
-    """
-    _sel = obs_gal.valid_colors
-    neglog_lik = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
-    return jnp.exp(-0.5 * neglog_lik)
-
-
 def likelihood_fluxRatio(sps_temp, obs_gal):
-    r"""likelihood Computes the likelihood of redshifts for a combination of template x observation.
+    r"""DEPRECATED - likelihood Computes the likelihood of redshifts for a combination of template x observation.
     Uses the $\chi^2$ distribution in flux-ratio space instead of color space.
 
     :param sps_temp: SPS template to be used as reference
@@ -215,29 +293,28 @@ def likelihood_fluxRatio(sps_temp, obs_gal):
 
 
 # @jit
-def posterior(sps_temp, obs_gal):
+def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     r"""posterior Computes the posterior distribution of redshifts for a combination of template x observation.
 
-    :param sps_temp: SPS template to be used as reference
-    :type sps_temp: SPS_template object (namedtuple)
-    :param obs_gal: Observed galaxy
-    :type obs_gal: Observation object (namedtuple)
+    :param sps_temp: Colors of SPS template to be used as reference
+    :type sps_temp: array of shape (n_redshift, n_colors)
+    :param obs_ab_colors: Observed colors for all galaxies
+    :type obs_ab_colors: array of shape (n_galaxies, n_colors)
+    :param obs_ab_colerrs: Observed noise of colors for all galaxies
+    :type obs_ab_colerrs: array of shape (n_galaxies, n_colors)
     :return: posterior probability values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right) \times prior$) along the redshift grid
     :rtype: jax array
     """
-    _sel = obs_gal.valid_colors
-    chi2_arr = vmap_neg_log_likelihood(sps_temp.colors[:, _sel], obs_gal.AB_colors[_sel], obs_gal.AB_colerrs[_sel])
-    # neglog_lik = chi2_arr - 500.
-    _n1 = 10.0 / jnp.max(chi2_arr)
+    chi2_arr = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
+    _n1 = 100.0 / jnp.nanmax(chi2_arr)
     neglog_lik = _n1 * chi2_arr
-    prior_val = vmap_nz_prior(obs_gal.ref_i_AB, sps_temp.z_grid, sps_temp.nuvk)
-    # res = jnp.exp(-0.5 * neglog_lik) * prior_val
+    prior_val = vmap_nz_prior(obs_iab, z_grid, nuvk)
     res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
     return res
 
 
 def posterior_fluxRatio(sps_temp, obs_gal):
-    r"""posterior Computes the posterior distribution of redshifts for a combination of template x observation.
+    r"""DEPRECATED - posterior Computes the posterior distribution of redshifts for a combination of template x observation.
     Uses the $\chi^2$ distribution in flux-ratio space instead of color space.
 
     :param sps_temp: SPS template to be used as reference
