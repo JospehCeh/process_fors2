@@ -202,74 +202,74 @@ def extract_pdz(pdf_dict, zs, z_grid):
     z_means = vmap_mean(z_grid, pdz_arr)
     z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
     z_meds = vmap_median(z_grid, pdz_arr)
-    """
-    for key, val in pdf_dict.items():
-        joint_pdz = val / _n2
-        evidence = trapezoid(joint_pdz, x=z_grid)
-        z_ml = z_grid[jnp.nanargmax(joint_pdz)]
-        z_avg = trapezoid(z_grid * joint_pdz / evidence, x=z_grid)
-        pdz_dict.update({key: {"evidence_SED": evidence, "z_ML_SED": z_ml, "z_mean_SED": z_avg}})
-    pdz = jnp.nansum(pdf_arr, axis=0)
-    z_med = _median(z_grid, pdz)
-    z_ML = z_grid[jnp.nanargmax(pdz)]
-    z_MEAN = trapezoid(z_grid * pdz, x=z_grid)
-    """
     pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
-def extract_pdz_fromchi2(chi2_res, z_grid):
-    r"""extract_pdz_fromchi2 Similar to extract_pdz except takes $\chi^2$ values as inputs - Computes and returns the marginilized Probability Density function of redshifts
+def extract_pdz_fromchi2(chi2_dict, zs, z_grid):
+    r"""extract_pdz_fromchi2 Similar to extract_pdz except takes $\chi^2$ values as inputs (*i.e.* negative log-likelihood).
+    Computes and returns the marginilized Probability Density function of redshifts
 
-    :param chi2_res: Output of photo-z estimation on a single observation, given as the results of $\chi^2$ values, not likelihood.
-    :type chi2_res: tuple of (dict, float)
+    :param chi2_dict: Output of photo-z estimation as a dictonary of JAX arrays.
+    :type chi2_dict: dict of jax.ndarray
+    :param zs: Spectro-z values for input galaxies (NaNs if not available)
+    :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
     :type z_grid: jax array
-    :return: Marginalized Probability Density function of redshift values and *evidence* value for each galaxy template
+    :return: Marginalized Probability Density function of redshift values and elementary associated stats
     :rtype: dict
     """
-    chi2_dict = chi2_res[0]
-    zs = chi2_res[1]
     chi2_arr = jnp.array([chi2_templ for _, chi2_templ in chi2_dict.items()])
-    _n1 = 100.0  # jnp.max(chi2_arr)
-    chi2_arr = chi2_arr - _n1  # 10 * chi2_arr / _n1
-    exp_arr = jnp.exp(-0.5 * chi2_arr)
+    _n1 = 100.0 / jnp.nanmax(chi2_arr)
+    chi2_arr = chi2_arr * _n1
+    exp_arr = jnp.power(jnp.exp(-0.5 * chi2_arr), 1 / _n1)
     # print(f"DEBUG extract_pdz : {exp_arr.shape}")
     _n2 = trapezoid(jnp.nansum(exp_arr, axis=0), x=z_grid)
     exp_arr = exp_arr / _n2
-    pdz_dict = {}
-    for key, val in chi2_dict.items():
-        chiarr = val - _n1
-        joint_pdz = jnp.exp(-0.5 * chiarr) / _n2
-        evidence = trapezoid(joint_pdz, x=z_grid)
-        pdz_dict.update({key: {"SED evidence": evidence}})
-    pdz_dict.update({"PDZ": jnp.column_stack((z_grid, jnp.nansum(exp_arr, axis=0))), "z_spec": zs})
+    pdz_arr = jnp.nansum(exp_arr, axis=0)
+    z_means = vmap_mean(z_grid, pdz_arr)
+    z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
+    z_meds = vmap_median(z_grid, pdz_arr)
+    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
-def extract_pdz_allseds(pdf_res, z_grid):
+def extract_pdz_allseds(pdf_dict, zs, z_grid):
     """extract_pdz_allseds Computes and returns the marginilized Probability Density function of redshifts for a single observation ;
     The conditional probability density is also computed for each galaxy template.
+    Each item of the `pdf_dict` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
 
-    :param pdf_res: Output of photo-z estimation on a single observation
-    :type pdf_res: tuple of (dict, float)
+    :param pdf_dict: Output of photo-z estimation as a dictonary of JAX arrays.
+    :type pdf_dict: dict of jax.ndarray
+    :param zs: Spectro-z values for input galaxies (NaNs if not available)
+    :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
     :type z_grid: jax array
     :return: Marginalized Probability Density function of redshift values and conditional PDF for each template.
     :rtype: dict
     """
-    pdf_dict = pdf_res[0]
-    zs = pdf_res[1]
     pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
-    # print(f"DEBUG extract_pdz : {exp_arr.shape}")
-    _n2 = trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid)
+    _n2 = trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0)
     pdf_arr = pdf_arr / _n2
-    pdz_dict = {}
-    for key, val in pdf_dict.items():
-        joint_pdz = val / _n2
-        evidence = trapezoid(joint_pdz, x=z_grid)
-        pdz_dict.update({key: {"p(z, sed)": joint_pdz, "SED evidence": evidence}})
-    pdz_dict.update({"PDZ": jnp.nansum(pdf_arr, axis=0), "z_spec": zs})
+    pdz_arr = jnp.nansum(pdf_arr, axis=0)
+    templ_wgts = trapezoid(pdf_arr, x=z_grid, axis=1)
+    sed_evid_z = jnp.nansum(pdf_arr, axis=2)
+    sed_evid_marg = jnp.nansum(templ_wgts, axis=1)
+    z_means = vmap_mean(z_grid, pdz_arr)
+    z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
+    z_meds = vmap_median(z_grid, pdz_arr)
+    pdz_dict = {
+        "z_grid": z_grid,
+        "PDZ": pdz_arr,
+        "p(z, sed)": pdf_arr,
+        "z_spec": zs,
+        "z_ML": z_MLs,
+        "z_mean": z_means,
+        "z_med": z_meds,
+        "SED weights / galaxy": templ_wgts,
+        "SED evidence along z": sed_evid_z,
+        "Marginalised SED evidence": sed_evid_marg,
+    }
     return pdz_dict
 
 
@@ -281,7 +281,7 @@ def run_from_inputs(inputs):
     :return: Photo-z estimation results. These are not written to disk within this function.
     :rtype: list (tree-like)
     """
-    from process_fors2.photoZ import Observation, SPS_Templates, likelihood, load_data_for_run, posterior
+    from process_fors2.photoZ import Observation, SPS_Templates, likelihood, likelihood_fluxRatio, load_data_for_run, posterior, posterior_fluxRatio
 
     z_grid, templates_dict, observed_imags, observed_colors, observed_noise, observed_zs = load_data_for_run(inputs)
 
@@ -327,14 +327,16 @@ def run_from_inputs(inputs):
         if inputs["photoZ"]["prior"]:  # and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
             probz_dict = (
                 jax.tree_util.tree_map(lambda sps_templ: posterior(sps_templ.colors, observs_cols, observs_errs, observs_i, sps_templ.z_grid, sps_templ.nuvk), templates_dict, is_leaf=has_sps_template)
-                # if inputs["photoZ"]["use_colors"]
-                # else jax.tree_util.tree_map(lambda sps_templ: posterior_fluxRatio(sps_templ, observs), templates_dict, is_leaf=has_sps_template)
+                if inputs["photoZ"]["use_colors"]
+                else jax.tree_util.tree_map(
+                    lambda sps_templ: posterior_fluxRatio(sps_templ.colors, observs_cols, observs_errs, observs_i, sps_templ.z_grid, sps_templ.nuvk), templates_dict, is_leaf=has_sps_template
+                )
             )
         else:
             probz_dict = (
                 jax.tree_util.tree_map(lambda sps_templ: likelihood(sps_templ.colors, observs_cols, observs_errs), templates_dict, is_leaf=has_sps_template)
-                # if inputs["photoZ"]["use_colors"]
-                # else jax.tree_util.tree_map(lambda sps_templ: likelihood_fluxRatio(sps_templ, observ), templates_dict, is_leaf=has_sps_template)
+                if inputs["photoZ"]["use_colors"]
+                else jax.tree_util.tree_map(lambda sps_templ: likelihood_fluxRatio(sps_templ.colors, observs_cols, observs_errs), templates_dict, is_leaf=has_sps_template)
             )
         # z_phot_loc = jnp.nanargmin(chi2_arr)
         return probz_dict  # , observ.z_spec  # chi2_arr, z_phot_loc
