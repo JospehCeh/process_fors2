@@ -31,12 +31,12 @@ def load_galaxy(photometry, ismag, id_i_band=3):
         c_ab = _phot[:-1] - _phot[1:]
         c_ab_err = jnp.power(jnp.power(_phot_errs[:-1], 2) + jnp.power(_phot_errs[1:], 2), 0.5)
         i_ab = _phot[id_i_band]
-        filters_to_use = _phot > 0.0
+        filters_to_use = jnp.logical_and(_phot > -15.0, _phot < 50.0)
     else:
         c_ab = -2.5 * jnp.log10(_phot[:-1] / _phot[1:])
         c_ab_err = 2.5 / jnp.log(10) * jnp.power(jnp.power(_phot_errs[:-1] / _phot[:-1], 2) + jnp.power(_phot_errs[1:] / _phot[1:], 2), 0.5)
         i_ab = -2.5 * jnp.log10(_phot[id_i_band]) - 48.6
-        filters_to_use = jnp.isfinite(_phot)
+        filters_to_use = jnp.logical_and(_phot > 0.0, _phot_errs > 0.0)
     colors_to_use = jnp.array([b1 and b2 for (b1, b2) in zip(filters_to_use[:-1], filters_to_use[1:], strict=True)])
     return i_ab, c_ab, c_ab_err, filters_to_use, colors_to_use
 
@@ -77,6 +77,7 @@ def load_magnitudes(photometry, ismag):
 vmap_load_magnitudes = vmap(load_magnitudes, in_axes=(0, None))
 
 
+@jit
 def mags_to_i_and_colors(mags_arr, mags_err_arr, id_i_band):
     """mags_to_i_and_colors Extracts magnitude in i-band and computes color indices and associated errors for photo-z estimation for a single observed galaxy (input).
 
@@ -208,7 +209,7 @@ vmap_neg_log_posterior = vmap(
 )
 
 
-# @jit
+@jit
 def neg_log_posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     r"""neg_log_posterior Computes the posterior distribution of redshifts (negative log posterior, similar to a $\chi^2$) with one template for all observations.
 
@@ -268,7 +269,7 @@ def likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
     return jnp.exp(-0.5 * neglog_lik)
 
 
-# @jit
+@jit
 def neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
     r"""neg_log_likelihood Computes the negative log likelihood of redshifts (aka $\chi^2$) with one template for all observations.
 
@@ -285,6 +286,7 @@ def neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
     return neglog_lik
 
 
+@jit
 def likelihood_fluxRatio(sps_temp, obs_ab_colors, obs_ab_colerrs):
     r"""likelihood_fluxRatio Computes the likelihood of redshifts with one template for all observations.
     Uses the $\chi^2$ distribution in flux-ratio space instead of color space.
@@ -303,7 +305,7 @@ def likelihood_fluxRatio(sps_temp, obs_ab_colors, obs_ab_colerrs):
     return jnp.exp(-0.5 * neglog_lik)
 
 
-# @jit
+@jit
 def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     r"""posterior Computes the posterior distribution of redshifts with one template for all observations.
 
@@ -324,6 +326,7 @@ def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     return res
 
 
+@jit
 def posterior_fluxRatio(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     r"""posterior_fluxRatio Computes the posterior distribution of redshifts with one template for all observations.
     Uses the $\chi^2$ distribution in flux-ratio space instead of color space.

@@ -105,7 +105,7 @@ def load_data_for_run(inp_glob):
     data_path = os.path.abspath(inputs["Dataset"]["path"])
     data_ismag = inputs["Dataset"]["type"].lower() == "m"
 
-    if inputs["Dataset"]["format"].lower() == "ascii":
+    if inputs["Dataset"]["is_ascii"]:
         from process_fors2.fetchData import catalog_ASCIItoHDF5
 
         h5catpath = catalog_ASCIItoHDF5(data_path, data_ismag, filt_names=filters_names)

@@ -237,7 +237,7 @@
         "Dataset": {
             "path": "../../src/data/photoz/COSMOS2020_emu_hscOnly_CC_allzinf3.inp",
             "type": "F",
-            "format": "ASCII",
+            "is_ascii": true,
             "overwrite": true
         },
         "Opacity": "opa/OPACITY.dat",
