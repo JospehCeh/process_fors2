@@ -769,7 +769,7 @@ def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
     out_df.to_hdf(outpath, key="fit_dsps")
     ret = outpath
     if not os.path.isfile(outpath):
-        ret = f"Could write file to {outpath}. Please check that the run finished correctly."
+        ret = f"Unable to write file to {outpath}. Please check that the run finished correctly."
     return ret
 
 
