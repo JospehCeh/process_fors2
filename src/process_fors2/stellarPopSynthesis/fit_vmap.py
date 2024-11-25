@@ -764,7 +764,7 @@ def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
     :rtype: _type_
     """
     res_df = pd.DataFrame(index=ref_df.index, columns=_DUMMY_P_ADQ.PARAM_NAMES_FLAT, data=fit_res_arr)
-    out_df = pd.concat((ref_df, res_df))
+    out_df = ref_df.join(res_df, how="inner")
     outpath = os.path.abspath(df_outfilename)
     out_df.to_hdf(outpath, key="fit_dsps")
     ret = outpath
