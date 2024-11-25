@@ -32,6 +32,7 @@ from .fit_loop import (
     prepare_data_dict,
 )
 from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
+from .fit_vmap import fit_vmap, vmap_calc_eqw, vmap_calc_obs_mag, vmap_fit_mags, vmap_fit_mags_rews, vmap_fit_rews, vmap_mean_mags, vmap_mean_sfr, vmap_mean_spectrum
 from .fitter_dsps import (
     calc_eqw,
     lik_colidx,
@@ -86,6 +87,7 @@ __all__ = [
     "fit_colidx_and_rew",
     "fit_lines",
     "fit_gelmod",
+    "fit_vmap",
     "filter_tags",
     "has_redshift",
     "prepare_data_dict",
@@ -94,6 +96,14 @@ __all__ = [
     "fit_bootstrap",
     "make_fit_plots",
     "make_bootstrap_plot",
+    "vmap_calc_eqw",
+    "vmap_calc_obs_mag",
+    "vmap_fit_mags",
+    "vmap_fit_mags_rews",
+    "vmap_fit_rews",
+    "vmap_mean_mags",
+    "vmap_mean_sfr",
+    "vmap_mean_spectrum",
     "write_fsps_data",
 ]
 

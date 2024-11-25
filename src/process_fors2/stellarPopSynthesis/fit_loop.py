@@ -1,17 +1,13 @@
 #!/usr/bin/env python
 
 # # Fit Fors2 Spectra and Photometry with DSPS
-# Restricted to FORS2 galaxies with GALEX photometry
-
-# Implement this fit using this `fors2tostellarpopsynthesis` package
-#
 # - Author Joseph Chevalier
 # - Afflilation : IJCLab/IN2P3/CNRS
 # - Organisation : LSST-DESC
 # - creation date : 2024-01-10
 # - last update : 2024-01-10 : Initial version
 #
-# Most functions are inside the package. This notebook inherits largely from `Fors2ToStellarPopSynthesis/docs/notebooks/fitters/FitFors2ManySpecLoop.ipynb` in the `fors2tostellarpopsynthesis` package.
+# Most functions are inside the package. This code inherits largely from `Fors2ToStellarPopSynthesis/docs/notebooks/fitters/FitFors2ManySpecLoop.ipynb` in the `fors2tostellarpopsynthesis` package.
 
 # ## Imports and general settings
 import copy
