@@ -121,6 +121,7 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr):
     return sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr
 
 
+@jit
 def mean_sfr(params):
     """Model of the SFR
 
@@ -148,6 +149,7 @@ def mean_sfr(params):
 vmap_mean_sfr = vmap(mean_sfr)
 
 
+@jit
 def ssp_spectrum_fromparam(params, z_obs, ssp_data):
     """ssp_spectrum_fromparam _summary_
 
@@ -192,6 +194,7 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_data):
     return ssp_data.ssp_wave, sed_info.rest_sed, sed_attenuated
 
 
+@jit
 def mean_spectrum(wls, params, z_obs, ssp_data):
     """mean_spectrum _summary_
 
@@ -239,6 +242,7 @@ def vmap_calc_obs_mag(ssp_wave, sed_attenuated, wls, filt_trans_arr, z_obs):
     return calc_obs_mag(ssp_wave, sed_attenuated, wls, filt_trans_arr, z_obs, *DEFAULT_COSMOLOGY)
 
 
+@jit
 def mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data):
     """mean_mags _summary_
 
@@ -277,6 +281,7 @@ def mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data):
 vmap_mean_mags = vmap(mean_mags, in_axes=(0, None, None, 0, None))
 
 
+@jit
 def calc_eqw(sur_wls, sur_spec, lin):
     r"""
     Computes the equivalent width of the specified spectral line.
@@ -565,6 +570,7 @@ def vmap_fit_mags(fwls, filts_transm, omags, omagerrs, zobs, ssp_data):
     :type ssp_data: _type_
     """
 
+    @jit
     def solve(_omags, _oerrs, _oz):
         res_m = minimize(lik_mag, INIT_PARAMS, (fwls, filts_transm, _omags, _oerrs, _oz, ssp_data), method="BFGS")
         return res_m.x
@@ -590,6 +596,7 @@ def vmap_fit_rews(surwls, rews_wls, rews, rews_err, zobs, ssp_data):
     :type ssp_data: _type_
     """
 
+    @jit
     def solve(_rews, _rewerrs, _z):
         res_r = minimize(lik_rew, INIT_PARAMS, (surwls, rews_wls, _rews, _rewerrs, _z, ssp_data), method="BFGS")
         return res_r.x
@@ -625,6 +632,7 @@ def vmap_fit_mags_rews(fwls, filts_transm, omags, omagerrs, surwls, rews_wls, re
     :type weight_mag: _type_
     """
 
+    @jit
     def solve(_omags, _oerrs, _rews, _rewerrs, _oz):
         res_mr = minimize(lik_mag_rew, INIT_PARAMS, (fwls, filts_transm, _omags, _oerrs, surwls, rews_wls, _rews, _rewerrs, _oz, ssp_data, weight_mag), method="BFGS")
         return res_mr.x
@@ -742,7 +750,7 @@ def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        fit_results_arr = vmap_fit_mags_rews(wls_rews, li_wls, rews_arr, rewerrs_arr, zs, ssp_data)
+        fit_results_arr = vmap_fit_rews(wls_rews, li_wls, rews_arr, rewerrs_arr, zs, ssp_data)
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
