@@ -77,6 +77,9 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr):
     columns = [
         "num",
         "redshift",
+        "ra",
+        "dec",
+        "Classification",
         "fuv_mag",
         "nuv_mag",
         "MAG_GAAP_u",
@@ -278,7 +281,30 @@ def mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data):
     return jnp.array(mags_predictions)
 
 
+@jit
+def mean_colors(params, wls, filt_trans_arr, z_obs, ssp_data):
+    """mean_colors _summary_
+
+    :param params: _description_
+    :type params: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param filt_trans_arr: _description_
+    :type filt_trans_arr: _type_
+    :param z_obs: _description_
+    :type z_obs: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    mags = mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data)
+    return mags[:-1] - mags[1:]
+
+
 vmap_mean_mags = vmap(mean_mags, in_axes=(0, None, None, 0, None))
+
+vmap_mean_colors = vmap(mean_colors, in_axes=(0, None, None, 0, None))
 
 
 @jit
@@ -407,6 +433,88 @@ def lik_mag(params, wls, filt_trans_arr, mags_measured, sigma_mag_obs, z_obs, ss
     """
     all_mags_predictions = mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data)
     redchi2 = red_chi2(all_mags_predictions, mags_measured, sigma_mag_obs)
+    return redchi2
+
+
+@jit
+def lik_mag_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, mags_measured, sigma_mag_obs, ssp_data):
+    """lik_mag_z_anu _summary_
+
+    :param z_anu: _description_
+    :type z_anu: _type_
+    :param fixed_pars: _description_
+    :type fixed_pars: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param filt_trans_arr: _description_
+    :type filt_trans_arr: _type_
+    :param mags_measured: _description_
+    :type mags_measured: _type_
+    :param sigma_mag_obs: _description_
+    :type sigma_mag_obs: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    z_obs, anu = z_anu
+    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[-2:]))
+    all_mags_predictions = mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data)
+    redchi2 = red_chi2(all_mags_predictions, mags_measured, sigma_mag_obs)
+    return redchi2
+
+
+@jit
+def lik_colr(params, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, z_obs, ssp_data):
+    """lik_mag _summary_
+
+    :param params: _description_
+    :type params: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param filt_trans_arr: _description_
+    :type filt_trans_arr: _type_
+    :param clrs_measured: _description_
+    :type clrs_measured: _type_
+    :param sigma_clr_obs: _description_
+    :type sigma_clr_obs: _type_
+    :param z_obs: _description_
+    :type z_obs: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    all_clrs_predictions = mean_colors(params, wls, filt_trans_arr, z_obs, ssp_data)
+    redchi2 = red_chi2(all_clrs_predictions, clrs_measured, sigma_clr_obs)
+    return redchi2
+
+
+@jit
+def lik_colr_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, ssp_data):
+    """lik_mag_z_anu _summary_
+
+    :param z_anu: _description_
+    :type z_anu: _type_
+    :param fixed_pars: _description_
+    :type fixed_pars: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param filt_trans_arr: _description_
+    :type filt_trans_arr: _type_
+    :param clrs_measured: _description_
+    :type clrs_measured: _type_
+    :param sigma_clr_obs: _description_
+    :type sigma_clr_obs: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    z_obs, anu = z_anu
+    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[-2:]))
+    all_clrs_predictions = mean_colors(params, wls, filt_trans_arr, z_obs, ssp_data)
+    redchi2 = red_chi2(all_clrs_predictions, clrs_measured, sigma_clr_obs)
     return redchi2
 
 
@@ -577,6 +685,54 @@ def vmap_fit_mags(fwls, filts_transm, omags, omagerrs, zobs, ssp_data):
 
     vsolve = vmap(solve, in_axes=(0, 0, 0))
     return vsolve(omags, omagerrs, zobs)  # params_m
+
+
+def vmap_fit_mags_z_anu(fixed_pars, fwls, filts_transm, omags, omagerrs, ssp_data):
+    """vmap_fit_mags _summary_
+
+    :param fwls: _description_
+    :type fwls: _type_
+    :param filts_transm: _description_
+    :type filts_transm: _type_
+    :param omags: _description_
+    :type omags: _type_
+    :param omagerrs: _description_
+    :type omagerrs: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    """
+
+    @jit
+    def solve(_omags, _oerrs):
+        res_m = minimize(lik_mag_z_anu, (0.5, INIT_PARAMS[13]), (fixed_pars, fwls, filts_transm, _omags, _oerrs, ssp_data), method="BFGS")
+        return res_m.x
+
+    vsolve = vmap(solve, in_axes=(0, 0))
+    return vsolve(omags, omagerrs)  # params_m
+
+
+def vmap_fit_colrs_z_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data):
+    """vmap_fit_mags _summary_
+
+    :param fwls: _description_
+    :type fwls: _type_
+    :param filts_transm: _description_
+    :type filts_transm: _type_
+    :param ocolrs: _description_
+    :type ocolrs: _type_
+    :param ocolrerrs: _description_
+    :type ocolrerrs: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    """
+
+    @jit
+    def solve(_ocolrs, _oerrs):
+        res_m = minimize(lik_colr_z_anu, (0.5, INIT_PARAMS[13]), (fixed_pars, fwls, filts_transm, _ocolrs, _oerrs, ssp_data), method="BFGS")
+        return res_m.x
+
+    vsolve = vmap(solve, in_axes=(0, 0))
+    return vsolve(ocolrs, ocolrerrs)  # params_m
 
 
 def vmap_fit_rews(surwls, rews_wls, rews, rews_err, zobs, ssp_data):
@@ -779,6 +935,24 @@ def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
     if not os.path.isfile(outpath):
         ret = f"Unable to write file to {outpath}. Please check that the run finished correctly."
     return ret
+
+
+def readVmapFitsFromHDF5(dspsFitsH5, group="fit_dsps"):
+    """readVmapFitsFromHDF5 _summary_
+
+    :param dspsFitsH5: _description_
+    :type dspsFitsH5: _type_
+    :param group: _description_, defaults to "fit_dsps"
+    :type group: str, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    fitres_df = pd.read_hdf(os.path.abspath(dspsFitsH5), key=group)
+    fitres_df = fitres_df[_DUMMY_P_ADQ.PARAM_NAMES_FLAT + ["redshift"]]
+    sps_params_dict = fitres_df.to_dict("index")
+    for key, dico in sps_params_dict.items():
+        dico.update({"tag": key})
+    return sps_params_dict
 
 
 def main(args):

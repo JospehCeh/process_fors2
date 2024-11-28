@@ -266,7 +266,7 @@ def extract_pdz_allseds(pdf_dict, zs, z_grid):
         "z_ML": z_MLs,
         "z_mean": z_means,
         "z_med": z_meds,
-        "SED weights / galaxy": templ_wgts,
+        "SED weights per galaxy": templ_wgts,
         "SED evidence along z": sed_evid_z,
         "Marginalised SED evidence": sed_evid_marg,
     }

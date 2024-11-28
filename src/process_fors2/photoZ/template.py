@@ -8,9 +8,11 @@ Created on Thu Aug 1 12:59:33 2024
 @author: joseph
 """
 
+import os
 import pickle
 from collections import namedtuple
 
+import pandas as pd
 from jax import jit, vmap
 from jax import numpy as jnp
 from jax.tree_util import tree_map
@@ -39,6 +41,19 @@ def read_params(pickle_file):
         params_dict.update({"redshift": dico["zobs"], "tag": tag})
         new_dict.update({tag: params_dict})
     return new_dict
+
+
+def read_h5_table(templ_h5_file):
+    """read_h5_table _summary_
+
+    :param templ_h5_file: _description_
+    :type templ_h5_file: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    templ_df = pd.read_hdf(os.path.abspath(templ_h5_file), key="fit_dsps")
+    templ_pars_arr = jnp.array(templ_df[_DUMMY_P_ADQ.PARAM_NAMES_FLAT])
+    return templ_pars_arr  # placeholder, finish the function later to return the proper array of parameters
 
 
 @jit
