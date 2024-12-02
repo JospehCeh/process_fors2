@@ -555,112 +555,6 @@ def lik_mag_rew(params, wls, filt_trans_arr, mags_measured, sigma_mag_obs, surwl
     return weight_mag * resid_phot + (1 - weight_mag) * resid_spec
 
 
-def fit_mags(fwls, filts_transm, omags, omagerrs, zobs, ssp_data):
-    """fit_mags _summary_
-
-    :param fwls: _description_
-    :type fwls: _type_
-    :param filts_transm: _description_
-    :type filts_transm: _type_
-    :param omags: _description_
-    :type omags: _type_
-    :param omagerrs: _description_
-    :type omagerrs: _type_
-    :param zobs: _description_
-    :type zobs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    lbfgsb_mag = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=1000)
-    pars_m, stat_m = lbfgsb_mag.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), fwls, filts_transm, omags, omagerrs, zobs, ssp_data)
-
-    # Convert fitted parameters into a dictionnary
-    # params_m = res_m.params
-
-    # convert into a dictionnary
-    # dict_out = {"fit_params": params_m, "zobs": zobs}
-    return pars_m  # params_m
-
-
-# vmap_fit_mags = vmap(fit_mags, in_axes=(None, None, 0, 0, 0, None))
-
-
-def fit_rews(surwls, rews_wls, rews, rews_err, z_obs, ssp_data):
-    """fit_rews _summary_
-
-    :param surwls: _description_
-    :type surwls: _type_
-    :param rews_wls: _description_
-    :type rews_wls: _type_
-    :param rews: _description_
-    :type rews: _type_
-    :param rews_err: _description_
-    :type rews_err: _type_
-    :param z_obs: _description_
-    :type z_obs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=1000)
-    pars_r, stat_r = lbfgsb_rews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), surwls, rews_wls, rews, rews_err, z_obs, ssp_data)
-
-    # Convert fitted parameters into a dictionnary
-    # params_m = res_m.params
-
-    # convert into a dictionnary
-    # dict_out = {"fit_params": params_m, "zobs": zobs}
-    return pars_r  # params_m
-
-
-# vmap_fit_rews = vmap(fit_rews, in_axes=(None, None, 0, 0, 0, None))
-
-
-def fit_mags_rews(fwls, filts_transm, omags, omagerrs, surwls, rews_wls, rews, rews_err, z_obs, ssp_data, weight_mag):
-    """fit_mags_rews _summary_
-
-    :param fwls: _description_
-    :type fwls: _type_
-    :param filts_transm: _description_
-    :type filts_transm: _type_
-    :param omags: _description_
-    :type omags: _type_
-    :param omagerrs: _description_
-    :type omagerrs: _type_
-    :param surwls: _description_
-    :type surwls: _type_
-    :param rews_wls: _description_
-    :type rews_wls: _type_
-    :param rews: _description_
-    :type rews: _type_
-    :param rews_err: _description_
-    :type rews_err: _type_
-    :param z_obs: _description_
-    :type z_obs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    :param weight_mag: _description_
-    :type weight_mag: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=1000)
-    pars_mr, stat_mr = lbfgsb_rews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), fwls, filts_transm, omags, omagerrs, surwls, rews_wls, rews, rews_err, z_obs, ssp_data, weight_mag)
-
-    # Convert fitted parameters into a dictionnary
-    # params_m = res_m.params
-
-    # convert into a dictionnary
-    # dict_out = {"fit_params": params_m, "zobs": zobs}
-    return pars_mr  # params_m
-
-
-# vmap_fit_mags_rews = vmap(fit_mags_rews, in_axes=(None, None, 0, 0, None, None, 0, 0, 0, None, None))
-
-
 def vmap_fit_mags(fwls, filts_transm, omags, omagerrs, zobs, ssp_data):
     """vmap_fit_mags _summary_
 
@@ -973,6 +867,9 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp)
     zs = jnp.array(sel_df["redshift"])
 
+    def istuple(tree):
+        return isinstance(tree, tuple)
+
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):
     if "mag" in fit_type.lower() and "rew" in fit_type.lower():
@@ -980,39 +877,42 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
             print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
         lbfgsb_magrews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=1000)
 
-        @jit
+        # @jit
         def solve(arg_tupl):
             omags, omagerrs, rews_arr, rewerrs_arr, zobs = arg_tupl
             pars, stat = lbfgsb_magrews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data, weight_mag)
             return pars
 
-        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple([(ma, mer, rew, rer, z) for ma, mer, rew, rer, z in zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, zs, strict=True)]))
+        _arglist = [tuple((ma, mer, rew, rer, z)) for ma, mer, rew, rer, z in zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, zs, strict=True)]
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
         lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=1000)
 
-        @jit
+        # @jit
         def solve(arg_tupl):
             rews_arr, rewerrs_arr, zobs = arg_tupl
             pars, stat = lbfgsb_rews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data)
             return pars
 
-        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple([(rew, rer, z) for rew, rer, z in zip(rews_arr, rewerrs_arr, zs, strict=True)]))
+        _arglist = [tuple((rew, rer, z)) for rew, rer, z in zip(rews_arr, rewerrs_arr, zs, strict=True)]
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
         lbfgsb_mags = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=1000)
 
-        @jit
+        # @jit
         def solve(arg_tupl):
             omags, omagerrs, zobs = arg_tupl
             pars, stat = lbfgsb_mags.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, zobs, ssp_data)
             return pars
 
-        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple([(ma, mer, z) for ma, mer, z in zip(mags_arr, magerrs_arr, zs, strict=True)]))
+        _arglist = [tuple((ma, mer, z)) for ma, mer, z in zip(mags_arr, magerrs_arr, zs, strict=True)]
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
 
-    return sel_df, fit_results_tree, low_bound, high_bound
+    return sel_df, jnp.array(fit_results_tree), low_bound, high_bound
 
 
 def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
