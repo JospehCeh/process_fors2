@@ -943,7 +943,6 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
     :return: _description_
     :rtype: _type_
     """
-    from jax.debug import print as jprint
     from jax.tree_util import tree_map
 
     from process_fors2.stellarPopSynthesis import load_ssp
@@ -983,12 +982,11 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
 
         @jit
         def solve(arg_tupl):
-            jprint(arg_tupl)
             omags, omagerrs, rews_arr, rewerrs_arr, zobs = arg_tupl
             pars, stat = lbfgsb_magrews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data, weight_mag)
             return pars
 
-        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple((mags_arr[idx, :], magerrs_arr[idx, :], rews_arr[idx, :], rewerrs_arr[idx, :], z) for idx, z in enumerate(zs)))
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple([(ma, mer, rew, rer, z) for ma, mer, rew, rer, z in zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, zs, strict=True)]))
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
@@ -1000,7 +998,7 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
             pars, stat = lbfgsb_rews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data)
             return pars
 
-        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple((rews_arr[idx, :], rewerrs_arr[idx, :], z) for idx, z in enumerate(zs)))
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple([(rew, rer, z) for rew, rer, z in zip(rews_arr, rewerrs_arr, zs, strict=True)]))
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
@@ -1012,7 +1010,7 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
             pars, stat = lbfgsb_mags.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, zobs, ssp_data)
             return pars
 
-        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple((mags_arr[idx, :], magerrs_arr[idx, :], z) for idx, z in enumerate(zs)))
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), tuple([(ma, mer, z) for ma, mer, z in zip(mags_arr, magerrs_arr, zs, strict=True)]))
 
     return sel_df, fit_results_tree, low_bound, high_bound
 
