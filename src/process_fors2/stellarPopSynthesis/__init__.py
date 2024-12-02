@@ -33,6 +33,7 @@ from .fit_loop import (
 )
 from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
 from .fit_vmap import (
+    fit_treemap,
     fit_vmap,
     lik_colr_z_anu,
     lik_mag_z_anu,
@@ -107,6 +108,7 @@ __all__ = [
     "fit_lines",
     "fit_gelmod",
     "fit_vmap",
+    "fit_treemap",
     "filter_tags",
     "has_redshift",
     "prepare_data_dict",
