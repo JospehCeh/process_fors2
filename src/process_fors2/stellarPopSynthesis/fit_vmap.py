@@ -172,9 +172,9 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_data):
 
     gal_sfr_table = mean_sfr(params)
 
-    # age-dependant metallicity
-    gal_lgmet_young = 2.0  # log10(Z)
-    gal_lgmet_old = -3.0  # params["LGMET_OLD"] # log10(Z)
+    # age-dependant metallicity, log10(Z)
+    gal_lgmet_young = params[16]  # 2.0
+    gal_lgmet_old = -2.0  # params["LGMET_OLD"]
     gal_lgmet_scatter = 0.2  # params["LGMETSCATTER"] # lognormal scatter in the metallicity distribution function
 
     # compute the SED_info object
@@ -458,7 +458,7 @@ def lik_mag_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, mags_measured, sigma_m
     :rtype: _type_
     """
     z_obs, anu = z_anu
-    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[-2:]))
+    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[14:]))
     all_mags_predictions = mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data)
     redchi2 = red_chi2(all_mags_predictions, mags_measured, sigma_mag_obs)
     return redchi2
@@ -512,7 +512,7 @@ def lik_colr_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, clrs_measured, sigma_
     :rtype: _type_
     """
     z_obs, anu = z_anu
-    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[-2:]))
+    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[14:]))
     all_clrs_predictions = mean_colors(params, wls, filt_trans_arr, z_obs, ssp_data)
     redchi2 = red_chi2(all_clrs_predictions, clrs_measured, sigma_clr_obs)
     return redchi2
@@ -980,27 +980,44 @@ def main(args):
     gelatoh5 = args[2]
     inputs = json_to_inputs(conf_json)["fitDSPS"]
     _fit_type = inputs["fit_type"]
+    _use_bounds = inputs["bounded_fit"]
     _weight_mag = inputs["weight_mag"]  # Only for combined fit : mags + rews
     _ssp_file = None if (inputs["ssp_file"].lower() == "default" or inputs["ssp_file"] == "" or inputs["ssp_file"] is None) else os.path.abspath(inputs["ssp_file"])
 
     _low = inputs["first_spec"]
     _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
 
-    sel_df, fit_results_arr, low_bound, high_bound = fit_vmap(
-        xmatchh5,
-        gelatoh5,
-        fit_type=_fit_type,
-        low_bound=_low,
-        high_bound=_high,
-        ssp_file=_ssp_file,
-        weight_mag=_weight_mag,
-        remove_visible=inputs["remove_visible"],
-        remove_galex=inputs["remove_galex"],
-        remove_galex_fuv=inputs["remove_fuv"],
-        quiet=False,
-    )
+    if _use_bounds:
+        sel_df, fit_results_arr, low_bound, high_bound = fit_treemap(
+            xmatchh5,
+            gelatoh5,
+            fit_type=_fit_type,
+            low_bound=_low,
+            high_bound=_high,
+            ssp_file=_ssp_file,
+            weight_mag=_weight_mag,
+            remove_visible=inputs["remove_visible"],
+            remove_galex=inputs["remove_galex"],
+            remove_galex_fuv=inputs["remove_fuv"],
+            quiet=False,
+        )
+        outdir = os.path.abspath(f"./DSPS_hdf5_TREEMAPfit_{_fit_type}")
+    else:
+        sel_df, fit_results_arr, low_bound, high_bound = fit_vmap(
+            xmatchh5,
+            gelatoh5,
+            fit_type=_fit_type,
+            low_bound=_low,
+            high_bound=_high,
+            ssp_file=_ssp_file,
+            weight_mag=_weight_mag,
+            remove_visible=inputs["remove_visible"],
+            remove_galex=inputs["remove_galex"],
+            remove_galex_fuv=inputs["remove_fuv"],
+            quiet=False,
+        )
+        outdir = os.path.abspath(f"./DSPS_hdf5_VMAPfit_{_fit_type}")
 
-    outdir = os.path.abspath(f"./DSPS_hdf5_VMAPfit_{_fit_type}")
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
 

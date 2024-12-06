@@ -168,6 +168,7 @@
         "first_spec": 0,
         "last_spec": -1,
         "fit_type": "mags+rews",
+        "bounded_fit": true,
         "use_clean": true,
         "weight_mag": 0.8,
         "ssp_file": "default",
