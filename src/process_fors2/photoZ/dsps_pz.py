@@ -123,12 +123,13 @@ def vmap_mags_zp_anu(fixed_pars, fwls, filts_transm, omags, omagerrs, ssp_data):
     """
 
     @jit
-    def solve(_omags, _oerrs):
-        res_m = minimize(lik_mag_z_anu, jnp.array([0.5, INIT_PARAMS[13]]), (fixed_pars, fwls, filts_transm, _omags, _oerrs, ssp_data), method="BFGS")
+    def solve(sps_pars, _omags, _oerrs):
+        res_m = minimize(lik_mag_z_anu, jnp.array([0.2, INIT_PARAMS[13]]), (sps_pars, fwls, filts_transm, _omags, _oerrs, ssp_data), method="BFGS")
         return res_m.x
 
-    vsolve = vmap(solve, in_axes=(0, 0))
-    return vsolve(omags, omagerrs)
+    vsolve_pars = vmap(solve, in_axes=(0, None, None))
+    vsolve_obs = vmap(vsolve_pars, in_axes=(None, 0, 0))
+    return vsolve_obs(fixed_pars, omags, omagerrs)
 
 
 def vmap_colrs_zp_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data):
@@ -147,12 +148,13 @@ def vmap_colrs_zp_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_dat
     """
 
     @jit
-    def solve(_ocolrs, _oerrs):
-        res_m = minimize(lik_colr_z_anu, jnp.array([0.5, INIT_PARAMS[13]]), (fixed_pars, fwls, filts_transm, _ocolrs, _oerrs, ssp_data), method="BFGS")
+    def solve(sps_pars, _oclrs, _oerrs):
+        res_m = minimize(lik_colr_z_anu, jnp.array([0.2, INIT_PARAMS[13]]), (sps_pars, fwls, filts_transm, _oclrs, _oerrs, ssp_data), method="BFGS")
         return res_m.x
 
-    vsolve = vmap(solve, in_axes=(0, 0))
-    return vsolve(ocolrs, ocolrerrs)  # params_m
+    vsolve_pars = vmap(solve, in_axes=(0, None, None))
+    vsolve_obs = vmap(vsolve_pars, in_axes=(None, 0, 0))
+    return vsolve_obs(fixed_pars, ocolrs, ocolrerrs)
 
 
 def treemap_mags_zp_anu(fixed_pars, zmax, fwls, filts_transm, omags, omagerrs, ssp_data):
@@ -179,15 +181,14 @@ def treemap_mags_zp_anu(fixed_pars, zmax, fwls, filts_transm, omags, omagerrs, s
 
     lbfgsb_magzanu = jaxopt.ScipyBoundedMinimize(fun=lik_mag_z_anu, method="L-BFGS-B", maxiter=1000)
 
-    def solve(arg_tupl):
-        _omags, _oerrs = arg_tupl
+    def solve(_f_pars):
         pars, stat = lbfgsb_magzanu.run(
-            jnp.array([0.5, INIT_PARAMS[13]]), (jnp.array([0.0, PARAMS_MIN[13]]), jnp.array([zmax, PARAMS_MAX[13]])), fixed_pars, fwls, filts_transm, _omags, _oerrs, ssp_data
+            jnp.array([0.2, INIT_PARAMS[13]]), (jnp.array([0.0, PARAMS_MIN[13]]), jnp.array([zmax, PARAMS_MAX[13]])), jnp.array(_f_pars), fwls, filts_transm, omags, omagerrs, ssp_data
         )
         return pars
 
-    _arglist = [tuple((ma, mer)) for ma, mer in zip(omags, omagerrs, strict=True)]
-    fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
+    _arglist = [tuple(_fp) for _fp in fixed_pars]
+    fit_results_tree = tree_map(lambda fpars: solve(fpars), _arglist, is_leaf=istuple)
 
     return jnp.array(fit_results_tree)
 
@@ -216,14 +217,13 @@ def treemap_colrs_zp_anu(fixed_pars, zmax, fwls, filts_transm, ocolrs, ocolrerrs
 
     lbfgsb_clrzanu = jaxopt.ScipyBoundedMinimize(fun=lik_colr_z_anu, method="L-BFGS-B", maxiter=1000)
 
-    def solve(arg_tupl):
-        _oclrs, _oerrs = arg_tupl
+    def solve(_f_pars):
         pars, stat = lbfgsb_clrzanu.run(
-            jnp.array([0.5, INIT_PARAMS[13]]), (jnp.array([0.0, PARAMS_MIN[13]]), jnp.array([zmax, PARAMS_MAX[13]])), fixed_pars, fwls, filts_transm, _oclrs, _oerrs, ssp_data
+            jnp.array([0.2, INIT_PARAMS[13]]), (jnp.array([0.0, PARAMS_MIN[13]]), jnp.array([zmax, PARAMS_MAX[13]])), jnp.array(_f_pars), fwls, filts_transm, ocolrs, ocolrerrs, ssp_data
         )
         return pars
 
-    _arglist = [tuple((co, cer)) for co, cer in zip(ocolrs, ocolrerrs, strict=True)]
-    fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
+    _arglist = [tuple(_fp) for _fp in fixed_pars]
+    fit_results_tree = tree_map(lambda fpars: solve(fpars), _arglist, is_leaf=istuple)
 
     return jnp.array(fit_results_tree)
