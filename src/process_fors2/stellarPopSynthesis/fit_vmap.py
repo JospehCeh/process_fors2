@@ -29,6 +29,7 @@ from interpax import interp1d
 from jax import jit, vmap
 from jax import numpy as jnp
 from jax.scipy.optimize import minimize
+from jax.tree_util import tree_map
 
 from process_fors2.analysis import bpt_classif
 from process_fors2.stellarPopSynthesis import SSPParametersFit
@@ -54,6 +55,17 @@ PARAMS_MAX = jnp.array(PARS_DF["Max"])
 
 TODAY_GYR = 13.8
 T_ARR = jnp.linspace(0.1, TODAY_GYR, 100)
+
+
+def istuple(tree):
+    """istuple _summary_
+
+    :param tree: _description_
+    :type tree: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    return isinstance(tree, tuple)
 
 
 def prepare_data_arr(attrs_df, selected_tags, wls_arr):
@@ -128,11 +140,11 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr):
 def mean_sfr(params):
     """Model of the SFR
 
-    :param params: Fitted parameter dictionnary
-    :type params: float as a dictionnary
+    :param params: Fitted parameters array
+    :type params: array of floats
 
     :return: array of the star formation rate
-    :rtype: float
+    :rtype: array
 
     """
     # decode the parameters
@@ -173,7 +185,7 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_data):
     gal_sfr_table = mean_sfr(params)
 
     # age-dependant metallicity, log10(Z)
-    gal_lgmet_young = params[16]  # 2.0
+    gal_lgmet_young = params.at[16].get()  # 2.0
     gal_lgmet_old = -2.0  # params["LGMET_OLD"]
     gal_lgmet_scatter = 0.2  # params["LGMETSCATTER"] # lognormal scatter in the metallicity distribution function
 
@@ -182,9 +194,9 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_data):
         T_ARR, gal_sfr_table, gal_lgmet_young, gal_lgmet_old, gal_lgmet_scatter, ssp_data.ssp_lgmet, ssp_data.ssp_lg_age_gyr, ssp_data.ssp_flux, t_obs
     )
     # dust attenuation parameters
-    Av = params[13]
-    uv_bump = params[14]
-    plaw_slope = params[15]
+    Av = params.at[13].get()
+    uv_bump = params.at[14].get()
+    plaw_slope = params.at[15].get()
     # list_param_dust = [Av, uv_bump, plaw_slope]
 
     # compute dust attenuation
@@ -437,34 +449,6 @@ def lik_mag(params, wls, filt_trans_arr, mags_measured, sigma_mag_obs, z_obs, ss
 
 
 @jit
-def lik_mag_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, mags_measured, sigma_mag_obs, ssp_data):
-    """lik_mag_z_anu _summary_
-
-    :param z_anu: _description_
-    :type z_anu: _type_
-    :param fixed_pars: _description_
-    :type fixed_pars: _type_
-    :param wls: _description_
-    :type wls: _type_
-    :param filt_trans_arr: _description_
-    :type filt_trans_arr: _type_
-    :param mags_measured: _description_
-    :type mags_measured: _type_
-    :param sigma_mag_obs: _description_
-    :type sigma_mag_obs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    z_obs, anu = z_anu
-    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[14:]))
-    all_mags_predictions = mean_mags(params, wls, filt_trans_arr, z_obs, ssp_data)
-    redchi2 = red_chi2(all_mags_predictions, mags_measured, sigma_mag_obs)
-    return redchi2
-
-
-@jit
 def lik_colr(params, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, z_obs, ssp_data):
     """lik_mag _summary_
 
@@ -485,34 +469,6 @@ def lik_colr(params, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, z_obs, s
     :return: _description_
     :rtype: _type_
     """
-    all_clrs_predictions = mean_colors(params, wls, filt_trans_arr, z_obs, ssp_data)
-    redchi2 = red_chi2(all_clrs_predictions, clrs_measured, sigma_clr_obs)
-    return redchi2
-
-
-@jit
-def lik_colr_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, ssp_data):
-    """lik_mag_z_anu _summary_
-
-    :param z_anu: _description_
-    :type z_anu: _type_
-    :param fixed_pars: _description_
-    :type fixed_pars: _type_
-    :param wls: _description_
-    :type wls: _type_
-    :param filt_trans_arr: _description_
-    :type filt_trans_arr: _type_
-    :param clrs_measured: _description_
-    :type clrs_measured: _type_
-    :param sigma_clr_obs: _description_
-    :type sigma_clr_obs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    :return: _description_
-    :rtype: _type_
-    """
-    z_obs, anu = z_anu
-    params = jnp.column_stack((fixed_pars[:13], jnp.array(anu), fixed_pars[14:]))
     all_clrs_predictions = mean_colors(params, wls, filt_trans_arr, z_obs, ssp_data)
     redchi2 = red_chi2(all_clrs_predictions, clrs_measured, sigma_clr_obs)
     return redchi2
@@ -579,54 +535,6 @@ def vmap_fit_mags(fwls, filts_transm, omags, omagerrs, zobs, ssp_data):
 
     vsolve = vmap(solve, in_axes=(0, 0, 0))
     return vsolve(omags, omagerrs, zobs)  # params_m
-
-
-def vmap_fit_mags_z_anu(fixed_pars, fwls, filts_transm, omags, omagerrs, ssp_data):
-    """vmap_fit_mags _summary_
-
-    :param fwls: _description_
-    :type fwls: _type_
-    :param filts_transm: _description_
-    :type filts_transm: _type_
-    :param omags: _description_
-    :type omags: _type_
-    :param omagerrs: _description_
-    :type omagerrs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    """
-
-    @jit
-    def solve(_omags, _oerrs):
-        res_m = minimize(lik_mag_z_anu, (0.5, INIT_PARAMS[13]), (fixed_pars, fwls, filts_transm, _omags, _oerrs, ssp_data), method="BFGS")
-        return res_m.x
-
-    vsolve = vmap(solve, in_axes=(0, 0))
-    return vsolve(omags, omagerrs)  # params_m
-
-
-def vmap_fit_colrs_z_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data):
-    """vmap_fit_mags _summary_
-
-    :param fwls: _description_
-    :type fwls: _type_
-    :param filts_transm: _description_
-    :type filts_transm: _type_
-    :param ocolrs: _description_
-    :type ocolrs: _type_
-    :param ocolrerrs: _description_
-    :type ocolrerrs: _type_
-    :param ssp_data: _description_
-    :type ssp_data: _type_
-    """
-
-    @jit
-    def solve(_ocolrs, _oerrs):
-        res_m = minimize(lik_colr_z_anu, (0.5, INIT_PARAMS[13]), (fixed_pars, fwls, filts_transm, _ocolrs, _oerrs, ssp_data), method="BFGS")
-        return res_m.x
-
-    vsolve = vmap(solve, in_axes=(0, 0))
-    return vsolve(ocolrs, ocolrerrs)  # params_m
 
 
 def vmap_fit_rews(surwls, rews_wls, rews, rews_err, zobs, ssp_data):
@@ -837,8 +745,6 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
     :return: _description_
     :rtype: _type_
     """
-    from jax.tree_util import tree_map
-
     from process_fors2.stellarPopSynthesis import load_ssp
 
     ssp_data = load_ssp(ssp_file)
@@ -866,9 +772,6 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp)
     zs = jnp.array(sel_df["redshift"])
-
-    def istuple(tree):
-        return isinstance(tree, tuple)
 
     # fit loop
     # for tag in tqdm(dict_fors2_for_fit):

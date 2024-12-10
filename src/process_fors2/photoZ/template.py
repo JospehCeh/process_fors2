@@ -148,6 +148,31 @@ def make_sps_templates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
     return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
 
 
+def make_sps_itemplates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
+    """make_sps_itemplates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
+
+    :param params_dict: DSPS input parameters
+    :type params_dict: dict
+    :param filt_tup: Filters in which to compute the photometry of the templates, given as a tuple of two arrays : one for wavelengths, one for transmissions.
+    :type filt_tup: tuple of arrays
+    :param redz: redshift grid on which to compute the templates photometry
+    :type redz: array
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+    :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
+    :type id_imag: int, optional
+    :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
+    :rtype: SPS_Templates object (namedtuple)
+    """
+    name = params_dict.pop("tag")
+    z_sps = params_dict.pop("redshift")
+    template_mags = v_mags(filt_tup, params_dict, redz, ssp_data)
+    i_mag = template_mags[:, id_imag]
+    nuvk = template_mags[:, -2] - template_mags[:, -1]
+    colors = template_mags[:, :-2] - i_mag
+    return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
+
+
 @jit
 def templ_mags_legacy(X, params, z_ref, z_obs, ssp_data):
     """Return the photometric magnitudes for the given filters transmission
@@ -218,6 +243,33 @@ def make_legacy_templates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
     nuvk = template_mags[:, -2] - template_mags[:, -1]
     colors = template_mags[:, :-3] - template_mags[:, 1:-2]
     i_mag = template_mags[:, id_imag]
+    return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
+
+
+def make_legacy_itemplates(params_dict, filt_tup, redz, ssp_data, id_imag=3):
+    """make_sps_itemplates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
+    Contrary to `make_sps_itemplate`, this methods only shifts the restframe SED and does not reevaluate the stellar population at each redshift.
+    Mainly used for comparative studies as other existing photoZ codes such as BPZ and LEPHARE will do this and more.
+
+    :param params_dict: DSPS input parameters
+    :type params_dict: dict
+    :param filt_tup: Filters in which to compute the photometry of the templates, given as a tuple of two arrays : one for wavelengths, one for transmissions.
+    :type filt_tup: tuple of arrays
+    :param redz: redshift grid on which to compute the templates photometry
+    :type redz: array
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+    :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
+    :type id_imag: int, optional
+    :return: Templates for photoZ estimation, NOT accounting for the Star Formation History up to the redshift value.
+    :rtype: SPS_Templates object (namedtuple)
+    """
+    name = params_dict.pop("tag")
+    z_sps = params_dict.pop("redshift")
+    template_mags = v_mags_legacy(filt_tup, params_dict, z_sps, redz, ssp_data)
+    i_mag = template_mags[:, id_imag]
+    nuvk = template_mags[:, -2] - template_mags[:, -1]
+    colors = template_mags[:, :-2] - i_mag
     return SPS_Templates(name, z_sps, redz, i_mag, colors, nuvk)
 
 
