@@ -78,7 +78,7 @@ def lik_mag_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, mags_measured, sigma_m
 
 
 @jit
-def lik_colr_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, ssp_data):
+def lik_colr_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, clrs_measured, sigma_clr_obs, ssp_data, iband_num):
     """lik_colr_z_anu _summary_
 
     :param z_anu: _description_
@@ -102,7 +102,7 @@ def lik_colr_z_anu(z_anu, fixed_pars, wls, filt_trans_arr, clrs_measured, sigma_
 
     z_obs, anu = z_anu
     params = fixed_pars.at[13].set(anu)
-    all_clrs_predictions = mean_icolors(params, wls, filt_trans_arr, z_obs, ssp_data)
+    all_clrs_predictions = mean_icolors(params, wls, filt_trans_arr, z_obs, ssp_data, iband_num)
     redchi2 = red_chi2(all_clrs_predictions, clrs_measured, sigma_clr_obs)
     return redchi2
 
@@ -132,7 +132,7 @@ def vmap_mags_zp_anu(fixed_pars, fwls, filts_transm, omags, omagerrs, ssp_data):
     return vsolve_obs(fixed_pars, omags, omagerrs)
 
 
-def vmap_colrs_zp_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data):
+def vmap_colrs_zp_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data, iband_num):
     """vmap_colrs_zp_anu _summary_
 
     :param fwls: _description_
@@ -149,7 +149,7 @@ def vmap_colrs_zp_anu(fixed_pars, fwls, filts_transm, ocolrs, ocolrerrs, ssp_dat
 
     @jit
     def solve(sps_pars, _oclrs, _oerrs):
-        res_m = minimize(lik_colr_z_anu, jnp.array([0.2, INIT_PARAMS[13]]), (sps_pars, fwls, filts_transm, _oclrs, _oerrs, ssp_data), method="BFGS")
+        res_m = minimize(lik_colr_z_anu, jnp.array([0.2, INIT_PARAMS[13]]), (sps_pars, fwls, filts_transm, _oclrs, _oerrs, ssp_data, iband_num), method="BFGS")
         return res_m.x
 
     vsolve_pars = vmap(solve, in_axes=(0, None, None))
@@ -193,7 +193,7 @@ def treemap_mags_zp_anu(fixed_pars, zmax, fwls, filts_transm, omags, omagerrs, s
     return jnp.array(fit_results_tree)
 
 
-def treemap_colrs_zp_anu(fixed_pars, zmax, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data):
+def treemap_colrs_zp_anu(fixed_pars, zmax, fwls, filts_transm, ocolrs, ocolrerrs, ssp_data, iband_num):
     """treemap_colrs_zp_anu _summary_
 
     :param fixed_pars: _description_
@@ -219,7 +219,7 @@ def treemap_colrs_zp_anu(fixed_pars, zmax, fwls, filts_transm, ocolrs, ocolrerrs
 
     def solve(_f_pars):
         pars, stat = lbfgsb_clrzanu.run(
-            jnp.array([0.2, INIT_PARAMS[13]]), (jnp.array([0.0, PARAMS_MIN[13]]), jnp.array([zmax, PARAMS_MAX[13]])), jnp.array(_f_pars), fwls, filts_transm, ocolrs, ocolrerrs, ssp_data
+            jnp.array([0.2, INIT_PARAMS[13]]), (jnp.array([0.0, PARAMS_MIN[13]]), jnp.array([zmax, PARAMS_MAX[13]])), jnp.array(_f_pars), fwls, filts_transm, ocolrs, ocolrerrs, ssp_data, iband_num
         )
         return pars
 

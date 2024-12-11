@@ -125,15 +125,15 @@ def mags_to_i_and_icolors(mags_arr, mags_err_arr, id_i_band):
     """
     filters_to_use = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(mags_err_arr))
     use_i = filters_to_use.at[id_i_band].get()
-    colors_to_use = jnp.logical_and(filters_to_use, [k != id_i_band for k in range(len(mags_arr))])
+    # colors_to_use = jnp.logical_and(filters_to_use, [k != id_i_band for k in range(len(mags_arr))])
 
     i_ab = mags_arr.at[id_i_band].get()
     i_ab_err = mags_err_arr.at[id_i_band].get()
     c_ab = mags_arr - i_ab
     c_ab_err = jnp.power(jnp.power(mags_err_arr, 2) + jnp.power(i_ab_err, 2), 0.5)
 
-    ab_colors = jnp.where(colors_to_use, c_ab, jnp.nan)
-    ab_cols_errs = jnp.where(colors_to_use, c_ab_err, jnp.nan)
+    ab_colors = jnp.where(filters_to_use, c_ab, jnp.nan)
+    ab_cols_errs = jnp.where(filters_to_use, c_ab_err, jnp.nan)
     i_mag_ab = jnp.where(use_i, i_ab, jnp.nan)
 
     return i_mag_ab, ab_colors, ab_cols_errs
