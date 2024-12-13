@@ -1269,7 +1269,7 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
     return respath
 
 
-def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=None):
+def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=None, i_colors=False, iband_num=3):
     """pzInputsToHDF5 Saves the photometry inputs as processed for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
     Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
@@ -1288,14 +1288,22 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
     If None, defaults to LSST filters. Defaults to None.
     :type filt_names: list of str, optional
     :return: Absolute path to the written file - if successful.
+    :param i_colors: Whether color indices are given relative to i-band (True) or to the adjacent filter (False). Defaults to False.
+    :type i_colors: bool, optional
+    :param iband_num: The number (starting from 0) of the i-band in the list of `filt_names`. Defaults to 3.
+    :type iband_num: int, optional
     :rtype: str or path-like object
     """
     if filt_names is None:
         filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
 
-    color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
-
-    color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+    if i_colors:
+        ifiltname = filt_names[iband_num]
+        color_names = [f"{_f}-{ifiltname}" for _f in filt_names]
+        color_err_names = [f"{_f}-{ifiltname}_err" for _f in filt_names]
+    else:
+        color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+        color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
     df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "z_spec"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
     outfilename = os.path.abspath(h5file)
@@ -1304,7 +1312,7 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
     return respath
 
 
-def readPZinputsHDF5(h5file, filt_names=None):
+def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3):
     """readPZinputsHDF5 Reads pre-existing photometry inputs for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
     Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
@@ -1313,15 +1321,23 @@ def readPZinputsHDF5(h5file, filt_names=None):
     :param filt_names: Names of filters to look for in the catalogs. Color indices `[filter name i]-[filter name i+1]` and `[filter name i]-[filter name i+1]_err` will be returned.
     If None, defaults to LSST filters. Defaults to None.
     :type filt_names: list of str, optional
+    :param i_colors: Whether color indices are given relative to i-band (True) or to the adjacent filter (False). Defaults to False.
+    :type i_colors: bool, optional
+    :param iband_num: The number (starting from 0) of the i-band in the list of `filt_names`. Defaults to 3.
+    :type iband_num: int, optional
     :return: 4-tuple of JAX arrays containing data to perform photo-z estimation (`jnp.nan` if missing) : mags in i-band ; color indices ; associated errors and spectro-z.
     :rtype: tuple(arrays)
     """
     if filt_names is None:
         filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
 
-    color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
-
-    color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+    if i_colors:
+        ifiltname = filt_names[iband_num]
+        color_names = [f"{_f}-{ifiltname}" for _f in filt_names]
+        color_err_names = [f"{_f}-{ifiltname}_err" for _f in filt_names]
+    else:
+        color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+        color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
     df_clrs = pd.read_hdf(os.path.abspath(h5file), key="pz_inputs")
     colrs = jnp.array(df_clrs[color_names])

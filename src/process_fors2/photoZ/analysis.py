@@ -26,6 +26,7 @@ import os
 
 import jax
 import numpy as np
+import pandas as pd
 from jax import numpy as jnp
 from tqdm import tqdm
 
@@ -39,6 +40,14 @@ except ImportError:
         from jax.scipy.integrate import trapezoid
     except ImportError:
         from jax.numpy import trapz as trapezoid
+
+from process_fors2.stellarPopSynthesis import SSPParametersFit
+
+_DUMMY_PARS = SSPParametersFit()
+PARS_DF = pd.DataFrame(index=_DUMMY_PARS.PARAM_NAMES_FLAT, columns=["INIT", "MIN", "MAX"], data=jnp.column_stack((_DUMMY_PARS.INIT_PARAMS, _DUMMY_PARS.PARAMS_MIN, _DUMMY_PARS.PARAMS_MAX)))
+INIT_PARAMS = jnp.array(PARS_DF["INIT"])
+PARAMS_MIN = jnp.array(PARS_DF["MIN"])
+PARAMS_MAX = jnp.array(PARS_DF["MAX"])
 
 """
 Reminder :
@@ -61,8 +70,9 @@ def load_data_for_run(inp_glob):
     :return: data for photo-z evaluation : redshift grid, templates dictionary and the arrays of processed observed data (input catalog) (i mags ; colors ; errors on colors ; spectro-z).
     :rtype: 6-tuple of jax.ndarray, dictionary, jax.ndarray, jax.ndarray, jax.ndarray, jax.ndarray
     """
-    from process_fors2.fetchData import readDSPSHDF5, readTemplatesHDF5, templatesToHDF5
-    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, get_2lists, load_filt, make_legacy_templates, make_sps_templates, sedpyFilter
+    from interpax import interp1d
+
+    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, get_2lists, load_filt, sedpyFilter
     from process_fors2.stellarPopSynthesis import load_ssp
 
     _ssp_file = (
@@ -74,8 +84,7 @@ def load_data_for_run(inp_glob):
 
     inputs = inp_glob["photoZ"]
     z_grid = jnp.arange(inputs["Z_GRID"]["z_min"], inputs["Z_GRID"]["z_max"] + inputs["Z_GRID"]["z_step"], inputs["Z_GRID"]["z_step"])
-
-    # wl_grid = jnp.arange(inputs["WL_GRID"]["lambda_min"], inputs["WL_GRID"]["lambda_max"] + inputs["WL_GRID"]["lambda_step"], inputs["WL_GRID"]["lambda_step"])
+    wl_grid = jnp.arange(inputs["WL_GRID"]["lambda_min"], inputs["WL_GRID"]["lambda_max"] + inputs["WL_GRID"]["lambda_step"], inputs["WL_GRID"]["lambda_step"])
 
     filters_dict = inputs["Filters"]
     for _f in filters_dict:
@@ -84,9 +93,15 @@ def load_data_for_run(inp_glob):
     filters_arr = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict)) + (NUV_filt, NIR_filt)
 
     filters_names = [_f["name"] for _, _f in filters_dict.items()]
-    # print(f"DEBUG: filters = {filters_arr}")
+    wls, trans = get_2lists(filters_arr)
+    transm_arr = jnp.array([interp1d(wl_grid, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
 
     print("Building templates :")
+    sps_temp_h5 = os.path.abspath(inputs["Templates"]["input"])
+    templ_df = pd.read_hdf(sps_temp_h5)
+    pars_arr = jnp.array(templ_df[_DUMMY_PARS.PARAM_NAMES_FLAT])
+
+    """
     Xfilt = get_2lists(filters_arr)
     # sps_temp_pkl = os.path.abspath(inputs["Templates"])
     # sps_par_dict = read_params(sps_temp_pkl)
@@ -100,6 +115,7 @@ def load_data_for_run(inp_glob):
         _ = templatesToHDF5(inputs["Templates"]["output"], templ_dict)
     else:
         templ_dict = readTemplatesHDF5(inputs["Templates"]["output"])
+    """
 
     print("Loading observations :")
     data_path = os.path.abspath(inputs["Dataset"]["path"])
@@ -112,24 +128,26 @@ def load_data_for_run(inp_glob):
     else:
         h5catpath = data_path
 
-    if inputs["Dataset"]["overwrite"] or not (os.path.isfile(f"pz_inputs_{os.path.basename(h5catpath)}")):
+    clrh5file = f"pz_inputs_iclrs_{os.path.basename(h5catpath)}" if inputs["i_colors"] else f"pz_inputs_{os.path.basename(h5catpath)}"
+
+    if inputs["Dataset"]["overwrite"] or not (os.path.isfile(clrh5file)):
         from process_fors2.fetchData import readCatalogHDF5
 
         ab_mags, ab_mags_errs, z_specs = readCatalogHDF5(h5catpath, filt_names=filters_names)
 
-        from .galaxy import vmap_mags_to_i_and_colors
+        from .galaxy import vmap_mags_to_i_and_colors, vmap_mags_to_i_and_icolors
 
-        i_mag_ab, ab_colors, ab_cols_errs = vmap_mags_to_i_and_colors(ab_mags, ab_mags_errs, inputs["i_band_num"])
+        i_mag_ab, ab_colors, ab_cols_errs = (
+            vmap_mags_to_i_and_icolors(ab_mags, ab_mags_errs, inputs["i_band_num"]) if inputs["i_colors"] else vmap_mags_to_i_and_colors(ab_mags, ab_mags_errs, inputs["i_band_num"])
+        )
 
         from process_fors2.fetchData import pzInputsToHDF5
 
-        clrh5file = f"pz_inputs_{os.path.basename(h5catpath)}"
-
-        _colrs_h5out = pzInputsToHDF5(clrh5file, ab_colors, ab_cols_errs, z_specs, i_mag_ab, filt_names=filters_names)
+        _colrs_h5out = pzInputsToHDF5(clrh5file, ab_colors, ab_cols_errs, z_specs, i_mag_ab, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
     else:
         from process_fors2.fetchData import readPZinputsHDF5
 
-        i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(f"pz_inputs_{os.path.basename(h5catpath)}", filt_names=filters_names)
+        i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(f"pz_inputs_{os.path.basename(h5catpath)}", filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
 
     """old-fashioned way, deprecated, kept for reference only
     N_FILT = len(filters_arr) - 2
@@ -152,7 +170,7 @@ def load_data_for_run(inp_glob):
             pass
     """
 
-    return z_grid, templ_dict, i_mag_ab, ab_colors, ab_cols_errs, z_specs
+    return z_grid, wl_grid, transm_arr, pars_arr, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
 
 
 @jax.jit
@@ -203,6 +221,33 @@ def extract_pdz(pdf_dict, zs, z_grid):
     z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
     z_meds = vmap_median(z_grid, pdz_arr)
     pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
+    return pdz_dict
+
+
+def extract_pdz_pars_z_anu(pdf_arr, zs, z_grid, anu_grid):
+    """extract_pdz_pars_z_anu Computes and returns the marginilized Probability Density function of redshifts and associated statistics for all observations.
+    Each item of the `pdf_arr` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
+
+    :param pdf_arr: Output of photo-z estimation as a dictonary of JAX arrays.
+    :type pdf_arr: dict of jax.ndarray
+    :param zs: Spectro-z values for input galaxies (NaNs if not available)
+    :type zs: jax array
+    :param z_grid: Grid of redshift values on which the likelihood was computed
+    :type z_grid: jax array
+    :param anu_grid: Grid of dust law parameter $A_\nu$ values on which the likelihood was computed
+    :type anu_grid: jax array
+    :return: Marginalized Probability Density function of redshift values and associated summarized statistics
+    :rtype: dict
+    """
+    _n2 = trapezoid(trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0), x=anu_grid, axis=0)
+    print(_n2.shape, pdf_arr.shape)
+    pdf_arr = pdf_arr / _n2
+    pdz_arr = jnp.nansum(pdf_arr, axis=0)
+    marg_anu = trapezoid(pdz_arr, x=anu_grid, axis=1)
+    z_means = vmap_mean(z_grid, marg_anu)
+    z_MLs = z_grid[jnp.nanargmax(marg_anu, axis=0)]
+    z_meds = vmap_median(z_grid, marg_anu)
+    pdz_dict = {"z_grid": z_grid, "PDZ": marg_anu, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
@@ -281,9 +326,10 @@ def run_from_inputs(inputs):
     :return: Photo-z estimation results. These are not written to disk within this function.
     :rtype: list (tree-like)
     """
-    from process_fors2.photoZ import Observation, SPS_Templates, likelihood, likelihood_fluxRatio, load_data_for_run, posterior, posterior_fluxRatio
+    from process_fors2.photoZ import likelihood_pars_z_anu, load_data_for_run, posterior_pars_z_anu, vmap_z_nllik, vmap_z_prior_pars_zanu
+    from process_fors2.stellarPopSynthesis import istuple
 
-    z_grid, templates_dict, observed_imags, observed_colors, observed_noise, observed_zs = load_data_for_run(inputs)
+    z_grid, wl_grid, transm_arr, templ_parsarr, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
 
     """Old, deprecated way, kept here for reference and safety
     observed_colors = jnp.array([obs.AB_colors for obs in obs_arr])
@@ -315,40 +361,78 @@ def run_from_inputs(inputs):
 
     print("Photometric redshift estimation (please be patient, this may take a couple of hours on large datasets) :")
 
+    """
     def has_sps_template(cont):
         return isinstance(cont, SPS_Templates)
 
-    # @partial(jit, static_argnums=1)
-    # def estim_zp(observ, prior=True):
-    # @jit
     def estim_zp(observs_cols, observs_errs, observs_i):
         # c = observ.AB_colors[observ.valid_colors]
         # c_err = observ.AB_colerrs[observ.valid_colors]
         if inputs["photoZ"]["prior"]:  # and observ.valid_filters[inputs["photoZ"]["i_band_num"]]:
             probz_dict = (
-                jax.tree_util.tree_map(lambda sps_templ: posterior(sps_templ.colors, observs_cols, observs_errs, observs_i, sps_templ.z_grid, sps_templ.nuvk), templates_dict, is_leaf=has_sps_template)
+                jax.tree_util.tree_map(lambda sps_templ: posterior(sps_templ.colors, observs_cols, observs_errs, observs_i, sps_templ.z_grid, sps_templ.nuvk), templ_pars_list, is_leaf=istuple)
                 if inputs["photoZ"]["use_colors"]
                 else jax.tree_util.tree_map(
-                    lambda sps_templ: posterior_fluxRatio(sps_templ.colors, observs_cols, observs_errs, observs_i, sps_templ.z_grid, sps_templ.nuvk), templates_dict, is_leaf=has_sps_template
+                    lambda sps_templ: posterior_fluxRatio(sps_templ.colors, observs_cols, observs_errs, observs_i, sps_templ.z_grid, sps_templ.nuvk), templ_pars_list, is_leaf=istuple
                 )
             )
         else:
             probz_dict = (
-                jax.tree_util.tree_map(lambda sps_templ: likelihood(sps_templ.colors, observs_cols, observs_errs), templates_dict, is_leaf=has_sps_template)
+                jax.tree_util.tree_map(lambda sps_templ: likelihood(sps_templ.colors, observs_cols, observs_errs), templ_pars_list, is_leaf=istuple)
                 if inputs["photoZ"]["use_colors"]
-                else jax.tree_util.tree_map(lambda sps_templ: likelihood_fluxRatio(sps_templ.colors, observs_cols, observs_errs), templates_dict, is_leaf=has_sps_template)
+                else jax.tree_util.tree_map(lambda sps_templ: likelihood_fluxRatio(sps_templ.colors, observs_cols, observs_errs), templ_pars_list, is_leaf=istuple)
             )
         # z_phot_loc = jnp.nanargmin(chi2_arr)
         return probz_dict  # , observ.z_spec  # chi2_arr, z_phot_loc
+    """
 
+    anu_arr = jnp.arange(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"] + 0.2, 0.2)
+
+    def estim_zp(observs_cols, observs_errs, observs_i):
+        if inputs["photoZ"]["Templates"]["as_array"]:
+            if inputs["photoZ"]["prior"]:
+                probz_arr = posterior_pars_z_anu(templ_parsarr, z_grid, anu_arr, observs_cols, observs_errs, observs_i, wl_grid, transm_arr, sspdata, inputs["photoZ"]["i_band_num"])
+            else:
+                probz_arr = likelihood_pars_z_anu(templ_parsarr, z_grid, anu_arr, observs_cols, observs_errs, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"])
+        else:
+            templ_pars_list = [tuple(_fp) for _fp in templ_parsarr]
+            if inputs["photoZ"]["prior"]:
+                probz_arr = jax.tree_util.tree_map(
+                    lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observs_cols, observs_errs, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
+                    templ_pars_list,
+                    is_leaf=istuple,
+                )
+
+                prior_arr = jax.tree_util.tree_map(
+                    lambda parstupl: vmap_z_prior_pars_zanu(jnp.array(parstupl), z_grid, anu_arr, observs_i, wl_grid, transm_arr[-2:, :], sspdata), templ_pars_list, is_leaf=istuple
+                )
+
+                probz_arr = jnp.array(probz_arr)
+                prior_arr = jnp.array(prior_arr)
+                _n1 = 100.0 / jnp.nanmax(probz_arr)
+                probz_arr = _n1 * probz_arr
+                probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1) * prior_arr
+            else:
+                probz_arr = jax.tree_util.tree_map(
+                    lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observs_cols, observs_errs, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
+                    templ_pars_list,
+                    is_leaf=istuple,
+                )
+                probz_arr = jnp.array(probz_arr)
+
+        return probz_arr
+
+    """
     def is_obs(elt):
         return isinstance(elt, Observation)
+    tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
+    """
 
-    # tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
-    results_dict = extract_pdz(
+    results_dict = extract_pdz_pars_z_anu(
         estim_zp(observed_colors, observed_noise, observed_imags),
         observed_zs,
         z_grid,
+        anu_arr,
     )
     print("All done !")
 

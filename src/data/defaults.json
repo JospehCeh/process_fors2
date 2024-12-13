@@ -189,17 +189,18 @@
         "Z_GRID": {
             "z_min": 0.01,
             "z_max": 2.1,
-            "z_step": 0.1
+            "z_step": 0.02
         },
         "WL_GRID": {
             "lambda_min": 100.0,
             "lambda_max": 25100.0,
-            "lambda_step": 1.0
+            "lambda_step": 10.0
         },
         "Templates": {
             "input": "../../src/data/photoz/fitparams_mags+rews_1_to_10.h5",
             "output": "SEDtempl_SPS_mags+rews_1_to_10.h5",
-            "overwrite": true
+            "overwrite": true,
+            "as_array": true
         },
         "Mode": "SPS",
         "Filters": {
@@ -243,8 +244,10 @@
         },
         "Opacity": "opa/OPACITY.dat",
         "Estimator": "chi2",
+        "fit_dust": true,
         "prior": false,
         "use_colors": true,
+        "i_colors": false,
         "Evidence analysis": false,
         "z_spec analysis": false,
         "NMOD": 5,

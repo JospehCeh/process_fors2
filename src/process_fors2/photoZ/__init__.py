@@ -1,4 +1,4 @@
-from .analysis import extract_pdz, extract_pdz_allseds, extract_pdz_fromchi2, load_data_for_run, run_from_inputs
+from .analysis import extract_pdz, extract_pdz_allseds, extract_pdz_fromchi2, extract_pdz_pars_z_anu, load_data_for_run, run_from_inputs
 from .cosmology import DATALOC, Cosmo, make_jcosmo, nz_prior_core, prior_alpt0, prior_ft, prior_kt, prior_ktf, prior_pcal, prior_zot
 from .dsps_pz import lik_colr_z_anu, lik_mag_z_anu, mean_icolors, treemap_colrs_zp_anu, treemap_mags_zp_anu, vmap_colrs_zp_anu, vmap_mags_zp_anu, vmap_mean_icolors
 from .filter import NIR_filt, NUV_filt, ab_mag, get_2lists, load_filt, sedpyFilter
@@ -17,6 +17,7 @@ from .galaxy import (
     neg_log_posterior,
     posterior,
     posterior_fluxRatio,
+    posterior_pars_z_anu,
     val_neg_log_likelihood,
     val_neg_log_likelihood_pars_z_anu,
     val_neg_log_posterior,
@@ -27,6 +28,8 @@ from .galaxy import (
     vmap_neg_log_likelihood,
     vmap_neg_log_posterior,
     vmap_nz_prior,
+    vmap_z_nllik,
+    vmap_z_prior_pars_zanu,
     z_prior_val,
 )
 from .template import (
@@ -68,6 +71,7 @@ __all__ = [
     "extract_pdz",
     "extract_pdz_allseds",
     "extract_pdz_fromchi2",
+    "extract_pdz_pars_z_anu",
     "templ_mags",
     "templ_mags_legacy",
     "v_mags",
@@ -77,6 +81,7 @@ __all__ = [
     "nz_prior_core",
     "posterior",
     "posterior_fluxRatio",
+    "posterior_pars_z_anu",
     "prior_alpt0",
     "prior_zot",
     "prior_kt",
@@ -110,4 +115,6 @@ __all__ = [
     "val_neg_log_likelihood",
     "vmap_neg_log_likelihood",
     "val_neg_log_likelihood_pars_z_anu",
+    "vmap_z_nllik",
+    "vmap_z_prior_pars_zanu",
 ]

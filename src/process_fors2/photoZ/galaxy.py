@@ -418,20 +418,103 @@ vmap_templ_nllik = vmap(vmap_z_nllik, in_axes=(0, None, None, None, None, None, 
 
 
 @jit
-def likelihood_pars_z_anu(templ_pars_arr, z_arr, anu_arr, obs_i_cols_arr, obs_i_colerrs_arr, wls, filt_trans_arr, ssp_data, iband_num):
-    r"""likelihood_pars_z_anu Computes the likelihood of redshifts with one template for all observations.
+def val_prior_pars_z_anu(templ_pars, z, anu, gal_iab, wls, nuvk_trans_arr, ssp_data):
+    """val_prior_pars_z_anu _summary_
 
-    :param sps_temp: Colors of SPS template to be used as reference
-    :type sps_temp: array of shape (n_redshift, n_colors)
-    :param obs_i_cols_arr: Observed colors for all galaxies
-    :type obs_i_cols_arr: array of shape (n_galaxies, n_colors)
-    :param obs_i_colerrs_arr: Observed noise of colors for all galaxies
-    :type obs_i_colerrs_arr: array of shape (n_galaxies, n_colors)
-    :return: likelihood values (*i.e.* $\exp \left( - \frac{\chi^2}{2} \right)$) along the redshift grid
-    :rtype: jax array
+    :param templ_pars: _description_
+    :type templ_pars: _type_
+    :param z: _description_
+    :type z: _type_
+    :param anu: _description_
+    :type anu: _type_
+    :param gal_iab: _description_
+    :type gal_iab: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param nuvk_trans_arr: _description_
+    :type nuvk_trans_arr: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    from process_fors2.stellarPopSynthesis import ssp_spectrum_fromparam, vmap_calc_rest_mag
+
+    _pars = templ_pars.at[13].set(anu)
+    # get the restframe spectra without and with dust attenuation
+    ssp_wave, rest_sed, sed_attenuated = ssp_spectrum_fromparam(_pars, z, ssp_data)
+    _mags = vmap_calc_rest_mag(ssp_wave, sed_attenuated, wls, nuvk_trans_arr)
+    nuvk = _mags.at[0].get() - _mags.at[1].get()
+    nz_prior = z_prior_val(gal_iab, z, nuvk)
+    return nz_prior
+
+
+vmap_obs_prior_pars_zanu = vmap(val_prior_pars_z_anu, in_axes=(None, None, None, 0, None, None, None))
+vmap_anu_prior_pars_zanu = vmap(vmap_obs_prior_pars_zanu, in_axes=(None, None, 0, None, None, None, None))
+vmap_z_prior_pars_zanu = vmap(vmap_anu_prior_pars_zanu, in_axes=(None, 0, None, None, None, None, None))
+vmap_templ_prior_pars_zanu = vmap(vmap_z_prior_pars_zanu, in_axes=(0, None, None, None, None, None, None))
+
+
+@jit
+def likelihood_pars_z_anu(templ_pars_arr, z_arr, anu_arr, obs_i_cols_arr, obs_i_colerrs_arr, wls, filt_trans_arr, ssp_data, iband_num):
+    """likelihood_pars_z_anu _summary_
+
+    :param templ_pars_arr: _description_
+    :type templ_pars_arr: _type_
+    :param z_arr: _description_
+    :type z_arr: _type_
+    :param anu_arr: _description_
+    :type anu_arr: _type_
+    :param obs_i_cols_arr: _description_
+    :type obs_i_cols_arr: _type_
+    :param obs_i_colerrs_arr: _description_
+    :type obs_i_colerrs_arr: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param filt_trans_arr: _description_
+    :type filt_trans_arr: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :param iband_num: _description_
+    :type iband_num: _type_
+    :return: _description_
+    :rtype: _type_
     """
     neglog_lik = vmap_templ_nllik(templ_pars_arr, z_arr, anu_arr, obs_i_cols_arr, obs_i_colerrs_arr, wls, filt_trans_arr, ssp_data, iband_num)
     return jnp.exp(-0.5 * neglog_lik)
+
+
+@jit
+def posterior_pars_z_anu(templ_pars_arr, z_arr, anu_arr, obs_i_cols_arr, obs_i_colerrs_arr, obs_iab, wls, filt_trans_arr, ssp_data, iband_num):
+    """likelihood_pars_z_anu _summary_
+
+    :param templ_pars_arr: _description_
+    :type templ_pars_arr: _type_
+    :param z_arr: _description_
+    :type z_arr: _type_
+    :param anu_arr: _description_
+    :type anu_arr: _type_
+    :param obs_i_cols_arr: _description_
+    :type obs_i_cols_arr: _type_
+    :param obs_i_colerrs_arr: _description_
+    :type obs_i_colerrs_arr: _type_
+    :param wls: _description_
+    :type wls: _type_
+    :param filt_trans_arr: _description_
+    :type filt_trans_arr: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :param iband_num: _description_
+    :type iband_num: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    chi2_arr = vmap_templ_nllik(templ_pars_arr, z_arr, anu_arr, obs_i_cols_arr, obs_i_colerrs_arr, wls, filt_trans_arr[:-2, :], ssp_data, iband_num)
+    prior_arr = vmap_templ_prior_pars_zanu(templ_pars_arr, z_arr, anu_arr, obs_iab, wls, filt_trans_arr[-2:, :], ssp_data)
+    _n1 = 100.0 / jnp.nanmax(chi2_arr)
+    neglog_lik = _n1 * chi2_arr
+    res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_arr
+    return res
 
 
 ## Old functions for reference:
