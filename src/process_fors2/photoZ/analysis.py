@@ -147,7 +147,7 @@ def load_data_for_run(inp_glob):
     else:
         from process_fors2.fetchData import readPZinputsHDF5
 
-        i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(f"pz_inputs_{os.path.basename(h5catpath)}", filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
+        i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(clrh5file, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
 
     """old-fashioned way, deprecated, kept for reference only
     N_FILT = len(filters_arr) - 2
