@@ -337,6 +337,7 @@ def run_from_inputs(inputs):
         posterior_pars_z_anu,
         posterior_pars_z_anu_iclrs,
         vmap_z_nllik,
+        vmap_z_nllik_iclrs,
         vmap_z_prior_pars_zanu,
     )
     from process_fors2.stellarPopSynthesis import istuple
@@ -413,31 +414,29 @@ def run_from_inputs(inputs):
                 probz_arr = likelihood_pars_z_anu(templ_parsarr, z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata)
     else:
         templ_pars_list = [tuple(_fp) for _fp in templ_parsarr]
-        if inputs["photoZ"]["prior"]:
+        if inputs["photoZ"]["i_colors"]:
             probz_arr = jax.tree_util.tree_map(
-                lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
+                lambda parstupl: vmap_z_nllik_iclrs(jnp.array(parstupl), z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
                 templ_pars_list,
                 is_leaf=istuple,
             )
-            probz_arr = jnp.array(probz_arr)
+        else:
+            probz_arr = jax.tree_util.tree_map(
+                lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata),
+                templ_pars_list,
+                is_leaf=istuple,
+            )
+        probz_arr = jnp.array(probz_arr)
+        _n1 = 100.0 / jnp.nanmax(probz_arr)
+        probz_arr = _n1 * probz_arr
+        probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1)
 
+        if inputs["photoZ"]["prior"]:
             prior_arr = jax.tree_util.tree_map(
                 lambda parstupl: vmap_z_prior_pars_zanu(jnp.array(parstupl), z_grid, anu_arr, observed_imags, wl_grid, transm_arr[-2:, :], sspdata), templ_pars_list, is_leaf=istuple
             )
             prior_arr = jnp.array(prior_arr)
-            _n1 = 100.0 / jnp.nanmax(probz_arr)
-            probz_arr = _n1 * probz_arr
-            probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1) * prior_arr
-        else:
-            probz_arr = jax.tree_util.tree_map(
-                lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
-                templ_pars_list,
-                is_leaf=istuple,
-            )
-            probz_arr = jnp.array(probz_arr)
-            _n1 = 100.0 / jnp.nanmax(probz_arr)
-            probz_arr = _n1 * probz_arr
-            probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1)
+            probz_arr *= prior_arr
 
     """
     def is_obs(elt):
