@@ -444,7 +444,7 @@ def run_from_inputs(inputs):
     tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
     """
 
-    results_dict = extract_pdz_pars_z_anu(probz_arr)
+    results_dict = extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     print("All done !")
 
     return results_dict
