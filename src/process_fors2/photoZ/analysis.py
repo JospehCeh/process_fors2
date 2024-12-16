@@ -240,14 +240,18 @@ def extract_pdz_pars_z_anu(pdf_arr, zs, z_grid, anu_grid):
     :rtype: dict
     """
     _n2 = trapezoid(trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0), x=anu_grid, axis=0)
-    print(_n2.shape, pdf_arr.shape)
     pdf_arr = pdf_arr / _n2
-    pdz_arr = jnp.nansum(pdf_arr, axis=0)
-    marg_anu = trapezoid(pdz_arr, x=anu_grid, axis=1)
-    z_means = vmap_mean(z_grid, marg_anu)
-    z_MLs = z_grid[jnp.nanargmax(marg_anu, axis=0)]
-    z_meds = vmap_median(z_grid, marg_anu)
-    pdz_dict = {"z_grid": z_grid, "PDZ": marg_anu, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
+    anu_sels = jnp.nanargmax(pdf_arr, axis=1)
+    anu_vals = anu_grid[anu_sels]
+    print(anu_vals.shape)
+    arr_anu_sel = pdf_arr[:, anu_sels, :, :]
+    print(arr_anu_sel.shape)
+    pdz_arr = jnp.nansum(arr_anu_sel, axis=0)
+    # marg_anu = trapezoid(pdz_arr, x=anu_grid, axis=1)
+    z_means = vmap_mean(z_grid, pdz_arr)
+    z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
+    z_meds = vmap_median(z_grid, pdz_arr)
+    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
@@ -326,7 +330,15 @@ def run_from_inputs(inputs):
     :return: Photo-z estimation results. These are not written to disk within this function.
     :rtype: list (tree-like)
     """
-    from process_fors2.photoZ import likelihood_pars_z_anu, load_data_for_run, posterior_pars_z_anu, vmap_z_nllik, vmap_z_prior_pars_zanu
+    from process_fors2.photoZ import (
+        likelihood_pars_z_anu,
+        likelihood_pars_z_anu_iclrs,
+        load_data_for_run,
+        posterior_pars_z_anu,
+        posterior_pars_z_anu_iclrs,
+        vmap_z_nllik,
+        vmap_z_prior_pars_zanu,
+    )
     from process_fors2.stellarPopSynthesis import istuple
 
     z_grid, wl_grid, transm_arr, templ_parsarr, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
@@ -386,41 +398,46 @@ def run_from_inputs(inputs):
         return probz_dict  # , observ.z_spec  # chi2_arr, z_phot_loc
     """
 
-    anu_arr = jnp.arange(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"] + 0.2, 0.2)
+    anu_arr = jnp.arange(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"] + 0.5, 0.5)
 
-    def estim_zp(observs_cols, observs_errs, observs_i):
-        if inputs["photoZ"]["Templates"]["as_array"]:
-            if inputs["photoZ"]["prior"]:
-                probz_arr = posterior_pars_z_anu(templ_parsarr, z_grid, anu_arr, observs_cols, observs_errs, observs_i, wl_grid, transm_arr, sspdata, inputs["photoZ"]["i_band_num"])
+    if inputs["photoZ"]["Templates"]["as_array"]:
+        if inputs["photoZ"]["prior"]:
+            if inputs["photoZ"]["i_colors"]:
+                probz_arr = posterior_pars_z_anu_iclrs(templ_parsarr, z_grid, anu_arr, observed_colors, observed_noise, observed_imags, wl_grid, transm_arr, sspdata, inputs["photoZ"]["i_band_num"])
             else:
-                probz_arr = likelihood_pars_z_anu(templ_parsarr, z_grid, anu_arr, observs_cols, observs_errs, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"])
+                probz_arr = posterior_pars_z_anu(templ_parsarr, z_grid, anu_arr, observed_colors, observed_noise, observed_imags, wl_grid, transm_arr, sspdata)
         else:
-            templ_pars_list = [tuple(_fp) for _fp in templ_parsarr]
-            if inputs["photoZ"]["prior"]:
-                probz_arr = jax.tree_util.tree_map(
-                    lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observs_cols, observs_errs, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
-                    templ_pars_list,
-                    is_leaf=istuple,
-                )
-
-                prior_arr = jax.tree_util.tree_map(
-                    lambda parstupl: vmap_z_prior_pars_zanu(jnp.array(parstupl), z_grid, anu_arr, observs_i, wl_grid, transm_arr[-2:, :], sspdata), templ_pars_list, is_leaf=istuple
-                )
-
-                probz_arr = jnp.array(probz_arr)
-                prior_arr = jnp.array(prior_arr)
-                _n1 = 100.0 / jnp.nanmax(probz_arr)
-                probz_arr = _n1 * probz_arr
-                probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1) * prior_arr
+            if inputs["photoZ"]["i_colors"]:
+                probz_arr = likelihood_pars_z_anu_iclrs(templ_parsarr, z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"])
             else:
-                probz_arr = jax.tree_util.tree_map(
-                    lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observs_cols, observs_errs, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
-                    templ_pars_list,
-                    is_leaf=istuple,
-                )
-                probz_arr = jnp.array(probz_arr)
+                probz_arr = likelihood_pars_z_anu(templ_parsarr, z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata)
+    else:
+        templ_pars_list = [tuple(_fp) for _fp in templ_parsarr]
+        if inputs["photoZ"]["prior"]:
+            probz_arr = jax.tree_util.tree_map(
+                lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
+                templ_pars_list,
+                is_leaf=istuple,
+            )
+            probz_arr = jnp.array(probz_arr)
 
-        return probz_arr
+            prior_arr = jax.tree_util.tree_map(
+                lambda parstupl: vmap_z_prior_pars_zanu(jnp.array(parstupl), z_grid, anu_arr, observed_imags, wl_grid, transm_arr[-2:, :], sspdata), templ_pars_list, is_leaf=istuple
+            )
+            prior_arr = jnp.array(prior_arr)
+            _n1 = 100.0 / jnp.nanmax(probz_arr)
+            probz_arr = _n1 * probz_arr
+            probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1) * prior_arr
+        else:
+            probz_arr = jax.tree_util.tree_map(
+                lambda parstupl: vmap_z_nllik(jnp.array(parstupl), z_grid, anu_arr, observed_colors, observed_noise, wl_grid, transm_arr[:-2, :], sspdata, inputs["photoZ"]["i_band_num"]),
+                templ_pars_list,
+                is_leaf=istuple,
+            )
+            probz_arr = jnp.array(probz_arr)
+            _n1 = 100.0 / jnp.nanmax(probz_arr)
+            probz_arr = _n1 * probz_arr
+            probz_arr = jnp.power(jnp.exp(-0.5 * probz_arr), 1 / _n1)
 
     """
     def is_obs(elt):
@@ -428,12 +445,7 @@ def run_from_inputs(inputs):
     tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
     """
 
-    results_dict = extract_pdz_pars_z_anu(
-        estim_zp(observed_colors, observed_noise, observed_imags),
-        observed_zs,
-        z_grid,
-        anu_arr,
-    )
+    results_dict = extract_pdz_pars_z_anu(probz_arr)
     print("All done !")
 
     return results_dict
