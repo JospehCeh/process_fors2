@@ -1,6 +1,7 @@
 #!/bin/env python3
 
 from collections import namedtuple
+from functools import partial
 
 import jax.numpy as jnp
 from jax import jit, vmap
@@ -413,7 +414,29 @@ def val_neg_log_likelihood_pars_z_anu(templ_pars, z, anu, gal_cols, gel_colerrs,
 
 vmap_obs_nllik = vmap(val_neg_log_likelihood_pars_z_anu, in_axes=(None, None, None, 0, 0, None, None, None))
 vmap_anu_nllik = vmap(vmap_obs_nllik, in_axes=(None, None, 0, None, None, None, None, None))
-vmap_z_nllik = vmap(vmap_anu_nllik, in_axes=(None, 0, None, None, None, None, None, None))
+
+
+@partial(vmap, in_axes=(None, 0, None, None, None, None, None, None))
+def vmap_z_nllik(templ_pars, z, anu, gal_cols, gel_colerrs, wls, filt_trans_arr, ssp_data):
+    r"""vmap_z_nllik Computes the negative log likelihood of the redshift with one template for all observations, vmapped on redshifts and dust absorptions.
+    This is a reduced $\chi^2$ and does not use a prior probability distribution.
+
+    :param templ_pars: SPS parameters of the galaxy template
+    :type templ_pars: array of floats
+    :param z: Redshift value
+    :type z: float
+    :param anu: Dust law attenuation parameter
+    :type z: float
+    :param gal_cols: Color indices of the observed object
+    :type gal_cols: array of floats
+    :param gel_colerrs: Color errors/dispersion/noise of the observed object
+    :type gel_colerrs: array of floats
+    :return: Likelihood of the redshift zp, if represented by the given template.
+    :rtype: float
+    """
+    return jnp.nanmin(vmap_anu_nllik(templ_pars, z, anu, gal_cols, gel_colerrs, wls, filt_trans_arr, ssp_data), axis=0)
+
+
 vmap_templ_nllik = vmap(vmap_z_nllik, in_axes=(0, None, None, None, None, None, None, None))
 
 
@@ -449,7 +472,29 @@ def val_neg_log_likelihood_pars_z_anu_iclrs(templ_pars, z, anu, gal_cols, gel_co
 
 vmap_obs_nllik_iclrs = vmap(val_neg_log_likelihood_pars_z_anu_iclrs, in_axes=(None, None, None, 0, 0, None, None, None, None))
 vmap_anu_nllik_iclrs = vmap(vmap_obs_nllik_iclrs, in_axes=(None, None, 0, None, None, None, None, None, None))
-vmap_z_nllik_iclrs = vmap(vmap_anu_nllik_iclrs, in_axes=(None, 0, None, None, None, None, None, None, None))
+
+
+@partial(vmap, in_axes=(None, 0, None, None, None, None, None, None, None))
+def vmap_z_nllik_iclrs(templ_pars, z, anu, gal_cols, gel_colerrs, wls, filt_trans_arr, ssp_data, iband_num):
+    r"""vmap_z_nllik_iclrs Computes the negative log likelihood of the redshift with one template for all observations, vmapped on redshifts and dust absorptions.
+    This is a reduced $\chi^2$ and does not use a prior probability distribution.
+
+    :param templ_pars: SPS parameters of the galaxy template
+    :type templ_pars: array of floats
+    :param z: Redshift value
+    :type z: float
+    :param anu: Dust law attenuation parameter
+    :type z: float
+    :param gal_cols: Color indices of the observed object
+    :type gal_cols: array of floats
+    :param gel_colerrs: Color errors/dispersion/noise of the observed object
+    :type gel_colerrs: array of floats
+    :return: Likelihood of the redshift zp, if represented by the given template.
+    :rtype: float
+    """
+    return jnp.nanmin(vmap_anu_nllik_iclrs(templ_pars, z, anu, gal_cols, gel_colerrs, wls, filt_trans_arr, ssp_data, iband_num), axis=0)
+
+
 vmap_templ_nllik_iclrs = vmap(vmap_z_nllik_iclrs, in_axes=(0, None, None, None, None, None, None, None, None))
 
 

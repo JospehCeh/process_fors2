@@ -197,12 +197,12 @@ def _mean(z, pdz):
 vmap_mean = jax.vmap(_mean, in_axes=(None, 1))
 
 
-def extract_pdz(pdf_dict, zs, z_grid):
+def extract_pdz(pdf_arr, zs, z_grid):
     """extract_pdz Computes and returns the marginilized Probability Density function of redshifts and associated statistics for all observations.
-    Each item of the `pdf_dict` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
+    Each item of the `pdf_arr` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
 
-    :param pdf_dict: Output of photo-z estimation as a dictonary of JAX arrays.
-    :type pdf_dict: dict of jax.ndarray
+    :param pdf_arr: Output of photo-z estimation as a dictonary of JAX arrays.
+    :type pdf_arr: dict of jax.ndarray
     :param zs: Spectro-z values for input galaxies (NaNs if not available)
     :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
@@ -212,7 +212,7 @@ def extract_pdz(pdf_dict, zs, z_grid):
     """
     # pdf_dict = pdf_res[0]
     # zs = pdf_res[1]
-    pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
+    # pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
     # print(f"DEBUG extract_pdz : {exp_arr.shape}")
     _n2 = trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0)
     pdf_arr = pdf_arr / _n2
@@ -239,13 +239,12 @@ def extract_pdz_pars_z_anu(pdf_arr, zs, z_grid, anu_grid):
     :return: Marginalized Probability Density function of redshift values and associated summarized statistics
     :rtype: dict
     """
+    print(f"DEBUG : {len(zs)} obs. ; {len(z_grid)} z vals ; {len(anu_grid)} Av vals ; {pdf_arr.shape[0]} templates")
     _n2 = trapezoid(trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0), x=anu_grid, axis=0)
     pdf_arr = pdf_arr / _n2
-    anu_sels = jnp.nanargmax(pdf_arr, axis=1)
-    anu_vals = anu_grid[anu_sels]
-    print(anu_vals.shape)
-    arr_anu_sel = pdf_arr[:, anu_sels, :, :]
-    print(arr_anu_sel.shape)
+    print(f"DEBUG : Shape of PDF : {pdf_arr.shape}")
+    arr_anu_sel = jnp.nanmax(pdf_arr, axis=2)
+    print(f"DEBUG : Shape of Av-selected posterior values : {arr_anu_sel.shape}")
     pdz_arr = jnp.nansum(arr_anu_sel, axis=0)
     # marg_anu = trapezoid(pdz_arr, x=anu_grid, axis=1)
     z_means = vmap_mean(z_grid, pdz_arr)
@@ -444,7 +443,7 @@ def run_from_inputs(inputs):
     tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
     """
 
-    results_dict = extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
+    results_dict = extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     print("All done !")
 
     return results_dict
