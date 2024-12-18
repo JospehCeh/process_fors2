@@ -42,11 +42,12 @@ from .template import (
     make_legacy_templates,
     make_sps_itemplates,
     make_sps_templates,
+    read_h5_table,
     read_params,
     templ_mags,
     templ_mags_legacy,
-    v_mags,
-    v_mags_legacy,
+    vmap_mags_pars,
+    vmap_mags_pars_legacy,
 )
 
 __all__ = [
@@ -59,6 +60,7 @@ __all__ = [
     "BaseTemplate",
     "SPS_Templates",
     "read_params",
+    "read_h5_table",
     "sedpyFilter",
     "ab_mag",
     "get_2lists",
@@ -78,8 +80,8 @@ __all__ = [
     "extract_pdz_pars_z_anu",
     "templ_mags",
     "templ_mags_legacy",
-    "v_mags",
-    "v_mags_legacy",
+    "vmap_mags_pars",
+    "vmap_mags_pars_legacy",
     "Cosmo",
     "make_jcosmo",
     "nz_prior_core",

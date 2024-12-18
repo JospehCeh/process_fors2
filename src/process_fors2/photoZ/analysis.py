@@ -72,7 +72,7 @@ def load_data_for_run(inp_glob):
     """
     from interpax import interp1d
 
-    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, get_2lists, load_filt, sedpyFilter
+    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, get_2lists, load_filt, read_h5_table, sedpyFilter
     from process_fors2.stellarPopSynthesis import load_ssp
 
     _ssp_file = (
@@ -98,8 +98,9 @@ def load_data_for_run(inp_glob):
 
     print("Building templates :")
     sps_temp_h5 = os.path.abspath(inputs["Templates"]["input"])
-    templ_df = pd.read_hdf(sps_temp_h5)
-    pars_arr = jnp.array(templ_df[_DUMMY_PARS.PARAM_NAMES_FLAT])
+    pars_arr, zref_arr = read_h5_table(sps_temp_h5)
+    # templ_df = pd.read_hdf(sps_temp_h5)
+    # jnp.array(templ_df[_DUMMY_PARS.PARAM_NAMES_FLAT])
 
     """
     Xfilt = get_2lists(filters_arr)
@@ -170,7 +171,7 @@ def load_data_for_run(inp_glob):
             pass
     """
 
-    return z_grid, wl_grid, transm_arr, pars_arr, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
+    return z_grid, wl_grid, transm_arr, pars_arr, zref_arr, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
 
 
 @jax.jit
@@ -333,6 +334,10 @@ def run_from_inputs(inputs):
         likelihood_pars_z_anu,
         likelihood_pars_z_anu_iclrs,
         load_data_for_run,
+        make_legacy_itemplates,
+        make_legacy_templates,
+        make_sps_itemplates,
+        make_sps_templates,
         posterior_pars_z_anu,
         posterior_pars_z_anu_iclrs,
         vmap_z_nllik,
@@ -341,7 +346,7 @@ def run_from_inputs(inputs):
     )
     from process_fors2.stellarPopSynthesis import istuple
 
-    z_grid, wl_grid, transm_arr, templ_parsarr, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
+    z_grid, wl_grid, transm_arr, templ_parsarr, templ_zref_arr, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
 
     """Old, deprecated way, kept here for reference and safety
     observed_colors = jnp.array([obs.AB_colors for obs in obs_arr])
@@ -399,6 +404,19 @@ def run_from_inputs(inputs):
     """
 
     anu_arr = jnp.arange(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"] + 0.5, 0.5)
+
+    if inputs["photoZ"]["i_colors"]:
+        if "sps" in inputs["Mode"].lower():
+            templ_cols_arr, nuvk_arr = make_sps_itemplates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
+        else:
+            templ_cols_arr, nuvk_arr = make_legacy_itemplates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
+    else:
+        if "sps" in inputs["Mode"].lower():
+            templ_cols_arr, nuvk_arr = make_sps_templates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
+        else:
+            templ_cols_arr, nuvk_arr = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
+
+    # templ_tuples = [tuple(cols, nuvk) for cols, nuvk in zip(templ_cols_arr, nuvk_arr, strict=True)]
 
     if inputs["photoZ"]["Templates"]["as_array"]:
         if inputs["photoZ"]["prior"]:
