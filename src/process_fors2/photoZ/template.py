@@ -15,8 +15,9 @@ from collections import namedtuple
 import pandas as pd
 from jax import jit, vmap
 from jax import numpy as jnp
+from jax.tree_util import tree_map
 
-from process_fors2.stellarPopSynthesis import SSPParametersFit, mean_spectrum, paramslist_to_dict, ssp_spectrum_fromparam, vmap_calc_obs_mag, vmap_calc_rest_mag
+from process_fors2.stellarPopSynthesis import SSPParametersFit, istuple, mean_spectrum, paramslist_to_dict, ssp_spectrum_fromparam, vmap_calc_obs_mag, vmap_calc_rest_mag
 
 _DUMMY_P_ADQ = SSPParametersFit()
 
@@ -193,8 +194,10 @@ def make_sps_templates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     # template_mags = vmap_mags_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
-    colors, nuvk = vmap_clrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
-    return colors, nuvk
+    templ_tupl = [tuple(_pars) for _pars in params_arr]
+    reslist_of_tupl = tree_map(lambda partup: vmap_clrs_zobs(partup, wls, transm_arr, redz_arr, anu_arr, ssp_data), templ_tupl, is_leaf=istuple)
+    # colors, nuvk = vmap_clrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    return reslist_of_tupl
 
 
 def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag=3):
@@ -221,8 +224,10 @@ def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data
     # i_mag = template_mags[:, :, :, id_imag]
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-2] - i_mag
-    colors, nuvk = vmap_iclrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
-    return colors, nuvk
+    templ_tupl = [tuple(_pars) for _pars in params_arr]
+    reslist_of_tupl = tree_map(lambda partup: vmap_iclrs_zobs(partup, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag), templ_tupl, is_leaf=istuple)
+    # colors, nuvk = vmap_iclrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
+    return reslist_of_tupl
 
 
 @jit
@@ -346,8 +351,10 @@ def make_legacy_templates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_a
     # template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
-    colors, nuvk = vmap_clrs_pars(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
-    return colors, nuvk
+    templ_tupl = [tuple(_pars) + (z) for _pars, z in zip(params_arr, zref_arr, strict=True)]
+    reslist_of_tupl = tree_map(lambda partup: vmap_clrs_zobs_legacy(partup[:-1], partup[-1], wls, transm_arr, redz_arr, anu_arr, ssp_data), templ_tupl, is_leaf=istuple)
+    # colors, nuvk = vmap_clrs_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    return reslist_of_tupl
 
 
 def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag=3):
@@ -376,8 +383,10 @@ def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_
     # i_mag = template_mags[:, :, :, id_imag]
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-2] - i_mag
-    colors, nuvk = vmap_iclrs_pars(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
-    return colors, nuvk
+    templ_tupl = [tuple(_pars) + (z) for _pars, z in zip(params_arr, zref_arr, strict=True)]
+    reslist_of_tupl = tree_map(lambda partup: vmap_iclrs_zobs_legacy(partup[:-1], partup[-1], wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag), templ_tupl, is_leaf=istuple)
+    # colors, nuvk = vmap_iclrs_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
+    return reslist_of_tupl
 
 
 """OLD FUNCTIONS FOR REFERENCE
