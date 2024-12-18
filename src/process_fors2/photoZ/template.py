@@ -314,7 +314,7 @@ def templ_iclrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_
     :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
     :rtype: tuple(array of floats of length (nb bands), float)
     """
-    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    _mags = templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data)
     return _mags[:-2] - _mags[id_imag], _mags[-2] - _mags[-1]
 
 
