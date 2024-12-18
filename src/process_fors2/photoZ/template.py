@@ -75,7 +75,6 @@ def templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
 
     :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
     :rtype: 1D JAX-array of floats of length (nb bands+2)
-
     """
     _pars = params.at[13].set(anu)
     # get the restframe spectra without and with dust attenuation
@@ -91,6 +90,62 @@ def templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
 vmap_mags_anu = vmap(templ_mags, in_axes=(None, None, None, None, 0, None))
 vmap_mags_zobs = vmap(vmap_mags_anu, in_axes=(None, None, None, 0, None, None))
 vmap_mags_pars = vmap(vmap_mags_zobs, in_axes=(0, None, None, None, None, None))
+
+
+def templ_clrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
+    """Return the photometric color indices for the given filters transmission
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+    :param wls: Wavelengths on which the filters are interpolated
+    :type wls: Jax array of float
+    :param filt_trans_arr: Filters transmission
+    :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
+    :param z_obs: Redshift of the observations
+    :type z_obs: float
+    :param anu: Attenuation parameter in dust law
+    :type anu: float
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+
+    :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
+    :rtype: tuple(array of floats of length (nb bands-1), float)
+    """
+    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    return _mags[:-3] - _mags[1:-2], _mags[-2] - _mags[-1]
+
+
+vmap_clrs_anu = vmap(templ_clrs_nuvk, in_axes=(None, None, None, None, 0, None))
+vmap_clrs_zobs = vmap(vmap_clrs_anu, in_axes=(None, None, None, 0, None, None))
+vmap_clrs_pars = vmap(vmap_clrs_zobs, in_axes=(0, None, None, None, None, None))
+
+
+def templ_iclrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data, id_imag):
+    """Return the photometric color indices for the given filters transmission
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+    :param wls: Wavelengths on which the filters are interpolated
+    :type wls: Jax array of float
+    :param filt_trans_arr: Filters transmission
+    :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
+    :param z_obs: Redshift of the observations
+    :type z_obs: float
+    :param anu: Attenuation parameter in dust law
+    :type anu: float
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+    :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
+    :type id_imag: int, optional
+
+    :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
+    :rtype: tuple(array of floats of length (nb bands), float)
+    """
+    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    return _mags[:-2] - _mags[id_imag], _mags[-2] - _mags[-1]
+
+
+vmap_iclrs_anu = vmap(templ_iclrs_nuvk, in_axes=(None, None, None, None, 0, None, None))
+vmap_iclrs_zobs = vmap(vmap_iclrs_anu, in_axes=(None, None, None, 0, None, None, None))
+vmap_iclrs_pars = vmap(vmap_iclrs_zobs, in_axes=(0, None, None, None, None, None, None))
 
 
 # @jit
@@ -135,9 +190,10 @@ def make_sps_templates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
     :rtype: Tuple of arrays of floats
     """
-    template_mags = vmap_mags_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
-    nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
-    colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
+    # template_mags = vmap_mags_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
+    # colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
+    colors, nuvk = vmap_clrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     return colors, nuvk
 
 
@@ -161,10 +217,11 @@ def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data
     :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
     :rtype: Tuple of arrays of floats
     """
-    template_mags = vmap_mags_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
-    i_mag = template_mags[:, :, :, id_imag]
-    nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
-    colors = template_mags[:, :, :, :-2] - i_mag
+    # template_mags = vmap_mags_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    # i_mag = template_mags[:, :, :, id_imag]
+    # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
+    # colors = template_mags[:, :, :, :-2] - i_mag
+    colors, nuvk = vmap_iclrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
     return colors, nuvk
 
 
@@ -206,6 +263,66 @@ vmap_mags_zobs_legacy = vmap(vmap_mags_anu_legacy, in_axes=(None, None, None, No
 vmap_mags_pars_legacy = vmap(vmap_mags_zobs_legacy, in_axes=(0, 0, None, None, None, None, None))
 
 
+def templ_clrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data):
+    """Return the photometric color indices for the given filters transmission
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+    :param z_ref: redshift of the galaxy used as template
+    :type z_ref: float
+    :param wls: Wavelengths on which the filters are interpolated
+    :type wls: Jax array of float
+    :param filt_trans_arr: Filters transmission
+    :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
+    :param z_obs: Redshift of the observations
+    :type z_obs: float
+    :param anu: Attenuation parameter in dust law
+    :type anu: float
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+
+    :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
+    :rtype: tuple(array of floats of length (nb bands-1), float)
+    """
+    _mags = templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    return _mags[:-3] - _mags[1:-2], _mags[-2] - _mags[-1]
+
+
+vmap_clrs_anu_legacy = vmap(templ_clrs_nuvk_legacy, in_axes=(None, None, None, None, None, 0, None))
+vmap_clrs_zobs_legacy = vmap(vmap_clrs_anu_legacy, in_axes=(None, None, None, None, 0, None, None))
+vmap_clrs_pars_legacy = vmap(vmap_clrs_zobs_legacy, in_axes=(0, 0, None, None, None, None, None))
+
+
+def templ_iclrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data, id_imag):
+    """Return the photometric color indices for the given filters transmission
+    :param params: Model parameters
+    :type params: Dictionnary of parameters
+    :param z_ref: redshift of the galaxy used as template
+    :type z_ref: float
+    :param wls: Wavelengths on which the filters are interpolated
+    :type wls: Jax array of float
+    :param filt_trans_arr: Filters transmission
+    :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
+    :param z_obs: Redshift of the observations
+    :type z_obs: float
+    :param anu: Attenuation parameter in dust law
+    :type anu: float
+    :param ssp_data: SSP library
+    :type ssp_data: namedtuple
+    :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
+    :type id_imag: int, optional
+
+    :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
+    :rtype: tuple(array of floats of length (nb bands), float)
+    """
+    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    return _mags[:-2] - _mags[id_imag], _mags[-2] - _mags[-1]
+
+
+vmap_iclrs_anu_legacy = vmap(templ_iclrs_nuvk_legacy, in_axes=(None, None, None, None, None, 0, None, None))
+vmap_iclrs_zobs_legacy = vmap(vmap_iclrs_anu_legacy, in_axes=(None, None, None, None, 0, None, None, None))
+vmap_iclrs_pars_legacy = vmap(vmap_iclrs_zobs_legacy, in_axes=(0, 0, None, None, None, None, None, None))
+
+
 def make_legacy_templates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data):
     """make_legacy_templates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
 
@@ -226,9 +343,10 @@ def make_legacy_templates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_a
     :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
     :rtype: Tuple of arrays of floats
     """
-    template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
-    nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
-    colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
+    # template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
+    # colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
+    colors, nuvk = vmap_clrs_pars(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     return colors, nuvk
 
 
@@ -254,10 +372,11 @@ def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_
     :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
     :rtype: Tuple of arrays of floats
     """
-    template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
-    i_mag = template_mags[:, :, :, id_imag]
-    nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
-    colors = template_mags[:, :, :, :-2] - i_mag
+    # template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    # i_mag = template_mags[:, :, :, id_imag]
+    # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
+    # colors = template_mags[:, :, :, :-2] - i_mag
+    colors, nuvk = vmap_iclrs_pars(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
     return colors, nuvk
 
 
