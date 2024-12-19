@@ -331,18 +331,13 @@ def run_from_inputs(inputs):
     :rtype: list (tree-like)
     """
     from process_fors2.photoZ import (
-        likelihood_pars_z_anu,
-        likelihood_pars_z_anu_iclrs,
+        likelihood,
         load_data_for_run,
         make_legacy_itemplates,
         make_legacy_templates,
         make_sps_itemplates,
         make_sps_templates,
-        posterior_pars_z_anu,
-        posterior_pars_z_anu_iclrs,
-        vmap_z_nllik,
-        vmap_z_nllik_iclrs,
-        vmap_z_prior_pars_zanu,
+        posterior,
     )
     from process_fors2.stellarPopSynthesis import istuple
 
@@ -407,17 +402,29 @@ def run_from_inputs(inputs):
 
     if inputs["photoZ"]["i_colors"]:
         if "sps" in inputs["Mode"].lower():
-            templ_cols_arr, nuvk_arr = make_sps_itemplates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
+            templ_tuples = make_sps_itemplates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
         else:
-            templ_cols_arr, nuvk_arr = make_legacy_itemplates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
+            templ_tuples = make_legacy_itemplates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
     else:
         if "sps" in inputs["Mode"].lower():
-            templ_cols_arr, nuvk_arr = make_sps_templates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
+            templ_tuples = make_sps_templates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
         else:
-            templ_cols_arr, nuvk_arr = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
+            templ_tuples = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
 
-    # templ_tuples = [tuple(cols, nuvk) for cols, nuvk in zip(templ_cols_arr, nuvk_arr, strict=True)]
+    if inputs["photoZ"]["prior"]:
+        probz_arr = jax.tree_util.tree_map(
+            lambda sed_tupl: posterior(sed_tupl[0], observed_colors, observed_noise, observed_imags, z_grid, sed_tupl[1]),
+            templ_tuples,
+            is_leaf=istuple,
+        )
+    else:
+        probz_arr = jax.tree_util.tree_map(
+            lambda sed_tupl: likelihood(sed_tupl[0], observed_colors, observed_noise),
+            templ_tuples,
+            is_leaf=istuple,
+        )
 
+    """
     if inputs["photoZ"]["Templates"]["as_array"]:
         if inputs["photoZ"]["prior"]:
             if inputs["photoZ"]["i_colors"]:
@@ -454,6 +461,7 @@ def run_from_inputs(inputs):
             )
             prior_arr = jnp.array(prior_arr)
             probz_arr *= prior_arr
+    """
 
     """
     def is_obs(elt):
@@ -461,7 +469,7 @@ def run_from_inputs(inputs):
     tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
     """
 
-    results_dict = extract_pdz(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
+    results_dict = extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)  # extract_pdz(probz_arr, observed_zs, z_grid)
     print("All done !")
 
     return results_dict

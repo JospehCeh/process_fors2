@@ -201,8 +201,11 @@ def z_prior_val(i_mag, zp, nuvk):
 
 
 vmap_nz_prior = vmap(
-    vmap(z_prior_val, in_axes=(0, None, None)),  # vmap version to compute the prior value for a certain observation and a certain SED template at all redshifts
-    in_axes=(None, 0, 0),
+    vmap(
+        vmap(z_prior_val, in_axes=(0, None, None)),  # vmap version to compute the prior value for all observations
+        in_axes=(None, None, 1),  # and a certain SED template at all dust attenuations
+    ),
+    in_axes=(None, 0, 0),  # and at all redshifts
 )
 
 
@@ -280,7 +283,10 @@ def val_neg_log_likelihood(templ_cols, gal_cols, gel_colerrs):
 
 
 vmap_neg_log_likelihood = vmap(
-    vmap(val_neg_log_likelihood, in_axes=(None, 0, 0)),  # Same as above but for all observations...
+    vmap(
+        vmap(val_neg_log_likelihood, in_axes=(None, 0, 0)),  # Same as above but for all observations...
+        in_axes=(1, None, None),  # ... and all dust attenuations
+    ),
     in_axes=(0, None, None),  # ... and for all redshifts
 )
 
