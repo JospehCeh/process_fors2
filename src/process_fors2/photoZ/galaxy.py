@@ -203,63 +203,10 @@ def z_prior_val(i_mag, zp, nuvk):
 vmap_nz_prior = vmap(
     vmap(
         vmap(z_prior_val, in_axes=(0, None, None)),  # vmap version to compute the prior value for all observations
-        in_axes=(None, None, 1),  # and a certain SED template at all dust attenuations
+        in_axes=(None, None, 0),  # and a certain SED template at all dust attenuations
     ),
     in_axes=(None, 0, 0),  # and at all redshifts
 )
-
-
-@jit
-def val_neg_log_posterior(z_val, templ_cols, gal_cols, gel_colerrs, gal_iab, templ_nuvk):
-    r"""val_neg_log_posterior Computes the negative log posterior (posterior = likelihood * prior) probability of the redshift for an observation, given a template galaxy.
-    This corresponds to a reduced $\chi^2$ value in which the prior has been injected.
-
-    :param z_val: Redshift at which the probability, here the posterior, is evaluated
-    :type z_val: float
-    :param templ_cols: Color indices of the galaxy template
-    :type templ_cols: array of floats
-    :param gal_cols: Color indices of the observed object
-    :type gal_cols: array of floats
-    :param gel_colerrs: Color errors/dispersion/noise of the observed object
-    :type gel_colerrs: array of floats
-    :param gal_iab: Observed magnitude in reference (i) band
-    :type gal_iab: float
-    :param templ_nuvk: Templates' NUV-NIR color index, in restframe
-    :type templ_nuvk: float
-    :return: Posterior probability of the redshift zp for this observation, if represented by the given template
-    :rtype: float
-    """
-    _chi = chi_term(gal_cols, templ_cols, gel_colerrs)
-    chi = jnp.where(jnp.isfinite(_chi), _chi, 0.0)
-    _count = jnp.sum(jnp.where(jnp.isfinite(_chi), 1.0, 0.0))
-    _prior = z_prior_val(gal_iab, z_val, templ_nuvk)
-    return jnp.sum(chi) / _count - 2 * jnp.log(_prior)
-
-
-vmap_neg_log_posterior = vmap(
-    vmap(
-        val_neg_log_posterior,
-        in_axes=(None, None, 0, 0, 0, None),  # Same as above but for all observations...
-    ),
-    in_axes=(0, 0, None, None, None, 0),  # ... and for all redshifts
-)
-
-
-@jit
-def neg_log_posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
-    r"""neg_log_posterior Computes the posterior distribution of redshifts (negative log posterior, similar to a $\chi^2$) with one template for all observations.
-
-    :param sps_temp: Colors of SPS template to be used as reference
-    :type sps_temp: array of shape (n_redshift, n_colors)
-    :param obs_ab_colors: Observed colors for all galaxies
-    :type obs_ab_colors: array of shape (n_galaxies, n_colors)
-    :param obs_ab_colerrs: Observed noise of colors for all galaxies
-    :type obs_ab_colerrs: array of shape (n_galaxies, n_colors)
-    :return: negative log posterior values along the redshift grid
-    :rtype: jax array
-    """
-    neglog_post = vmap_neg_log_posterior(z_grid, sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, nuvk)
-    return neglog_post
 
 
 @jit
@@ -285,7 +232,7 @@ def val_neg_log_likelihood(templ_cols, gal_cols, gel_colerrs):
 vmap_neg_log_likelihood = vmap(
     vmap(
         vmap(val_neg_log_likelihood, in_axes=(None, 0, 0)),  # Same as above but for all observations...
-        in_axes=(1, None, None),  # ... and all dust attenuations
+        in_axes=(0, None, None),  # ... and all dust attenuations
     ),
     in_axes=(0, None, None),  # ... and for all redshifts
 )
@@ -305,7 +252,7 @@ def likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
     :rtype: jax array
     """
     neglog_lik = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
-    return jnp.exp(-0.5 * neglog_lik)
+    return jnp.nanmax(jnp.exp(-0.5 * neglog_lik), axis=1)
 
 
 @jit
@@ -322,7 +269,7 @@ def neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
     :rtype: jax array
     """
     neglog_lik = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
-    return neglog_lik
+    return jnp.nanmin(neglog_lik, axis=1)
 
 
 @jit
@@ -341,7 +288,7 @@ def likelihood_fluxRatio(sps_temp, obs_ab_colors, obs_ab_colerrs):
     """
     obs, ref, err = col_to_fluxRatio(obs_ab_colors, sps_temp, obs_ab_colerrs)
     neglog_lik = vmap_neg_log_likelihood(ref, obs, err)
-    return jnp.exp(-0.5 * neglog_lik)
+    return jnp.nanmax(jnp.exp(-0.5 * neglog_lik), axis=1)
 
 
 @jit
@@ -362,7 +309,7 @@ def posterior(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid, nuvk):
     neglog_lik = _n1 * chi2_arr
     prior_val = vmap_nz_prior(obs_iab, z_grid, nuvk)
     res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
-    return res
+    return jnp.nanmax(res, axis=1)
 
 
 @jit
@@ -385,7 +332,7 @@ def posterior_fluxRatio(sps_temp, obs_ab_colors, obs_ab_colerrs, obs_iab, z_grid
     neglog_lik = _n1 * chi2_arr
     prior_val = vmap_nz_prior(obs_iab, z_grid, nuvk)
     res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_val
-    return res
+    return jnp.nanmax(res, axis=1)
 
 
 ## Free A_nu (dust) and fit on SPS params instead of template colors
@@ -666,32 +613,3 @@ def posterior_pars_z_anu_iclrs(templ_pars_arr, z_arr, anu_arr, obs_i_cols_arr, o
     neglog_lik = _n1 * chi2_arr
     res = jnp.power(jnp.exp(-0.5 * neglog_lik), 1 / _n1) * prior_arr
     return res
-
-
-## Old functions for reference:
-"""
-def noV_est_chi2(gal_fab, gal_fab_err, zp, base_temp_lums, extinc_arr, filters, cosmo, wl_grid, opacities):
-    _selOpa = (wl_grid<1300.)
-    interp_opac = jnp.interp(wl_grid, wl_grid[_selOpa], opacities, left=1., right=1., period=None)
-    temp_fab = template.noJit_make_scaled_template(base_temp_lums, filters, extinc_arr, zp, cosmo, gal_fab, gal_fab_err, wl_grid, interp_opac)
-    _terms = chi_term(gal_fab, temp_fab, gal_fab_err)
-    chi2 = jnp.sum(_terms)/len(_terms)
-    return chi2
-
-#@partial(jit, static_argnums=6)
-@partial(vmap, in_axes=(None, None, None, 0, None, None, None, None, None, None))
-@partial(vmap, in_axes=(None, None, None, None, 0, None, None, None, None, None))
-@partial(vmap, in_axes=(None, None, 0, None, None, None, None, None, 0, None))
-def est_chi2_prior_jaxcosmo(i_mag, gal_col_ab, gal_col_ab_err, zphot, base_temp_lums, extinc_arr, filters, j_cosmo, wl_grid, opacities, prior_band):
-    dist_mod = cosmology.calc_distMod(j_cosmo, zphot)
-    prior_zp = z_prior_val(i_mag, zphot, base_temp_lums, wl_grid)
-    #zshift_wls = (1.+zphot)*wl_grid
-    #temp_fab = template.make_scaled_template(base_temp_lums, filters, extinc_arr, gal_fab, gal_fab_err, (1.+zphot)*wl_grid, cosmology.calc_distMod(j_cosmo, zphot))
-    _terms = chi_term(gal_fab,\
-                      template.make_scaled_template(base_temp_lums, filters, extinc_arr, gal_fab, gal_fab_err,\
-                                                    zphot, wl_grid, cosmology.calc_distMod(j_cosmo, zp), opacities),\
-                      gal_fab_err)
-    if len(filters)<7 : debug.print("chi in bands = {t}", t=_terms)
-    #chi2 = jnp.sum(_terms)/len(_terms) - 2*jnp.log(z_prior_val(gal_fab, zphot, base_temp_lums, extinc_arr, wl_grid))
-    return jnp.sum(_terms)/len(_terms) - 2*jnp.log(z_prior_val(gal_fab, zphot, base_temp_lums, extinc_arr, wl_grid, prior_band))
-"""

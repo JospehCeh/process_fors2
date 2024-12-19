@@ -68,7 +68,7 @@ def load_data_for_run(inp_glob):
     :param inp_glob: input configuration and settings
     :type inp_glob: dict
     :return: data for photo-z evaluation : redshift grid, templates dictionary and the arrays of processed observed data (input catalog) (i mags ; colors ; errors on colors ; spectro-z).
-    :rtype: 6-tuple of jax.ndarray, dictionary, jax.ndarray, jax.ndarray, jax.ndarray, jax.ndarray
+    :rtype: tuple of jax.ndarray
     """
     from interpax import interp1d
 
@@ -102,7 +102,7 @@ def load_data_for_run(inp_glob):
     # templ_df = pd.read_hdf(sps_temp_h5)
     # jnp.array(templ_df[_DUMMY_PARS.PARAM_NAMES_FLAT])
 
-    """
+    """ DEPRECATED
     Xfilt = get_2lists(filters_arr)
     # sps_temp_pkl = os.path.abspath(inputs["Templates"])
     # sps_par_dict = read_params(sps_temp_pkl)
@@ -150,27 +150,6 @@ def load_data_for_run(inp_glob):
 
         i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(clrh5file, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
 
-    """old-fashioned way, deprecated, kept for reference only
-    N_FILT = len(filters_arr) - 2
-    data_file_arr = np.loadtxt(data_path)
-    obs_arr = []
-
-    for i in tqdm(range(data_file_arr.shape[0])):
-        try:
-            assert (len(data_file_arr[i, :]) == 1 + 2 * N_FILT) or (
-                len(data_file_arr[i, :]) == 1 + 2 * N_FILT + 1
-            ), f"At least one filter is missing in datapoint {data_file_arr[i,0]} : length is {len(data_file_arr[i,:])}, {1+2*N_FILT} values expected.\nDatapoint removed from dataset."
-            # print(int(data_file_arr[i, 0]))
-            if len(data_file_arr[i, :]) == 1 + 2 * N_FILT + 1:
-                observ = Observation(int(data_file_arr[i, 0]), *load_galaxy(data_file_arr[i, 1 : 2 * N_FILT + 1], data_ismag, id_i_band=inputs["i_band_num"]), data_file_arr[i, 2 * N_FILT + 1])
-            else:
-                observ = Observation(int(data_file_arr[i, 0]), *load_galaxy(data_file_arr[i, 1 : 2 * N_FILT + 1], data_ismag, id_i_band=inputs["i_band_num"]), jnp.nan)
-            # print(observ.num)
-            obs_arr.extend([observ])
-        except AssertionError:
-            pass
-    """
-
     return z_grid, wl_grid, transm_arr, pars_arr, zref_arr, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
 
 
@@ -202,8 +181,8 @@ def extract_pdz(pdf_arr, zs, z_grid):
     """extract_pdz Computes and returns the marginilized Probability Density function of redshifts and associated statistics for all observations.
     Each item of the `pdf_arr` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
 
-    :param pdf_arr: Output of photo-z estimation as a dictonary of JAX arrays.
-    :type pdf_arr: dict of jax.ndarray
+    :param pdf_arr: Output of photo-z estimation as a JAX array.
+    :type pdf_arr: jax.ndarray
     :param zs: Spectro-z values for input galaxies (NaNs if not available)
     :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
@@ -211,10 +190,6 @@ def extract_pdz(pdf_arr, zs, z_grid):
     :return: Marginalized Probability Density function of redshift values and associated summarized statistics
     :rtype: dict
     """
-    # pdf_dict = pdf_res[0]
-    # zs = pdf_res[1]
-    # pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
-    # print(f"DEBUG extract_pdz : {exp_arr.shape}")
     _n2 = trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0)
     pdf_arr = pdf_arr / _n2
     pdz_arr = jnp.nansum(pdf_arr, axis=0)
@@ -229,8 +204,8 @@ def extract_pdz_pars_z_anu(pdf_arr, zs, z_grid, anu_grid):
     """extract_pdz_pars_z_anu Computes and returns the marginilized Probability Density function of redshifts and associated statistics for all observations.
     Each item of the `pdf_arr` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
 
-    :param pdf_arr: Output of photo-z estimation as a dictonary of JAX arrays.
-    :type pdf_arr: dict of jax.ndarray
+    :param pdf_arr: Output of photo-z estimation as a JAX array.
+    :type pdf_arr: jax.ndarray
     :param zs: Spectro-z values for input galaxies (NaNs if not available)
     :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
@@ -255,12 +230,12 @@ def extract_pdz_pars_z_anu(pdf_arr, zs, z_grid, anu_grid):
     return pdz_dict
 
 
-def extract_pdz_fromchi2(chi2_dict, zs, z_grid):
+def extract_pdz_fromchi2(chi2_arr, zs, z_grid):
     r"""extract_pdz_fromchi2 Similar to extract_pdz except takes $\chi^2$ values as inputs (*i.e.* negative log-likelihood).
     Computes and returns the marginilized Probability Density function of redshifts
 
-    :param chi2_dict: Output of photo-z estimation as a dictonary of JAX arrays.
-    :type chi2_dict: dict of jax.ndarray
+    :param chi2_arr: Output of photo-z estimation as a JAX array.
+    :type chi2_arr: jax.ndarray
     :param zs: Spectro-z values for input galaxies (NaNs if not available)
     :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
@@ -268,7 +243,6 @@ def extract_pdz_fromchi2(chi2_dict, zs, z_grid):
     :return: Marginalized Probability Density function of redshift values and elementary associated stats
     :rtype: dict
     """
-    chi2_arr = jnp.array([chi2_templ for _, chi2_templ in chi2_dict.items()])
     _n1 = 100.0 / jnp.nanmax(chi2_arr)
     chi2_arr = chi2_arr * _n1
     exp_arr = jnp.power(jnp.exp(-0.5 * chi2_arr), 1 / _n1)
@@ -283,13 +257,13 @@ def extract_pdz_fromchi2(chi2_dict, zs, z_grid):
     return pdz_dict
 
 
-def extract_pdz_allseds(pdf_dict, zs, z_grid):
+def extract_pdz_allseds(pdf_arr, zs, z_grid):
     """extract_pdz_allseds Computes and returns the marginilized Probability Density function of redshifts for a single observation ;
     The conditional probability density is also computed for each galaxy template.
     Each item of the `pdf_dict` corresponds to the posteriors for 1 galaxy template, for all input galaxies : `jax.ndarray` of shape `(n_inputs, len(z_grid))`
 
-    :param pdf_dict: Output of photo-z estimation as a dictonary of JAX arrays.
-    :type pdf_dict: dict of jax.ndarray
+    :param pdf_arr: Output of photo-z estimation as a JAX array.
+    :type pdf_arr: jax.ndarray
     :param zs: Spectro-z values for input galaxies (NaNs if not available)
     :type zs: jax array
     :param z_grid: Grid of redshift values on which the likelihood was computed
@@ -297,7 +271,6 @@ def extract_pdz_allseds(pdf_dict, zs, z_grid):
     :return: Marginalized Probability Density function of redshift values and conditional PDF for each template.
     :rtype: dict
     """
-    pdf_arr = jnp.array([pdf_templ for _, pdf_templ in pdf_dict.items()])
     _n2 = trapezoid(jnp.nansum(pdf_arr, axis=0), x=z_grid, axis=0)
     pdf_arr = pdf_arr / _n2
     pdz_arr = jnp.nansum(pdf_arr, axis=0)
@@ -343,35 +316,7 @@ def run_from_inputs(inputs):
 
     z_grid, wl_grid, transm_arr, templ_parsarr, templ_zref_arr, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
 
-    """Old, deprecated way, kept here for reference and safety
-    observed_colors = jnp.array([obs.AB_colors for obs in obs_arr])
-    observed_noise = jnp.array([obs.AB_colerrs for obs in obs_arr])
-    observed_zs = jnp.array([obs.z_spec for obs in obs_arr])
-    observed_imags = jnp.array([obs.ref_i_AB for obs in obs_arr])
-    """
-
-    """Dust and Opacity are normally included in DSPS calculations
-    ebvs_in_use = jnp.array([d.EBV for d in dust_arr])
-    laws_in_use = jnp.array([0 if d.name == "Calzetti" else 1 for d in dust_arr])
-
-    _old_dir = os.getcwd()
-    _path = os.path.abspath(__file__)
-    _dname = os.path.dirname(_path)
-    os.chdir(_dname)
-    opa_path = os.path.abspath(inputs['Opacity'])
-    #ebv_prior_file = inputs['E(B-V) prior file']
-    #ebv_prior_df = pd.read_pickle(ebv_prior_file)
-    #cols_to_stack = tuple(ebv_prior_df[col].values for col in ebv_prior_df.columns)
-    #ebv_prior_arr = jnp.column_stack(cols_to_stack)
-    os.chdir(_old_dir)
-
-    _selOpa = (wl_grid < 1300.)
-    wls_opa = wl_grid[_selOpa]
-    opa_zgrid, opacity_grid = extinction.load_opacity(opa_path, wls_opa)
-    extrap_ones = jnp.ones((len(z_grid), len(wl_grid)-len(wls_opa)))
-    """
-
-    print("Photometric redshift estimation (please be patient, this may take a couple of hours on large datasets) :")
+    print("Photometric redshift estimation (please be patient, this may take a some time on large datasets) :")
 
     """
     def has_sps_template(cont):
@@ -424,6 +369,8 @@ def run_from_inputs(inputs):
             is_leaf=istuple,
         )
 
+    probz_arr = jnp.array(probz_arr)
+
     """
     if inputs["photoZ"]["Templates"]["as_array"]:
         if inputs["photoZ"]["prior"]:
@@ -463,13 +410,7 @@ def run_from_inputs(inputs):
             probz_arr *= prior_arr
     """
 
-    """
-    def is_obs(elt):
-        return isinstance(elt, Observation)
-    tree_of_results_dict = jax.tree_util.tree_map(lambda elt: extract_pdz(estim_zp(elt), z_grid), obs_arr, is_leaf=is_obs)
-    """
-
-    results_dict = extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)  # extract_pdz(probz_arr, observed_zs, z_grid)
+    results_dict = extract_pdz(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     print("All done !")
 
     return results_dict
