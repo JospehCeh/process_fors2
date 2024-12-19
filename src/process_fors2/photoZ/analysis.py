@@ -346,12 +346,12 @@ def run_from_inputs(inputs):
     anu_arr = jnp.arange(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"] + 0.5, 0.5)
 
     if inputs["photoZ"]["i_colors"]:
-        if "sps" in inputs["Mode"].lower():
+        if "sps" in inputs["photoZ"]["Mode"].lower():
             templ_tuples = make_sps_itemplates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
         else:
             templ_tuples = make_legacy_itemplates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
     else:
-        if "sps" in inputs["Mode"].lower():
+        if "sps" in inputs["photoZ"]["Mode"].lower():
             templ_tuples = make_sps_templates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
         else:
             templ_tuples = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
