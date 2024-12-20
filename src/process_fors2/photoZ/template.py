@@ -43,18 +43,23 @@ def read_params(pickle_file):
     return new_dict
 
 
-def read_h5_table(templ_h5_file):
+def read_h5_table(templ_h5_file, group="fit_dsps", classif="Classification"):
     """read_h5_table _summary_
 
     :param templ_h5_file: _description_
     :type templ_h5_file: _type_
+    :param group: _description_, defaults to 'fit_dsps'
+    :type group: str, optional
+    :param classif: Name of the field holding classif. info. 'Classification', 'CAT_NII', 'CAT_SII', 'CAT_OI' or 'CAT_OIII/OIIvsOI', defaults to 'Classification'
+    :type classif: str, optional
     :return: _description_
     :rtype: _type_
     """
-    templ_df = pd.read_hdf(os.path.abspath(templ_h5_file), key="fit_dsps")
+    templ_df = pd.read_hdf(os.path.abspath(templ_h5_file), key=group)
     templ_pars_arr = jnp.array(templ_df[_DUMMY_P_ADQ.PARAM_NAMES_FLAT])
     zref_arr = jnp.array(templ_df["redshift"])
-    return templ_pars_arr, zref_arr  # placeholder, finish the function later to return the proper array of parameters
+    classif_series = templ_df[classif]  # Default value is 'Classification' but other criteria can be used : 'CAT_NII', 'CAT_SII', etc.
+    return templ_pars_arr, zref_arr, classif_series  # placeholder, finish the function later to return the proper array of parameters
 
 
 @jit

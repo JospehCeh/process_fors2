@@ -806,7 +806,7 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
         def solve(arg_tupl):
             omags, omagerrs, rews_arr, rewerrs_arr, zobs = arg_tupl
             pars, stat = lbfgsb_magrews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data, weight_mag)
-            return pars
+            return pars, stat
 
         _arglist = [tuple((ma, mer, rew, rer, z)) for ma, mer, rew, rer, z in zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, zs, strict=True)]
         fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
@@ -819,7 +819,7 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
         def solve(arg_tupl):
             rews_arr, rewerrs_arr, zobs = arg_tupl
             pars, stat = lbfgsb_rews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data)
-            return pars
+            return pars, stat
 
         _arglist = [tuple((rew, rer, z)) for rew, rer, z in zip(rews_arr, rewerrs_arr, zs, strict=True)]
         fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
@@ -832,12 +832,16 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
         def solve(arg_tupl):
             omags, omagerrs, zobs = arg_tupl
             pars, stat = lbfgsb_mags.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, zobs, ssp_data)
-            return pars
+            return pars, stat
 
         _arglist = [tuple((ma, mer, z)) for ma, mer, z in zip(mags_arr, magerrs_arr, zs, strict=True)]
         fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
 
-    return sel_df, jnp.array(fit_results_tree), low_bound, high_bound
+    pars_list, stats_list = zip(*fit_results_tree, strict=True)
+    stats_df = pd.DataFrame.from_records(stats_list, index=sel_df.index)
+    sel_df = sel_df.join(stats_df, how="inner")
+
+    return sel_df, jnp.array(pars_list), low_bound, high_bound
 
 
 def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):

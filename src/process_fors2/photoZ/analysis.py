@@ -98,7 +98,7 @@ def load_data_for_run(inp_glob):
 
     print("Building templates :")
     sps_temp_h5 = os.path.abspath(inputs["Templates"]["input"])
-    pars_arr, zref_arr = read_h5_table(sps_temp_h5)
+    pars_arr, zref_arr, templ_classif = read_h5_table(sps_temp_h5)
     # templ_df = pd.read_hdf(sps_temp_h5)
     # jnp.array(templ_df[_DUMMY_PARS.PARAM_NAMES_FLAT])
 
@@ -150,7 +150,7 @@ def load_data_for_run(inp_glob):
 
         i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(clrh5file, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
 
-    return z_grid, wl_grid, transm_arr, pars_arr, zref_arr, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
+    return z_grid, wl_grid, transm_arr, pars_arr, zref_arr, templ_classif, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
 
 
 @jax.jit
@@ -314,7 +314,7 @@ def run_from_inputs(inputs):
     )
     from process_fors2.stellarPopSynthesis import istuple
 
-    z_grid, wl_grid, transm_arr, templ_parsarr, templ_zref_arr, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
+    z_grid, wl_grid, transm_arr, templ_parsarr, templ_zref_arr, templ_classif, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
 
     print("Photometric redshift estimation (please be patient, this may take a some time on large datasets) :")
 
