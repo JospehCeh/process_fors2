@@ -838,7 +838,9 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
         fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
 
     pars_list, stats_list = zip(*fit_results_tree, strict=True)
+    stats_list = [s._asdict() for s in stats_list]
     stats_df = pd.DataFrame.from_records(stats_list, index=sel_df.index)
+    stats_df.drop(columns=["hess_inv"], inplace=True)
     sel_df = sel_df.join(stats_df, how="inner")
 
     return sel_df, jnp.array(pars_list), low_bound, high_bound

@@ -26,6 +26,7 @@ from .fit_loop import (
 from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
 from .fit_vmap import (
     calc_eqw,
+    filter_tags_df,
     fit_treemap,
     fit_vmap,
     istuple,
@@ -37,6 +38,7 @@ from .fit_vmap import (
     mean_mags,
     mean_sfr,
     mean_spectrum,
+    prepare_data_arr,
     readVmapFitsFromHDF5,
     red_chi2,
     ssp_spectrum_fromparam,
@@ -80,7 +82,9 @@ __all__ = [
     "fit_vmap",
     "fit_treemap",
     "filter_tags",
+    "filter_tags_df",
     "has_redshift",
+    "prepare_data_arr",
     "prepare_data_dict",
     "prepare_bootstrap_dict",
     "fit_loop",
