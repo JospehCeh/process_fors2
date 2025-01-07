@@ -23,7 +23,7 @@ from diffmah.defaults import DiffmahParams
 from diffstar import calc_sfh_singlegal  # sfh_singlegal
 from diffstar.defaults import DiffstarUParams  # , DEFAULT_Q_PARAMS
 from dsps import calc_obs_mag, calc_rest_mag
-from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z
+from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z, age_at_z0
 from dsps.dust.att_curves import _frac_transmission_from_k_lambda, sbl18_k_lambda
 from interpax import interp1d
 from jax import jit, vmap
@@ -53,7 +53,7 @@ INIT_PARAMS = jnp.array(PARS_DF["Init"])
 PARAMS_MIN = jnp.array(PARS_DF["Min"])
 PARAMS_MAX = jnp.array(PARS_DF["Max"])
 
-TODAY_GYR = 13.8
+TODAY_GYR = age_at_z0(*DEFAULT_COSMOLOGY)  # 13.8
 T_ARR = jnp.linspace(0.1, TODAY_GYR, 100)
 
 
@@ -190,7 +190,7 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_data):
 
     # age-dependant metallicity, log10(Z)
     gal_lgmet_young = params.at[16].get()  # 2.0
-    gal_lgmet_old = -2.0  # params["LGMET_OLD"]
+    gal_lgmet_old = -3.0  # params["LGMET_OLD"]
     gal_lgmet_scatter = 0.2  # params["LGMETSCATTER"] # lognormal scatter in the metallicity distribution function
 
     # compute the SED_info object
