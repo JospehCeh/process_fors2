@@ -190,7 +190,7 @@ def ssp_spectrum_fromparam(params, z_obs, ssp_data):
 
     # age-dependant metallicity, log10(Z)
     gal_lgmet_young = params.at[16].get()  # 2.0
-    gal_lgmet_old = -3.0  # params["LGMET_OLD"]
+    gal_lgmet_old = params.at[17].get()  # -3.0  # params["LGMET_OLD"]
     gal_lgmet_scatter = 0.2  # params["LGMETSCATTER"] # lognormal scatter in the metallicity distribution function
 
     # compute the SED_info object

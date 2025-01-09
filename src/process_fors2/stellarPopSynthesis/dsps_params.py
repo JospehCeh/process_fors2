@@ -232,12 +232,13 @@ class SSPParametersFit:
         self.DEFAULT_DUST_PARAMS_MIN = DEFAULT_DUST_PARAMS_MIN
         self.DEFAULT_DUST_PARAMS_MAX = DEFAULT_DUST_PARAMS_MAX
 
-        # Age-dependant metallicity parameters - We only keep the young metallicity
+        # Age-dependant metallicity parameters - If it does not work with a fitted OLD metallicity, we will revert back to only keeping the young metallicity
         self.LGMET_YOUNG = LGMET_YOUNG
-        self.DEFAULT_AGEDEPLGMET_PARAMS = np.array([self.LGMET_YOUNG])
-        self.AGEDEPLGMET_PARAMNAMES = [AGEDEPLGMET_PARAMNAMES[0]]
-        self.DEFAULT_AGEDEPLGMET_PARAMS_MIN = [DEFAULT_AGEDEPLGMET_PARAMS_MIN[0]]
-        self.DEFAULT_AGEDEPLGMET_PARAMS_MAX = [DEFAULT_AGEDEPLGMET_PARAMS_MAX[0]]
+        self.LGMET_OLD = LGMET_OLD
+        self.DEFAULT_AGEDEPLGMET_PARAMS = DEFAULT_AGEDEPLGMET_PARAMS  # np.array([self.LGMET_YOUNG])
+        self.AGEDEPLGMET_PARAMNAMES = AGEDEPLGMET_PARAMNAMES  # [AGEDEPLGMET_PARAMNAMES[0]]
+        self.DEFAULT_AGEDEPLGMET_PARAMS_MIN = DEFAULT_AGEDEPLGMET_PARAMS_MIN  # [DEFAULT_AGEDEPLGMET_PARAMS_MIN[0]]
+        self.DEFAULT_AGEDEPLGMET_PARAMS_MAX = DEFAULT_AGEDEPLGMET_PARAMS_MAX  # [DEFAULT_AGEDEPLGMET_PARAMS_MAX[0]]
 
         # Scaling free parameter
         # self.DEFAULT_SCALE_PARAMS = DEFAULT_SCALE_PARAMS
