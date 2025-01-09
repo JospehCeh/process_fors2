@@ -638,8 +638,8 @@ def filter_tags_df(attrs_df, remove_visible=False, remove_galex=False, remove_ga
     # ## Select applicable spectra
     filtered_tags = []
     for tag, fors2_attr in attrs_df.iterrows():
-        bool_viz = remove_visible or (
-            not (remove_visible)
+        bool_viz = not (remove_visible) or (
+            remove_visible
             and np.isfinite(fors2_attr["MAG_GAAP_u"])
             and np.isfinite(fors2_attr["MAG_GAAP_g"])
             and np.isfinite(fors2_attr["MAG_GAAP_r"])
@@ -650,9 +650,9 @@ def filter_tags_df(attrs_df, remove_visible=False, remove_galex=False, remove_ga
             and np.isfinite(fors2_attr["MAGERR_GAAP_i"])
         )
 
-        bool_fuv = (remove_galex or remove_galex_fuv) or (not (remove_galex or remove_galex_fuv) and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
+        bool_fuv = not (remove_galex or remove_galex_fuv) or ((remove_galex or remove_galex_fuv) and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
 
-        bool_nuv = remove_galex or (not (remove_galex) and np.isfinite(fors2_attr["nuv_mag"]) and np.isfinite(fors2_attr["nuv_magerr"]))
+        bool_nuv = not (remove_galex) or (remove_galex and np.isfinite(fors2_attr["nuv_mag"]) and np.isfinite(fors2_attr["nuv_magerr"]))
 
         if bool_viz and bool_fuv and bool_nuv:
             filtered_tags.append(tag)
