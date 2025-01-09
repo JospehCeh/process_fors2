@@ -553,7 +553,7 @@ def vmap_fit_mags(fwls, filts_transm, omags, omagerrs, zobs, ssp_data):
     @jit
     def solve(_omags, _oerrs, _oz):
         res_m = minimize(lik_mag, INIT_PARAMS, (fwls, filts_transm, _omags, _oerrs, _oz, ssp_data), method="BFGS")
-        return res_m.x
+        return res_m
 
     vsolve = vmap(solve, in_axes=(0, 0, 0))
     return vsolve(omags, omagerrs, zobs)  # params_m
@@ -579,7 +579,7 @@ def vmap_fit_rews(surwls, rews_wls, rews, rews_err, zobs, ssp_data):
     @jit
     def solve(_rews, _rewerrs, _z):
         res_r = minimize(lik_rew, INIT_PARAMS, (surwls, rews_wls, _rews, _rewerrs, _z, ssp_data), method="BFGS")
-        return res_r.x
+        return res_r
 
     vsolve = vmap(solve, in_axes=(0, 0, 0))
     return vsolve(rews, rews_err, zobs)
@@ -615,7 +615,7 @@ def vmap_fit_mags_rews(fwls, filts_transm, omags, omagerrs, surwls, rews_wls, re
     @jit
     def solve(_omags, _oerrs, _rews, _rewerrs, _oz):
         res_mr = minimize(lik_mag_rew, INIT_PARAMS, (fwls, filts_transm, _omags, _oerrs, surwls, rews_wls, _rews, _rewerrs, _oz, ssp_data, weight_mag), method="BFGS")
-        return res_mr.x
+        return res_mr
 
     vsolve = vmap(solve, in_axes=(0, 0, 0, 0, 0))
     return vsolve(omags, omagerrs, rews, rews_err, zobs)  # params_m
@@ -650,7 +650,7 @@ def filter_tags_df(attrs_df, remove_visible=False, remove_galex=False, remove_ga
             and np.isfinite(fors2_attr["MAGERR_GAAP_i"])
         )
 
-        bool_fuv = not (remove_galex or remove_galex_fuv) or ((remove_galex or remove_galex_fuv) and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
+        bool_fuv = not (remove_galex_fuv) or (remove_galex_fuv and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
 
         bool_nuv = not (remove_galex) or (remove_galex and np.isfinite(fors2_attr["nuv_mag"]) and np.isfinite(fors2_attr["nuv_magerr"]))
 
@@ -726,15 +726,23 @@ def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None
     if "mag" in fit_type.lower() and "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        fit_results_arr = vmap_fit_mags_rews(wls_interp, transm_arr, mags_arr, magerrs_arr, wls_rews, li_wls, rews_arr, rewerrs_arr, zs, ssp_data, weight_mag)
+        fit_results = vmap_fit_mags_rews(wls_interp, transm_arr, mags_arr, magerrs_arr, wls_rews, li_wls, rews_arr, rewerrs_arr, zs, ssp_data, weight_mag)
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        fit_results_arr = vmap_fit_rews(wls_rews, li_wls, rews_arr, rewerrs_arr, zs, ssp_data)
+        fit_results = vmap_fit_rews(wls_rews, li_wls, rews_arr, rewerrs_arr, zs, ssp_data)
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
-        fit_results_arr = vmap_fit_mags(wls_interp, transm_arr, mags_arr, magerrs_arr, zs, ssp_data)
+        fit_results = vmap_fit_mags(wls_interp, transm_arr, mags_arr, magerrs_arr, zs, ssp_data)
+
+    fit_res_dict = fit_results._asdict()
+    fit_results_arr = fit_res_dict.pop("x")
+    fit_res_dict.pop("hess_inv", None)
+    fit_res_dict.pop("jac", None)
+    fit_res_df = pd.DataFrame.from_dict(fit_res_dict)
+    fit_res_df.set_index(sel_df.index, inplace=True)
+    sel_df = sel_df.join(fit_res_df, how="inner")
 
     return sel_df, fit_results_arr, low_bound, high_bound
 
