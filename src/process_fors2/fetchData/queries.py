@@ -375,6 +375,7 @@ def format_gogreen_data(gg_df_in):
     new_magerr_names = {oldn: f"magerr_{filt_corresp_dict[oldn.split('_')[0][1:]]}" for oldn in magerrs_cols}
     gg_df = gg_df_in.rename(columns=new_mag_names, inplace=False)
     gg_df.rename(columns=new_magerr_names, inplace=True)
+    gg_df["num"] = gg_df["specid"]
     new_mag_cols = [new_mag_names[k] for k in mags_cols]
     new_magerr_cols = [new_magerr_names[k] for k in magerrs_cols]
     for mcol, merrcol in zip(new_mag_cols, new_magerr_cols, strict=True):
