@@ -871,7 +871,7 @@ def gelatoToH5(outfilename, gelato_run_dir, source="FORS2"):
         if "fors2" in source.lower():
             nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
         elif "gogreen" in source.lower():
-            nums = np.array(res_df["specid"], dtype=int)
+            nums = np.array([int(s.split("_")[-1]) for s in specs], dtype=int)
         res_df["num"] = nums
         res_df.drop(columns="Name", inplace=True)
         for col in res_df.columns:
