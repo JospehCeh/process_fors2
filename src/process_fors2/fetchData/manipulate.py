@@ -840,7 +840,7 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
     return objlist, writepath
 
 
-def gelatoToH5(outfilename, gelato_run_dir):
+def gelatoToH5(outfilename, gelato_run_dir, fors2=True):
     """
     Gathers data from GELATO inputs and outputs and writes them to a HDF5 file to be used as input for Stellar Population Synthesis.
 
@@ -850,6 +850,8 @@ def gelatoToH5(outfilename, gelato_run_dir):
         Name of the `HDF5` file that will be written.
     gelato_run_dir : str or path
         Path to the output directory of the GELATO run to consider.
+    fors2 : bool, optional
+        Whether the data follows the FORS2 naming convention. Default is True.
 
     Returns
     -------
@@ -866,8 +868,9 @@ def gelatoToH5(outfilename, gelato_run_dir):
         res_df["FITS"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
         # res_df["name"] = np.array([n.split('_')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
         specs = np.array([n.split("_")[0] for n in res_df["FITS"]])
-        nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
-        res_df["num"] = nums
+        if fors2:
+            nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
+            res_df["num"] = nums
         res_df.drop(columns="Name", inplace=True)
         for col in res_df.columns:
             try:
