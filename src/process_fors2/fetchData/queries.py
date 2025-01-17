@@ -204,7 +204,7 @@ def get_gogreen_merged_table(outfile):
     # Here attach suffix _c to distinguish between galaxy values (Redshift) and cluster values (Redshift_c)
     matched_table = pd.merge(matched_table, cluster_table, how="left", left_on=["cluster"], right_on=merge_col, suffixes=["", "_c"])
 
-    sel = (matched_table["redshift_quality"] == 4) * (matched_table["objclass"] == 1) * (matched_table["spec_flag"] < 1) * (matched_table["star"] != 1)  # *(np.isfinite(sel_table['zspec']))
+    sel = (matched_table["redshift_quality"] == 4) * (matched_table["objclass"] == 1) * (matched_table["spec_flag"] < 1) * (matched_table["star"] != 1) * (np.isfinite(matched_table["zspec"]))
     sel_table = matched_table[sel]
     sel_table.to_hdf(outfile, key="gogreen")
     if os.path.isfile(outfile):
