@@ -893,9 +893,18 @@ def gelatoToH5(outfilename, gelato_run_dir, fors2=True):
                 groupout.create_dataset("wl_ang", data=wlang, compression="gzip", compression_opts=9)
                 groupout.create_dataset("flam", data=flam, compression="gzip", compression_opts=9)
                 groupout.create_dataset("flam_err", data=flamerr, compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_mod", data=np.array(spec_tab["MODEL"]), compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
+                try:
+                    groupout.create_dataset("gelato_mod", data=np.array(spec_tab["MODEL"]), compression="gzip", compression_opts=9)
+                except KeyError:
+                    groupout.create_dataset("gelato_mod", data=np.full_like(wlang, np.nan), compression="gzip", compression_opts=9)
+                try:
+                    groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
+                except KeyError:
+                    groupout.create_dataset("gelato_ssp", data=np.full_like(wlang, np.nan), compression="gzip", compression_opts=9)
+                try:
+                    groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
+                except KeyError:
+                    groupout.create_dataset("gelato_line", data=np.full_like(wlang, np.nan), compression="gzip", compression_opts=9)
 
     ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
     return ret
