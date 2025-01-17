@@ -618,7 +618,7 @@ def cleanGalexData(input_file, asep_galex):
     return readH5FileAttributes(outpath)
 
 
-def gelato_xmatch_todict(gelatoh5, xmatchh5):
+def gelato_xmatch_todict(gelatoh5, xmatchh5, source="FORS2"):
     """
     Merges attributes from cross-matched data and GELATO output.
 
@@ -628,7 +628,8 @@ def gelato_xmatch_todict(gelatoh5, xmatchh5):
         Name or path to the `HDF5` file that contains GELATO outputs.
     xmatchh5 : str or path
         Name or path to the `HDF5` file that contains cross-matched data.
-
+    source : str, optional
+        Origin of the data : "FORS2", "GOGREEN" or "DESI". The default is "FORS2".
     Returns
     -------
     dict
@@ -637,7 +638,15 @@ def gelato_xmatch_todict(gelatoh5, xmatchh5):
     gelatofile = os.path.abspath(gelatoh5)
     xmatchfile = os.path.abspath(xmatchh5)
     gelatout = readH5FileAttributes(gelatofile)
-    xmatchout = readH5FileAttributes(xmatchfile)
+    if "fors2" in source.lower():
+        xmatchout = readH5FileAttributes(xmatchfile)
+    else:
+        xmatchout = pd.read_hdf(xmatchfile)
+        xmatchout = xmatchout.sort_values(by="num", ascending=True)
+        df_info_num = xmatchout["num"].values
+        key_tags = [f"SPEC{num}" for num in df_info_num]
+        xmatchout["name"] = key_tags
+        xmatchout.reset_index(drop=True, inplace=True)
     merged_df = xmatchout.merge(right=gelatout, how="outer", on=["name", "num"])
     merged_df.set_index("name", drop=False, inplace=True)
     merged_df.sort_values("num", inplace=True)
