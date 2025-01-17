@@ -380,7 +380,7 @@ def format_gogreen_data(gg_df_in):
     for mcol, merrcol in zip(new_mag_cols, new_magerr_cols, strict=True):
         flux, fluxerr = np.array(gg_df[mcol]), np.array(gg_df[merrcol])
         gg_df[mcol] = -2.5 * np.log10(flux) + 25
-        gg_df[merrcol] = -2.5 * np.log10(1 + fluxerr / flux)
+        gg_df[merrcol] = np.abs(-2.5 * np.log10(1 + fluxerr / flux))
     return gg_df
 
 
