@@ -376,7 +376,7 @@ def format_gogreen_data(gg_df_in):
     gg_df = gg_df_in.rename(columns=new_mag_names, inplace=False)
     gg_df.rename(columns=new_magerr_names, inplace=True)
     new_mag_cols = [new_mag_names[k] for k in mags_cols]
-    new_magerr_cols = [new_magerr_names[k] for k in mags_cols]
+    new_magerr_cols = [new_magerr_names[k] for k in magerrs_cols]
     for mcol, merrcol in zip(new_mag_cols, new_magerr_cols, strict=True):
         flux, fluxerr = np.array(gg_df[mcol]), np.array(gg_df[merrcol])
         gg_df[mcol] = -2.5 * np.log10(flux) + 25
