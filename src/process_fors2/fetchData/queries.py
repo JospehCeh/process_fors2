@@ -206,7 +206,8 @@ def get_gogreen_merged_table(outfile):
 
     sel = (matched_table["redshift_quality"] == 4) * (matched_table["objclass"] == 1) * (matched_table["spec_flag"] < 1) * (matched_table["star"] != 1) * (np.isfinite(matched_table["zspec"]))
     sel_table = matched_table[sel]
-    sel_table.to_hdf(outfile, key="gogreen")
+    fmt_df = format_gogreen_data(sel_table)
+    fmt_df.to_hdf(outfile, key="gogreen")
     if os.path.isfile(outfile):
         print(f"File successfully written to {outfile}.")
         return outfile
@@ -325,3 +326,82 @@ def gogreen_to_gelato(gg_infile, output_dir):
     print(f"Done ! List of objects written in {writepath}.")
 
     return objlist, writepath
+
+
+def format_gogreen_data(gg_df_in):
+    """format_gogreen_data Transforms the photometry data (names and values) from GOGREEN to AB magnitudes for use with DSPS.
+
+    :param gg_df_in: GOGREEN catalogue data as loaded and merged from astro datalab.
+    :type gg_df_in: pandas DataFrame
+    :return: Formatted and transformed data
+    :rtype: pandas Dataframe
+    """
+    filt_corresp_dict = {
+        "b": "subaru_suprimecam_B",
+        "fuv": "galex_FUV",
+        "g": "hsc_g",
+        "h": "vista_vircam_H",
+        "i": "hsc_i",
+        "ia484": "subaru_suprimecam_ia484",
+        "ia527": "subaru_suprimecam_ia527",
+        "ia624": "subaru_suprimecam_ia624",
+        "ia679": "subaru_suprimecam_ia679",
+        "ia738": "subaru_suprimecam_ia738",
+        "ia767": "subaru_suprimecam_ia767",
+        "ib427": "subaru_suprimecam_ia427",
+        "ib464": "subaru_suprimecam_ia464",
+        "ib505": "subaru_suprimecam_ia505",
+        "ib574": "subaru_suprimecam_ia574",
+        "ib709": "subaru_suprimecam_ia709",
+        "ib827": "subaru_suprimecam_ia827",
+        "irac1": "spitzer_irac_ch1",
+        "irac2": "spitzer_irac_ch2",
+        "irac3": "spitzer_irac_ch3",
+        "irac4": "spitzer_irac_ch4",
+        "j": "vista_vircam_J",
+        "k": "ukirt_wfcam_K",
+        "ks": "vista_vircam_Ks",
+        "mips24": "spitzer_mips_24",
+        "nuv": "galex_NUV",
+        "r": "hsc_r",
+        "u": "decam_u",
+        "v": "subaru_suprimecam_V",
+        "y": "hsc_y",
+        "z": "hsc_z",
+    }
+    filt_cols = [c for c in gg_df_in.columns if "_tot" in c]
+    mags_cols, magerrs_cols = [c for c in filt_cols if c[0] != "e"], [c for c in filt_cols if c[0] == "e"]
+    new_mag_names = {oldn: f"mag_{filt_corresp_dict[oldn.split('_')[0]]}" for oldn in mags_cols}
+    new_magerr_names = {oldn: f"magerr_{filt_corresp_dict[oldn.split('_')[0][1:]]}" for oldn in magerrs_cols}
+    gg_df = gg_df_in.rename(columns=new_mag_names, inplace=False)
+    gg_df.rename(columns=new_magerr_names, inplace=True)
+    new_mag_cols = [new_mag_names[k] for k in mags_cols]
+    new_magerr_cols = [new_magerr_names[k] for k in mags_cols]
+    for mcol, merrcol in zip(new_mag_cols, new_magerr_cols, strict=True):
+        flux, fluxerr = np.array(gg_df[mcol]), np.array(gg_df[merrcol])
+        gg_df[mcol] = -2.5 * np.log10(flux) + 25
+        gg_df[merrcol] = -2.5 * np.log10(1 + fluxerr / flux)
+    return gg_df
+
+
+def load_filters_from_ggdf(catalogue_df, wls=None):
+    """load_filters_from_ggdf _summary_
+
+    :param catalogue_df: _description_
+    :type catalogue_df: _type_
+    :param wls: _description_, defaults to None
+    :type wls: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    from interpax import interp1d
+    from jax import numpy as jnp
+    from sedpy import observate
+
+    mags_cols = [c for c in catalogue_df.columns if "mag" in c.lower() and "err" not in c.lower() and "image" not in c.lower()]
+    spy_filt_names = ["_".join(m.split("_")[1:]) for m in mags_cols]
+    spy_filts = observate.load_filters(spy_filt_names)
+    if wls is None:
+        wls = jnp.arange(100.0, 1.0e5, 10)
+    transm_list = [interp1d(wls, f.wavelength, f.transmission, extrap=0.0) for f in spy_filts]
+    return wls, jnp.array(transm_list)
