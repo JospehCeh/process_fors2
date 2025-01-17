@@ -867,7 +867,7 @@ def gelatoToH5(outfilename, gelato_run_dir, fors2=True):
         res_df = res_table.to_pandas()
         res_df["FITS"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
         # res_df["name"] = np.array([n.split('_')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
-        specs = np.array([n.split("_")[0] for n in res_df["FITS"]])
+        specs = np.array([n.split("_z")[0] for n in res_df["FITS"]])
         if fors2:
             nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
             res_df["num"] = nums
@@ -881,7 +881,7 @@ def gelatoToH5(outfilename, gelato_run_dir, fors2=True):
             for i, row in res_df.iterrows():
                 specin = row["FITS"]
                 fn, ext = os.path.splitext(specin)
-                specn = fn.split("_")[0]
+                specn = fn.split("_z")[0]
                 spec_path = os.path.join(gelatout, f"{fn}-results{ext}")
                 spec_tab = Table.read(spec_path)
                 wlang = np.power(10, spec_tab["loglam"])
