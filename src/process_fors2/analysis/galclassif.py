@@ -246,8 +246,9 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FOR
         xmatchout["name"] = key_tags
         xmatchout.reset_index(drop=True, inplace=True)
     res_table = xmatchout.merge(right=gelatout, how="outer", on=["name", "num"])
-    res_table["u-g"] = res_table["MAG_GAAP_u"] - res_table["MAG_GAAP_g"]
-    res_table["r-i"] = res_table["MAG_GAAP_r"] - res_table["MAG_GAAP_i"]
+    if "fors2" in source.lower():
+        res_table["u-g"] = res_table["MAG_GAAP_u"] - res_table["MAG_GAAP_g"]
+        res_table["r-i"] = res_table["MAG_GAAP_r"] - res_table["MAG_GAAP_i"]
 
     # _sel_oiii = np.logical_and(res_table["AGN_[OIII]_5008.24_REW"] > 0., res_table["Balmer_HI_4862.68_REW"] > 0.)
     # _sel_nii = np.logical_and(res_table["AGN_[NII]_6585.27_REW"] > 0., res_table["Balmer_HI_6564.61_REW"] > 0.)
