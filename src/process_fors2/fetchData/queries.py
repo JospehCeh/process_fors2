@@ -9,14 +9,20 @@ Created on Mon Feb 26 17:17:01 2024
 
 import json
 import os
+from io import BytesIO
 
 import astropy.coordinates as coord
 import astropy.units as u
 import numpy as np
+import pandas as pd
+from astropy.io import fits
 from astropy.table import Table
 from astroquery.mast import Catalogs
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
+from dl import queryClient as qc
+from dl import storeClient as sc
+from tqdm import tqdm
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -169,3 +175,153 @@ def readKids(path=KIDSTBL_PATH):
     catalog_data.rename_column("RAJ2000", "ra_kids")
     catalog_data.rename_column("DECJ2000", "dec_kids")
     return catalog_data
+
+
+# twoddir = 'gogreen_dr1://SPECTROSCOPY/TwoD/'  # 2-d spectra
+# imdir = 'gogreen_dr1://PHOTOMETRY/IMAGES/'    # photometry and images
+
+
+def get_gogreen_merged_table(outfile):
+    """get_gogreen_merged_table Queries GOGREEN data from NOIRLAB Astro Data Lab and saves it to disk as a pandas DataFrame.
+    Quality cuts are operated in order to limit the number of objects that will be queried as individual spectra.
+
+    :param outfile: HDF5 file name for the output
+    :type outfile: str or path-like
+    :return: The absolute path the the written file, if successful, else None.
+    :rtype: str or path-like or None
+    """
+    outfile = os.path.abspath(outfile)
+    cluster_table = qc.query("select * from gogreen_dr1.clusters", fmt="pandas")
+    phot_table = qc.query("select * from gogreen_dr1.photo", fmt="pandas")
+    redshift_table = qc.query("select * from gogreen_dr1.redshift", fmt="pandas")
+
+    # this way avoids duplicate columns (ie dont need to specify suffixes)
+    merge_col = ["specid"]
+    cols_to_use = phot_table.columns.difference(redshift_table.columns).tolist() + merge_col
+    matched_table = pd.merge(redshift_table, phot_table[cols_to_use], how="left", left_on=["specid"], right_on=merge_col)
+
+    merge_col = ["cluster"]
+    # Here attach suffix _c to distinguish between galaxy values (Redshift) and cluster values (Redshift_c)
+    matched_table = pd.merge(matched_table, cluster_table, how="left", left_on=["cluster"], right_on=merge_col, suffixes=["", "_c"])
+
+    sel = (matched_table["redshift_quality"] == 4) * (matched_table["objclass"] == 1) * (matched_table["spec_flag"] < 1) * (matched_table["star"] != 1)  # *(np.isfinite(sel_table['zspec']))
+    sel_table = matched_table[sel]
+    sel_table.to_hdf(outfile, key="gogreen")
+    if os.path.isfile(outfile):
+        print(f"File successfully written to {outfile}.")
+        return outfile
+    else:
+        print("Unable to write GOGREEN data to disk.")
+        return None
+
+
+def get_gogreen_wavelength_from_hdu(hdr):
+    """
+    get_wavelength_from_hdu(hdr)
+
+    :param hdr: Fits table header
+
+    Reads 'CRVAL1' 'NAXIS1' and 'CD1_1' to compute wavelength coverage
+    """
+    return np.arange(hdr["CRVAL1"], hdr["CRVAL1"] + hdr["NAXIS1"] * hdr["CD1_1"], hdr["CD1_1"])
+
+
+def get_gogreen_spectrum(hdu, extver, units="fl", return_frame="observed", redshift=0.0):
+    """
+    get_gogreen_spectrum returns the spectrum and associated noise in desired frame and units from GOGREEN data
+    stored at NOIRlab using noirlab.datalab access tools.
+
+    :param hdu:       Fits table hdu object
+    :param extver:     Extension of science frame
+    :param return_frame:  What frame to return the wavelength units in. If 'rest', a redshift is required.
+    :param redshift:  Redshift of galaxy to convert to rest-frame, if redshift = 0 returns observed-frame
+    :param units:     Units of output spectrum, case insensitive
+
+    :type units:      string, "Fl" or "Fnu" or "maggies"
+    :returns:         wavelengths, the spectrum, and the variance
+
+    Access spectrum from fits file, convert to specified units in rest frame
+
+    Note: Input spectrum must be in units erg cm^-2 s^-1 A^-1
+    Note: Header values must give wavelength in Angstroms
+    """
+    from astropy.cosmology import FlatLambdaCDM
+
+    cosmo = FlatLambdaCDM(H0=70.0, Om0=0.3)
+
+    extver = int(extver)
+
+    units = units.lower()
+    assert units in ["fl", "maggies", "fnu"], 'Error, units must be "Fl" or "maggies" or "Fnu"'
+    return_frame = return_frame.lower()
+    assert return_frame in ["rest", "observed"], 'Error, return_frame must be either "rest" or "observed"'
+
+    scale = hdu["SCI", extver].header["FLUXSCAL"]
+    spec = hdu["SCI", extver].data / scale
+    var = hdu["VAR", extver].data / scale**2
+
+    lam = get_gogreen_wavelength_from_hdu(hdu["SCI", extver].header)
+
+    if return_frame == "rest":  # convert from observed to rest wavelength
+        assert redshift >= 0, f"ERROR: redshift must be positive, is {redshift}"
+        dl = (cosmo.luminosity_distance(redshift).to(u.pc).value / 10.0) ** (-2)
+        spec *= (1.0 + redshift) / dl
+        var *= ((1.0 + redshift) / dl) ** 2
+        lam /= 1.0 + redshift
+
+    if units == "maggies":
+        convers = (3.34e4 * lam**2) / 3631.0
+        spec *= convers
+        var *= convers**2
+    elif units == "fnu":
+        convers = 3.34e4 * lam**2
+        spec *= convers
+        var *= convers**2
+
+    return lam, spec, np.sqrt(var)
+
+
+def gogreen_to_gelato(gg_infile, output_dir):
+    """gogreen_to_gelato Queries individual spectra matching the data in the input file and writes them to disk as FITS files for use with GELATO.
+
+    :param gg_infile: HDF5 file containing the GOGREEN data as a pandas DataFrame.
+    :type gg_infile: str or path-like
+    :param output_dir: Directory where to store the GELATO inputs as FITS files
+    :type output_dir: str or path-like
+    :return: The list of FITS spectra as an Astropy Table and the path to the output directory
+    :rtype: tuple(Table, str)
+    """
+    from process_fors2.fetchData import tableForGelato
+
+    gg_df = pd.read_hdf(gg_infile, key="gogreen")
+    all_paths = []
+    all_zs = []
+    oneddir = "gogreen_dr1://SPECTROSCOPY/OneD/"  # 1-d spectra
+
+    for _, row in tqdm(gg_df.iterrows(), total=gg_df.shape[0]):
+        fits_path = oneddir + row["cluster"] + "_final.fits"
+
+        with fits.open(BytesIO(sc.get(fits_path))) as hdu:
+            lam, spec, std = get_gogreen_spectrum(hdu, row["extver"], return_frame="observed")  # get observed frame spectra
+
+        # Conversion to GELATO format
+        t = tableForGelato(lam, spec, std)
+
+        # Write data
+        outdir = os.path.abspath(output_dir)
+        if not os.path.isdir(os.path.join(outdir, "SPECS")):
+            os.makedirs(os.path.join(outdir, "SPECS"))
+
+        redz = row["redshift"]
+        fpath = os.path.join(outdir, "SPECS", f"{row['cluster']}_{row['specid']}_z{redz:.3f}_GEL.fits")
+        t.write(fpath, format="fits", overwrite=True)
+        all_paths.append(fpath)
+        all_zs.append(redz)
+
+    # Create list of objects
+    objlist = Table([all_paths, all_zs], names=["Path", "z"])
+    writepath = os.path.join(outdir, "specs_for_GELATO.fits")
+    objlist.write(writepath, format="fits", overwrite=True)
+    print(f"Done ! List of objects written in {writepath}.")
+
+    return objlist, writepath

@@ -38,7 +38,8 @@ dependencies = [
     "interpax",
     "arviz",
     "jax_cosmo",
-    "tables"
+    "tables",
+    "astro-datalab"
 ]
 
 [project.urls]
@@ -133,6 +134,7 @@ ignore = [
     "N806",
     "N802",
     "N803",
+    "N813", # Allow Camelcase imported as lowercase
     "B007",
     "D417",
     "SIM118",

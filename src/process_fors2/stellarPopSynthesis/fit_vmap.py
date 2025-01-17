@@ -798,7 +798,7 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
     wls_interp = jnp.arange(100.0, 25000.1, 10)
-    wls_rews = jnp.arange(1000.0, 10000, 0.1)
+    wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp)
     zs = jnp.array(sel_df["redshift"])
