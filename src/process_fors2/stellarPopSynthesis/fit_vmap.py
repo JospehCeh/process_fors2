@@ -68,7 +68,7 @@ def istuple(tree):
     return isinstance(tree, tuple)
 
 
-def prepare_data_arr(attrs_df, selected_tags, wls_arr):
+def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     """prepare_data_arr _summary_
 
     :param attrs_df: _description_
@@ -77,65 +77,53 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr):
     :type selected_tags: _type_
     :param wls_arr: _description_
     :type wls_arr: _type_
+    :param source: _description_, defaults to "FORS2"
+    :type source: str, optional
     :return: _description_
     :rtype: _type_
     """
     from process_fors2.stellarPopSynthesis import FilterInfo
 
-    rews_list = sorted([col for col in list(attrs_df.columns) if "REW" in col])
+    rews_list = sorted([col for col in list(attrs_df.columns) if "rew" in col.lower()])
     li_names = np.unique([li.split("_REW")[0] for li in rews_list])
     li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
 
-    columns = [
-        "num",
-        "redshift",
-        "ra",
-        "dec",
-        "Classification",
-        "CAT_NII",
-        "CAT_SII",
-        "CAT_OI",
-        "CAT_OIII/OIIvsOI",
-        "fuv_mag",
-        "nuv_mag",
-        "MAG_GAAP_u",
-        "MAG_GAAP_g",
-        "MAG_GAAP_r",
-        "MAG_GAAP_i",
-        "MAG_GAAP_Z",
-        "MAG_GAAP_Y",
-        "MAG_GAAP_J",
-        "MAG_GAAP_H",
-        "MAG_GAAP_Ks",
-        "fuv_magerr",
-        "nuv_magerr",
-        "MAGERR_GAAP_u",
-        "MAGERR_GAAP_g",
-        "MAGERR_GAAP_r",
-        "MAGERR_GAAP_i",
-        "MAGERR_GAAP_Z",
-        "MAGERR_GAAP_Y",
-        "MAGERR_GAAP_J",
-        "MAGERR_GAAP_H",
-        "MAGERR_GAAP_Ks",
-    ] + rews_list
+    mags_list = [col for col in list(attrs_df.columns) if "mag" in col.lower() and "image" not in col.lower()]
+
+    columns = (
+        [
+            "num",
+            "redshift",
+            "ra",
+            "dec",
+            "Classification",
+            "rChi2",
+            "CAT_NII",
+            "CAT_SII",
+            "CAT_OI",
+            "CAT_OIII/OIIvsOI",
+        ]
+        + mags_list
+        + rews_list
+    )
 
     sel_df = attrs_df.loc[selected_tags, columns]
 
-    mags_arr = jnp.array(sel_df[["fuv_mag", "nuv_mag", "MAG_GAAP_u", "MAG_GAAP_g", "MAG_GAAP_r", "MAG_GAAP_i", "MAG_GAAP_Z", "MAG_GAAP_Y", "MAG_GAAP_J", "MAG_GAAP_H", "MAG_GAAP_Ks"]])
-
-    magerrs_arr = jnp.array(
-        sel_df[["fuv_magerr", "nuv_magerr", "MAGERR_GAAP_u", "MAGERR_GAAP_g", "MAGERR_GAAP_r", "MAGERR_GAAP_i", "MAGERR_GAAP_Z", "MAGERR_GAAP_Y", "MAGERR_GAAP_J", "MAGERR_GAAP_H", "MAGERR_GAAP_Ks"]]
-    )
+    mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c]])
+    magerrs_arr = jnp.array(sel_df[[c for c in mags_list if "err" in c]])
 
     rews_arr = jnp.array(sel_df[[c for c in rews_list if "err" not in c]])
-
     rewerrs_arr = jnp.array(sel_df[[c for c in rews_list if "err" in c]])
 
-    ps = FilterInfo()
-    wls, trans = ps.get_2lists()
-    transm_arr = jnp.array([interp1d(wls_arr, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
-    list_wlmean_f_sel = jnp.array([f.wave_mean for f in ps.filters_transmissionlist])
+    if "fors2" in source.lower():
+        ps = FilterInfo()
+        wls, trans = ps.get_2lists()
+        transm_arr = jnp.array([interp1d(wls_arr, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
+        list_wlmean_f_sel = jnp.array([f.wave_mean for f in ps.filters_transmissionlist])
+    elif "gogreen" in source.lower():
+        from process_fors2.fetchData import load_filters_from_ggdf
+
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
 
     return sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr
 
@@ -660,7 +648,9 @@ def filter_tags_df(attrs_df, remove_visible=False, remove_galex=False, remove_ga
     return filtered_tags
 
 
-def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False):
+def fit_vmap(
+    xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False, source="FORS2"
+):
     """fit_vmap Function to fit a stellar population onto observations of galaxies, using a vmapped algorithm on JAX arrays.
 
     :param xmatch_h5: Path to the HDF5 file gathering outputs from the cross-match between spectra and photometry - as used as an input for GALETO for instance.
@@ -690,6 +680,8 @@ def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None
     :type remove_galex_fuv: bool, optional
     :param quiet: Whether to silence some prints (for convenience while running in loops for instance), defaults to False
     :type quiet: bool, optional
+    :param source: Origin of the spectroscopic and photometric data. Mostly used to identify the filters used in the photometry, defaults to "FORS2"
+    :type source: str, optional
     :return: The properties of fitted galaxies in a dataframe, the array of SPS parameters and the boundaries of the selected slice of the set of galaxies.
     :rtype: tuple of (DataFrame, array, int, int)
     """
@@ -698,10 +690,13 @@ def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
-    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False)
+    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source=source)
 
     # ## Select applicable spectra
-    filtered_tags = filter_tags_df(merged_attrs_df, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
+    if "fors2" in source.lower():
+        filtered_tags = filter_tags_df(merged_attrs_df, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
+    else:
+        filtered_tags = list(merged_attrs_df.index)
 
     if high_bound is None:
         high_bound = len(filtered_tags)
@@ -718,7 +713,7 @@ def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None
     wls_interp = jnp.arange(100.0, 25000.1, 10)
     wls_rews = jnp.arange(1000.0, 10000, 0.1)
 
-    sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp)
+    sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
     zs = jnp.array(sel_df["redshift"])
 
     # fit loop
@@ -747,7 +742,9 @@ def fit_vmap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None
     return sel_df, fit_results_arr, low_bound, high_bound
 
 
-def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False):
+def fit_treemap(
+    xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False, source="FORS2"
+):
     """fit_treemap _summary_
 
     :param xmatch_h5: _description_
@@ -772,6 +769,8 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
     :type remove_galex_fuv: bool, optional
     :param quiet: _description_, defaults to False
     :type quiet: bool, optional
+    :param source: Origin of the spectroscopic and photometric data. Mostly used to identify the filters used in the photometry, defaults to "FORS2"
+    :type source: str, optional
     :return: _description_
     :rtype: _type_
     """
@@ -780,10 +779,13 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
-    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False)
+    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source=source)
 
     # ## Select applicable spectra
-    filtered_tags = filter_tags_df(merged_attrs_df, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
+    if "fors2" in source.lower():
+        filtered_tags = filter_tags_df(merged_attrs_df, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
+    else:
+        filtered_tags = list(merged_attrs_df.index)
 
     if high_bound is None:
         high_bound = len(filtered_tags)
@@ -800,7 +802,7 @@ def fit_treemap(xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=N
     wls_interp = jnp.arange(100.0, 25000.1, 10)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
-    sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp)
+    sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
     zs = jnp.array(sel_df["redshift"])
 
     # fit loop
@@ -925,6 +927,7 @@ def main(args):
 
     _low = inputs["first_spec"]
     _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
+    _src = inputs["data_origin"]
 
     if _use_bounds:
         sel_df, fit_results_arr, low_bound, high_bound = fit_treemap(
@@ -939,6 +942,7 @@ def main(args):
             remove_galex=inputs["remove_galex"],
             remove_galex_fuv=inputs["remove_fuv"],
             quiet=False,
+            source=_src,
         )
         outdir = os.path.abspath(f"./DSPS_hdf5_TREEMAPfit_{_fit_type}")
     else:
@@ -954,8 +958,9 @@ def main(args):
             remove_galex=inputs["remove_galex"],
             remove_galex_fuv=inputs["remove_fuv"],
             quiet=False,
+            source=_src,
         )
-        outdir = os.path.abspath(f"./DSPS_hdf5_VMAPfit_{_fit_type}")
+        outdir = os.path.abspath(f"./DSPS_hdf5_VMAPfit_{_src}_{_fit_type}")
 
     if not os.path.isdir(outdir):
         os.makedirs(outdir)

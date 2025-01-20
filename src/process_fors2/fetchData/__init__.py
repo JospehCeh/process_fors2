@@ -29,7 +29,7 @@ from .manipulate import (
     tableForGelato,
     templatesToHDF5,
 )
-from .queries import _getTargetCoordinates, get_gogreen_merged_table, getFors2FitsTable, gogreen_to_gelato, json_to_inputs, queryGalexMast, queryTargetInSimbad, readKids
+from .queries import _getTargetCoordinates, get_gogreen_merged_table, getFors2FitsTable, gogreen_to_gelato, json_to_inputs, load_filters_from_ggdf, queryGalexMast, queryTargetInSimbad, readKids
 
 __all__ = [
     "queryTargetInSimbad",
@@ -69,4 +69,5 @@ __all__ = [
     "readPZinputsHDF5",
     "get_gogreen_merged_table",
     "gogreen_to_gelato",
+    "load_filters_from_ggdf",
 ]

@@ -404,5 +404,6 @@ def load_filters_from_ggdf(catalogue_df, wls=None):
     spy_filts = observate.load_filters(spy_filt_names)
     if wls is None:
         wls = jnp.arange(100.0, 1.0e5, 10)
-    transm_list = [interp1d(wls, f.wavelength, f.transmission, extrap=0.0) for f in spy_filts]
-    return wls, jnp.array(transm_list)
+    transm_list = [interp1d(wls, f.wavelength, f.transmission, method="linear", extrap=0.0) for f in spy_filts]
+    wlmean_list = [f.wave_mean for f in spy_filts]
+    return wls, jnp.array(transm_list), jnp.array(wlmean_list)
