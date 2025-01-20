@@ -107,6 +107,9 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
         + rews_list
     )
 
+    if "gogreen" in source.lower():
+        columns = ["cluster", "specid"] + columns
+
     sel_df = attrs_df.loc[selected_tags, columns]
 
     mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c]])
@@ -710,7 +713,7 @@ def fit_vmap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 25000.1, 10)
+    wls_interp = jnp.arange(100.0, 100010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -799,7 +802,7 @@ def fit_treemap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 25000.1, 10)
+    wls_interp = jnp.arange(100.0, 100010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -896,6 +899,216 @@ def readVmapFitsFromHDF5(dspsFitsH5, group="fit_dsps"):
     return sps_params_dict
 
 
+def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
+    """make_vmapfit_plots _summary_
+
+    :param sel_df: _description_
+    :type sel_df: _type_
+    :param gelato_h5: _description_
+    :type gelato_h5: _type_
+    :param wls_arr: _description_
+    :type wls_arr: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :param source: _description_, defaults to "FORS2"
+    :type source: str, optional
+    """
+    import copy
+
+    import matplotlib.pyplot as plt
+    from tqdm import tqdm
+
+    from process_fors2.analysis import convert_flux_torestframe, get_fnu, get_gelmod
+
+    from .fit_loop import plot_figs_to_PDF
+    from .fit_utils import func_strip_name
+
+    gelatoh5 = os.path.abspath(gelato_h5)
+
+    rews_list = [col for col in list(sel_df.columns) if ("rew" in col.lower())]
+    mags_list = [col for col in list(sel_df.columns) if ("mag" in col.lower() and "image" not in col.lower())]
+    li_names = np.unique([li.split("_REW")[0] for li in rews_list])
+    li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
+
+    _DUMPARS = SSPParametersFit()
+
+    if "fors2" in source.lower():
+        from process_fors2.stellarPopSynthesis import FilterInfo
+
+        ps = FilterInfo()
+        wls, trans = ps.get_2lists()
+        transm_arr = jnp.array([interp1d(wls_arr, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
+        list_wlmean_f_sel = jnp.array([f.wave_mean for f in ps.filters_transmissionlist])
+        list_name_f_sel = ps.filters_namelist
+    else:
+        from process_fors2.fetchData import load_filters_from_ggdf
+
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
+        list_name_f_sel = ["_".join(m.split("_")[1:]) for m in mags_list if "err" not in m.lower()]
+
+    list_of_figs = []
+
+    for _tag, row in tqdm(sel_df.iterrows(), total=sel_df.shape[0]):
+        f, (a_sfh, ax_spec, ax_rew) = plt.subplots(3, 1, figsize=(7, 10), constrained_layout=True)
+        z_obs = row["redshift"]
+        if "fors2" in source.lower():
+            tag = _tag
+        elif "gogreen" in source.lower():
+            tag = f"{row['cluster']}_{row['specid']}"
+        title_spec = f"{tag} z = {z_obs:.3f}"
+        spec_obs = get_fnu(gelatoh5, tag, zob=z_obs)
+        Xs = spec_obs["wl"]
+        Ys = spec_obs["fnu"]
+        EYs = spec_obs["fnuerr"]
+        rchi2 = row["rChi2"]
+
+        # get the Gelato model
+        gel_obs = get_gelmod(gelatoh5, tag, zob=z_obs)
+        gemod = jnp.interp(Xs, gel_obs["wl"], gel_obs["mod"], left=0.0, right=0.0)
+        geline = jnp.interp(Xs, gel_obs["wl"], gel_obs["line"], left=0.0, right=0.0)
+        gessp = jnp.interp(Xs, gel_obs["wl"], gel_obs["ssp"], left=0.0, right=0.0)
+
+        # convert to restframe
+        Xspec_data, Yspec_data = convert_flux_torestframe(Xs, Ys, z_obs)
+        EYspec_data = EYs  # * (1+z_obs)
+        # EYspec_data_med = EYs_med #* (1+z_obs)
+
+        _, gmod_data = convert_flux_torestframe(Xs, gemod, z_obs)
+        _, glin_data = convert_flux_torestframe(Xs, geline, z_obs)
+        _, gssp_data = convert_flux_torestframe(Xs, gessp, z_obs)
+
+        params_arr = jnp.array(row[_DUMPARS.PARAM_NAMES_FLAT].values, dtype=jnp.float64)
+
+        mags_arr = jnp.array(row[[c for c in mags_list if "err" not in c.lower()]].values, dtype=jnp.float64)
+        magerrs_arr = jnp.array(row[[c for c in mags_list if "err" in c.lower()]].values, dtype=jnp.float64)
+
+        rews_arr = jnp.array(row[[c for c in rews_list if "err" not in c.lower()]].values, dtype=jnp.float64)
+        rewerrs_arr = jnp.array(row[[c for c in rews_list if "err" in c.lower()]].values, dtype=jnp.float64)
+
+        # Plot SFH
+        sfh_gal = mean_sfr(params_arr)
+        t_obs = age_at_z(z_obs, *DEFAULT_COSMOLOGY)  # age of the universe in Gyr at z_obs
+        t_obs = t_obs[0]  # age_at_z function returns an array, but SED functions accept a float for this argument
+
+        a_sfh.plot(T_ARR, sfh_gal, "-k", lw=2)
+        a_sfh.axvline(t_obs, color="red")
+
+        sfr_max = sfh_gal.max() * 1.1
+        sfr_min = 0.0
+        a_sfh.set_ylim(sfr_min, sfr_max)
+
+        a_sfh.set_title("Fitted SFH")
+        a_sfh.set_xlabel(r"${\rm cosmic\ time\ [Gyr]}$")
+        a_sfh.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
+        a_sfh.grid()
+
+        # Plot Photometry
+        x, y_nodust, y_dust = ssp_spectrum_fromparam(params_arr, z_obs, ssp_data)
+        mags_predictions = vmap_calc_obs_mag(x, y_dust, wls_arr, transm_arr, z_obs)
+
+        ax_phot = ax_spec.twinx()
+        ax_spec.set_yscale("log")
+        ax_spec.set_xscale("log")
+
+        # plot SED model
+        (l0,) = ax_spec.plot(x * (1 + z_obs), y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        (l1,) = ax_spec.plot(x * (1 + z_obs), y_nodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
+
+        # plot Fors2 data
+        label = "Obs.\nspectrum"
+        (l2,) = ax_spec.plot(Xspec_data * (1 + z_obs), Yspec_data, "b-", lw=0.5, label=label)
+
+        # plot photometric data
+        label = "Catalog\nphotometry"
+        l3 = ax_phot.errorbar(list_wlmean_f_sel, mags_arr, yerr=magerrs_arr, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
+        l4 = ax_phot.scatter(list_wlmean_f_sel, mags_predictions, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
+
+        ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
+        # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        ymax = y_nodust.max()
+        ylim_max = ymax * 3.0
+        ylim_min = ymax / 3e4
+
+        filter_tags = [func_strip_name(n) for n in list_name_f_sel]
+        for idf, ftag in enumerate(filter_tags):
+            ax_spec.text(list_wlmean_f_sel[idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+            ax_spec.axvline(list_wlmean_f_sel[idf], linestyle=":")
+
+        ax_spec.set_xlabel("$\\lambda\\ [\\AA]$")
+        ax_spec.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
+        ax_phot.set_ylabel("$m_{AB}$")
+        # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+
+        ax_spec.set_xlim(1.5e3, 5e4)
+        ax_spec.set_ylim(ylim_min, ylim_max)
+        ax_phot.set_ylim(29, 18)
+
+        ax_spec.grid()
+        plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        # Plot Equivalent widths + GELATO
+        ax_rew.set_yscale("log")
+        # ax_rew.set_xscale("log")
+
+        (ld,) = ax_rew.plot(x, y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        label = "Obs. spectrum"
+        (lf,) = ax_rew.plot(Xspec_data, Yspec_data, "b-", lw=0.5, label=label)
+        ax_rew.fill_between(Xspec_data, Yspec_data - EYspec_data, Yspec_data + EYspec_data, color="b", alpha=0.2)
+        (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="orange", lw=2, label="GELATO model")
+
+        srwls = jnp.arange(1000, 10000, 0.1)
+        surspec = interp1d(srwls, x, y_dust)
+        mod_rews = vmap_calc_eqw(srwls, surspec, li_wls)
+        ax_rews = ax_rew.twinx()
+
+        label = "Restframe\nEq. Widths"
+        lrg = ax_rews.errorbar(li_wls, rews_arr, yerr=rewerrs_arr, fmt=".", color="black", ecolor="black", markersize=9, label=label)
+        lrd = ax_rews.scatter(li_wls, mod_rews, marker="s", c="cyan", label="Modeled REWs")
+
+        ymax = jnp.nanmax(Yspec_data)
+        ymin = jnp.nanmin(Yspec_data)
+        ylim_max = ymax * 3
+        ylim_min = ymin / 3
+
+        min_rew = jnp.nanmin(rews_arr) - 3
+        max_rew = jnp.nanmax(rews_arr) + 3
+
+        for ide, etag in enumerate(li_names):
+            if jnp.isfinite(rews_arr[ide] + rewerrs_arr[ide]):
+                _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
+                ax_rews.text(
+                    li_wls[ide],
+                    min_rew + (1 - ide % 2) * 0.75 * (max_rew - min_rew),
+                    _lnam,
+                    fontsize=8,
+                    fontweight="bold",
+                    horizontalalignment="right",
+                    verticalalignment="bottom",
+                    rotation="vertical",
+                )
+                ax_rews.axvline(li_wls[ide], linestyle=":")
+
+        ax_rew.set_xlabel("$\\lambda\\ [\\AA]$")
+        ax_rew.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
+        ax_rews.set_ylabel(r"${\rm Restframe Eq. Width\ [\AA]}$")
+        # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+
+        ax_rew.set_xlim(min(Xspec_data) - 200.0, max(Xspec_data) + 200.0)
+        ax_rew.set_ylim(ylim_min, ylim_max)
+        ax_rews.set_ylim(min_rew, max_rew)
+        # ax_rews.set_ylim(29, 18)
+
+        ax_rews.grid()
+        ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
+        f.suptitle(title_spec)
+        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        list_of_figs.append(copy.deepcopy(f))
+    pdfoutputfilename = "dsps_and_gelato_plots_valid_fits_v2.pdf"
+    _ = plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+
+
 def main(args):
     """
     Function that goes through the whole fitting process, callable from outside.
@@ -944,7 +1157,7 @@ def main(args):
             quiet=False,
             source=_src,
         )
-        outdir = os.path.abspath(f"./DSPS_hdf5_TREEMAPfit_{_fit_type}")
+        outdir = os.path.abspath(f"./DSPS_hdf5_TREEMAPfit_{_src}_{_fit_type}")
     else:
         sel_df, fit_results_arr, low_bound, high_bound = fit_vmap(
             xmatchh5,
