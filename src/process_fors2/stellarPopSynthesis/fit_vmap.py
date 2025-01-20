@@ -82,7 +82,6 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     :return: _description_
     :rtype: _type_
     """
-    from process_fors2.stellarPopSynthesis import FilterInfo
 
     rews_list = sorted([col for col in list(attrs_df.columns) if "rew" in col.lower()])
     li_names = np.unique([li.split("_REW")[0] for li in rews_list])
@@ -119,6 +118,8 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     rewerrs_arr = jnp.array(sel_df[[c for c in rews_list if "err" in c]])
 
     if "fors2" in source.lower():
+        from process_fors2.stellarPopSynthesis import FilterInfo
+
         ps = FilterInfo()
         wls, trans = ps.get_2lists()
         transm_arr = jnp.array([interp1d(wls_arr, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
@@ -713,7 +714,7 @@ def fit_vmap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 100010.0, 10.0)
+    wls_interp = jnp.arange(100.0, 320001.0, 1.0)
     wls_rews = jnp.arange(1000.0, 10000, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -802,7 +803,7 @@ def fit_treemap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 100010.0, 10.0)
+    wls_interp = jnp.arange(100.0, 320001.0, 1.0)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -930,8 +931,6 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
     li_names = np.unique([li.split("_REW")[0] for li in rews_list])
     li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
 
-    _DUMPARS = SSPParametersFit()
-
     if "fors2" in source.lower():
         from process_fors2.stellarPopSynthesis import FilterInfo
 
@@ -977,7 +976,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
         _, glin_data = convert_flux_torestframe(Xs, geline, z_obs)
         _, gssp_data = convert_flux_torestframe(Xs, gessp, z_obs)
 
-        params_arr = jnp.array(row[_DUMPARS.PARAM_NAMES_FLAT].values, dtype=jnp.float64)
+        params_arr = jnp.array(row[_DUMMY_P_ADQ.PARAM_NAMES_FLAT].values, dtype=jnp.float64)
 
         mags_arr = jnp.array(row[[c for c in mags_list if "err" not in c.lower()]].values, dtype=jnp.float64)
         magerrs_arr = jnp.array(row[[c for c in mags_list if "err" in c.lower()]].values, dtype=jnp.float64)
