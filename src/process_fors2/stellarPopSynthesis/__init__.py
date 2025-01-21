@@ -13,27 +13,19 @@
 # from .met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
 from .dsps_params import SSPParametersFit, paramslist_to_dict
 from .fit_filters import FilterInfo
-from .fit_loop import (
-    filter_tags,
-    fit_bootstrap,
-    fit_loop,
-    has_redshift,
-    make_bootstrap_plot,
-    make_fit_plots,
-    prepare_bootstrap_dict,
-    prepare_data_dict,
-)
-from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
 from .fit_vmap import (
     calc_eqw,
     filter_tags_df,
     fit_treemap,
     fit_vmap,
+    has_redshift,
     istuple,
     lik_colr,
     lik_mag,
     lik_mag_rew,
     lik_rew,
+    load_ssp,
+    make_vmapfit_plots,
     mean_colors,
     mean_mags,
     mean_sfr,
@@ -54,43 +46,42 @@ from .fit_vmap import (
     vmap_mean_spectrum,
     vmapFitsToHDF5,
 )
-from .fitter_dsps import load_ssp, mean_lines
 from .write_fsps_data_to_disk import write_fsps_data
+
+# from .fit_loop import (
+#    filter_tags,
+#    fit_bootstrap,
+#    fit_loop,
+#    make_bootstrap_plot,
+#    make_fit_plots,
+#    prepare_bootstrap_dict,
+#    prepare_data_dict,
+# )
+# from .fit_utils import plot_bootstrap_ssp_spectrophotometry, plot_fit_ssp_spectrophotometry, plot_fit_ssp_spectroscopy, plot_input_spectrophotometry, plot_SFH, plot_SFH_bootstrap
+# from .fitter_dsps import mean_lines
+
 
 __all__ = [
     "FilterInfo",
     "paramslist_to_dict",
     "SSPParametersFit",
-    "plot_SFH",
-    "plot_SFH_bootstrap",
     "lik_mag",
     "ssp_spectrum_fromparam",
     "mean_mags",
     "mean_colors",
     "mean_sfr",
     "mean_spectrum",
-    "mean_lines",
     "calc_eqw",
     "lik_colr",
     "lik_rew",
     "lik_mag_rew",
     "load_ssp",
-    "plot_fit_ssp_spectroscopy",
-    "plot_fit_ssp_spectrophotometry",
-    "plot_bootstrap_ssp_spectrophotometry",
-    "plot_input_spectrophotometry",
     "fit_vmap",
     "fit_treemap",
-    "filter_tags",
     "filter_tags_df",
     "has_redshift",
     "prepare_data_arr",
-    "prepare_data_dict",
-    "prepare_bootstrap_dict",
-    "fit_loop",
-    "fit_bootstrap",
-    "make_fit_plots",
-    "make_bootstrap_plot",
+    "make_vmapfit_plots",
     "readVmapFitsFromHDF5",
     "red_chi2",
     "vmap_calc_eqw",

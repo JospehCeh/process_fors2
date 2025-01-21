@@ -13,16 +13,19 @@
 #
 # Most functions are inside the package. This code is a synthetic rewrite of the `fit_loop.py` module.
 
+import copy
 import os
 from functools import partial
 
+import jax
 import jaxopt
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from diffmah.defaults import DiffmahParams
 from diffstar import calc_sfh_singlegal  # sfh_singlegal
 from diffstar.defaults import DiffstarUParams  # , DEFAULT_Q_PARAMS
-from dsps import calc_obs_mag, calc_rest_mag
+from dsps import calc_obs_mag, calc_rest_mag, load_ssp_templates
 from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z, age_at_z0
 from dsps.dust.att_curves import _frac_transmission_from_k_lambda, sbl18_k_lambda
 from interpax import interp1d
@@ -30,6 +33,8 @@ from jax import jit, vmap
 from jax import numpy as jnp
 from jax.scipy.optimize import minimize
 from jax.tree_util import tree_map
+from matplotlib.backends.backend_pdf import PdfPages
+from tqdm import tqdm
 
 from process_fors2.analysis import bpt_classif
 from process_fors2.stellarPopSynthesis import SSPParametersFit
@@ -43,6 +48,15 @@ except ImportError:
     except ImportError:
         from jax.numpy import trapz
 
+jax.config.update("jax_enable_x64", True)
+
+plt.style.use("default")
+plt.rcParams["figure.figsize"] = (9, 5)
+plt.rcParams["axes.labelsize"] = "x-large"
+plt.rcParams["axes.titlesize"] = "x-large"
+plt.rcParams["xtick.labelsize"] = "x-large"
+plt.rcParams["ytick.labelsize"] = "x-large"
+plt.rcParams["legend.fontsize"] = 12
 
 _DUMMY_P_ADQ = SSPParametersFit()
 PARS_DF = pd.DataFrame(index=_DUMMY_P_ADQ.PARAM_NAMES_FLAT, columns=["Init", "Min", "Max"])
@@ -57,6 +71,24 @@ TODAY_GYR = age_at_z0(*DEFAULT_COSMOLOGY)  # 13.8
 T_ARR = jnp.linspace(0.1, TODAY_GYR, 100)
 
 
+def load_ssp(ssp_file=None):
+    """load_ssp _summary_
+
+    :param ssp_file: _description_, defaults to None
+    :type ssp_file: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    if ssp_file == "" or ssp_file is None or "default" in ssp_file.lower():
+        from process_fors2.fetchData import DEFAULTS_DICT
+
+        fullfilename_ssp_data = DEFAULTS_DICT["DSPS HDF5"]
+    else:
+        fullfilename_ssp_data = os.path.abspath(ssp_file)
+    ssp_data = load_ssp_templates(fn=fullfilename_ssp_data)
+    return ssp_data
+
+
 def istuple(tree):
     """istuple _summary_
 
@@ -66,6 +98,24 @@ def istuple(tree):
     :rtype: _type_
     """
     return isinstance(tree, tuple)
+
+
+def has_redshift(dic):
+    """
+    Utility to detect a leaf in a dictionary (tree) based on the assumption that a leaf is a dictionary that contains individual information linked to a spectrum, such as the redshift of the galaxy.
+
+    Parameters
+    ----------
+    dic : dictionary
+        Dictionary with data. Within the context of this function's use, this is an output of the catering of data to fit on DSPS.
+        This function is applied to a global dictionary (tree) and its sub-dictionaries (leaves - as identified by this function).
+
+    Returns
+    -------
+    bool
+        `True` if `'redshift'` is in `dic.keys()` - making it a leaf - `False` otherwise.
+    """
+    return "redshift" in list(dic.keys())
 
 
 def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
@@ -689,8 +739,6 @@ def fit_vmap(
     :return: The properties of fitted galaxies in a dataframe, the array of SPS parameters and the boundaries of the selected slice of the set of galaxies.
     :rtype: tuple of (DataFrame, array, int, int)
     """
-    from process_fors2.stellarPopSynthesis import load_ssp
-
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
@@ -778,8 +826,6 @@ def fit_treemap(
     :return: _description_
     :rtype: _type_
     """
-    from process_fors2.stellarPopSynthesis import load_ssp
-
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
@@ -900,6 +946,33 @@ def readVmapFitsFromHDF5(dspsFitsH5, group="fit_dsps"):
     return sps_params_dict
 
 
+def func_strip_name(x):
+    """
+    Strip string of filters name for shorter name plotting
+    :param x: name
+    :type x: string
+    """
+    return x.split("_")[-1]
+
+
+def plot_figs_to_PDF(pdf_file, fig_list):
+    """
+    Gather figures in a PDF file.
+
+    Parameters
+    ----------
+    pdf_file : str or path
+        Path to the PDF file where to store figures.
+    fig_list : list
+        List of matplotlib figures to print in PDF file.
+    """
+    with PdfPages(pdf_file) as pdf:
+        for fig in fig_list:
+            pdf.savefig(fig)
+            plt.close()
+    return None
+
+
 def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
     """make_vmapfit_plots _summary_
 
@@ -914,15 +987,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
     :param source: _description_, defaults to "FORS2"
     :type source: str, optional
     """
-    import copy
-
-    import matplotlib.pyplot as plt
-    from tqdm import tqdm
-
     from process_fors2.analysis import convert_flux_torestframe, get_fnu, get_gelmod
-
-    from .fit_loop import plot_figs_to_PDF
-    from .fit_utils import func_strip_name
 
     gelatoh5 = os.path.abspath(gelato_h5)
 

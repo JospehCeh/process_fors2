@@ -30,6 +30,7 @@ from interpax import interp1d
 from jax import vmap
 
 from .fit_filters import FilterInfo
+from .fit_vmap import func_strip_name
 from .fitter_dsps import mean_mags, mean_sfr, ssp_spectrum_fromparam
 
 jax.config.update("jax_enable_x64", True)
@@ -51,15 +52,6 @@ for index in index_selected_filters:
     list_name_f_sel.append(ps.filters_namelist[index])
 list_wlmean_f_sel = jnp.array(list_wlmean_f_sel)
 list_name_f_sel = np.array(list_name_f_sel)
-
-
-def func_strip_name(x):
-    """
-    Strip string of filters name for shorter name plotting
-    :param x: name
-    :type x: string
-    """
-    return x.split("_")[-1]
 
 
 def calc_ratio(wl, spec, w_blue=(3750.0, 3950.0), w_red=(4050.0, 4250)):
