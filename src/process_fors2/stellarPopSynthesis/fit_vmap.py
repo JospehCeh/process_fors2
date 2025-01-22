@@ -139,6 +139,9 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
 
     mags_list = [col for col in list(attrs_df.columns) if "mag" in col.lower() and "image" not in col.lower()]
 
+    if "fors2" in source.lower():
+        mags_list = [c for c in mags_list if "Rmag" not in c]
+
     columns = (
         [
             "num",
@@ -158,9 +161,6 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
 
     if "gogreen" in source.lower():
         columns = ["cluster", "specid"] + columns
-
-    if "fors2" in source.lower():
-        columns = [c for c in columns if "Rmag" not in c]
 
     sel_df = attrs_df.loc[selected_tags, columns]
 
