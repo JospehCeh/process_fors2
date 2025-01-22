@@ -765,7 +765,7 @@ def fit_vmap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 320001.0, 1.0)
+    wls_interp = jnp.arange(100.0, 100010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -852,7 +852,7 @@ def fit_treemap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 320001.0, 1.0)
+    wls_interp = jnp.arange(100.0, 100010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
