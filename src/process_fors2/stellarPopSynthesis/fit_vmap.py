@@ -159,6 +159,9 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     if "gogreen" in source.lower():
         columns = ["cluster", "specid"] + columns
 
+    if "fors2" in source.lower():
+        columns = [c for c in columns if "Rmag" not in c]
+
     sel_df = attrs_df.loc[selected_tags, columns]
 
     mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c.lower()]])
