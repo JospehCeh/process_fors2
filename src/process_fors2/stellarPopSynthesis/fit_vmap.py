@@ -161,11 +161,11 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
 
     sel_df = attrs_df.loc[selected_tags, columns]
 
-    mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c]])
-    magerrs_arr = jnp.array(sel_df[[c for c in mags_list if "err" in c]])
+    mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c.lower()]])
+    magerrs_arr = jnp.array(sel_df[[c for c in mags_list if "err" in c.lower()]])
 
-    rews_arr = jnp.array(sel_df[[c for c in rews_list if "err" not in c]])
-    rewerrs_arr = jnp.array(sel_df[[c for c in rews_list if "err" in c]])
+    rews_arr = jnp.array(sel_df[[c for c in rews_list if "err" not in c.lower()]])
+    rewerrs_arr = jnp.array(sel_df[[c for c in rews_list if "err" in c.lower()]])
 
     if "fors2" in source.lower():
         from process_fors2.stellarPopSynthesis import FilterInfo

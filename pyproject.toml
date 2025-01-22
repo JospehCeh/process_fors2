@@ -39,7 +39,8 @@ dependencies = [
     "arviz",
     "jax_cosmo",
     "tables",
-    "astro-datalab"
+    "astro-datalab",
+    "sparclclient"
 ]
 
 [project.urls]
