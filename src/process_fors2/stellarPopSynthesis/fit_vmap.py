@@ -450,14 +450,15 @@ def red_chi2(ref_arr, obs_arr, sig_arr):
     :return: _description_
     :rtype: _type_
     """
-    non_nan_obs = jnp.where(jnp.logical_and(jnp.isfinite(sig_arr), jnp.logical_and(jnp.isfinite(ref_arr), jnp.isfinite(obs_arr))), obs_arr, 0.0)
+    _cond = jnp.logical_and(jnp.isfinite(sig_arr), jnp.logical_and(jnp.isfinite(ref_arr), jnp.isfinite(obs_arr)))
+    non_nan_obs = jnp.where(_cond, obs_arr, 0.0)
 
-    non_nan_sig = jnp.where(jnp.logical_and(jnp.isfinite(sig_arr), jnp.logical_and(jnp.isfinite(ref_arr), jnp.isfinite(obs_arr))), sig_arr, 1.0)
+    non_nan_sig = jnp.where(_cond, sig_arr, 1.0)
 
-    non_nan_ref = jnp.where(jnp.logical_and(jnp.isfinite(sig_arr), jnp.logical_and(jnp.isfinite(ref_arr), jnp.isfinite(obs_arr))), ref_arr, 0.0)
+    non_nan_ref = jnp.where(_cond, ref_arr, 0.0)
 
     chi2s = chi_term(non_nan_ref, non_nan_obs, non_nan_sig)
-    no_nan = jnp.where(jnp.logical_and(jnp.isfinite(sig_arr), jnp.logical_and(jnp.isfinite(ref_arr), jnp.isfinite(obs_arr))), 1, 0)
+    no_nan = jnp.where(_cond, 1, 0)
     _count = jnp.sum(no_nan)
     return jnp.where(_count > 0, jnp.nansum(chi2s) / _count, 1.0e15)
 
@@ -765,8 +766,8 @@ def fit_vmap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 100010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
-    wls_rews = jnp.arange(1000.0, 10000, 0.1)
+    wls_interp = jnp.arange(100.0, 30001.0, 1.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
+    wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
     zs = jnp.array(sel_df["redshift"])
@@ -852,7 +853,7 @@ def fit_treemap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 100010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
+    wls_interp = jnp.arange(100.0, 30001.0, 1.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -863,7 +864,7 @@ def fit_treemap(
     if "mag" in fit_type.lower() and "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        lbfgsb_magrews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=1000)
+        lbfgsb_magrews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=10000)
 
         # @jit
         def solve(arg_tupl):
@@ -876,7 +877,7 @@ def fit_treemap(
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=1000)
+        lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=10000)
 
         # @jit
         def solve(arg_tupl):
@@ -889,7 +890,7 @@ def fit_treemap(
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
-        lbfgsb_mags = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=1000)
+        lbfgsb_mags = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=10000)
 
         # @jit
         def solve(arg_tupl):
