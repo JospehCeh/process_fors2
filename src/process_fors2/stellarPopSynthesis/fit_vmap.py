@@ -976,7 +976,7 @@ def plot_figs_to_PDF(pdf_file, fig_list):
     return None
 
 
-def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
+def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", outpdf=None):
     """make_vmapfit_plots _summary_
 
     :param sel_df: _description_
@@ -989,6 +989,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
     :type ssp_data: _type_
     :param source: _description_, defaults to "FORS2"
     :type source: str, optional
+    :param outpdf: Name or path to the PDF output file, defaults to None
+    :type oudf: str or path-like, optional
     """
     from process_fors2.analysis import convert_flux_torestframe, get_fnu, get_gelmod
 
@@ -1087,8 +1089,9 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
 
         # plot photometric data
         label = "Catalog\nphotometry"
-        l3 = ax_phot.errorbar(list_wlmean_f_sel, mags_arr, yerr=magerrs_arr, marker="o", color="black", ecolor="black", markersize=9, lw=2, label=label)
-        l4 = ax_phot.scatter(list_wlmean_f_sel, mags_predictions, marker="s", c="cyan", s=81, lw=2, label="Modeled\nphotometry")
+        valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=9, label=label)
+        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], marker="s", c="cyan", label="Modeled\nphotometry")
 
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
@@ -1097,17 +1100,17 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
         ylim_max = ymax * 3.0
         ylim_min = ymax / 3e4
 
-        filter_tags = [func_strip_name(n) for n in list_name_f_sel]
+        filter_tags = [func_strip_name(n) for n in list_name_f_sel[valid_phot]]
         for idf, ftag in enumerate(filter_tags):
-            ax_spec.text(list_wlmean_f_sel[idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
-            ax_spec.axvline(list_wlmean_f_sel[idf], linestyle=":")
+            ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+            ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
 
         ax_spec.set_xlabel("$\\lambda\\ [\\AA]$")
         ax_spec.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
         ax_phot.set_ylabel("$m_{AB}$")
         # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
 
-        ax_spec.set_xlim(1.5e3, 5e4)
+        ax_spec.set_xlim(jnp.min(list_wlmean_f_sel[valid_phot]) * 0.9, jnp.max(list_wlmean_f_sel[valid_phot]) * 1.1)
         ax_spec.set_ylim(ylim_min, ylim_max)
         ax_phot.set_ylim(29, 18)
 
@@ -1129,32 +1132,33 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
         mod_rews = vmap_calc_eqw(srwls, surspec, li_wls)
         ax_rews = ax_rew.twinx()
 
+        valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
+
         label = "Restframe\nEq. Widths"
-        lrg = ax_rews.errorbar(li_wls, rews_arr, yerr=rewerrs_arr, fmt=".", color="black", ecolor="black", markersize=9, label=label)
-        lrd = ax_rews.scatter(li_wls, mod_rews, marker="s", c="cyan", label="Modeled REWs")
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=9, label=label)
+        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], marker="s", c="cyan", label="Modeled REWs")
 
         ymax = jnp.nanmax(Yspec_data)
         ymin = jnp.nanmin(Yspec_data)
         ylim_max = ymax * 3
         ylim_min = ymin / 3
 
-        min_rew = jnp.nanmin(rews_arr) - 3
-        max_rew = jnp.nanmax(rews_arr) + 3
+        min_rew = jnp.nanmin(rews_arr[valid_rew]) - 3
+        max_rew = jnp.nanmax(rews_arr[valid_rew]) + 3
 
-        for ide, etag in enumerate(li_names):
-            if jnp.isfinite(rews_arr[ide] + rewerrs_arr[ide]):
-                _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
-                ax_rews.text(
-                    li_wls[ide],
-                    min_rew + (1 - ide % 2) * 0.75 * (max_rew - min_rew),
-                    _lnam,
-                    fontsize=8,
-                    fontweight="bold",
-                    horizontalalignment="right",
-                    verticalalignment="bottom",
-                    rotation="vertical",
-                )
-                ax_rews.axvline(li_wls[ide], linestyle=":")
+        for ide, etag in enumerate(li_names[valid_rew]):
+            _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
+            ax_rews.text(
+                li_wls[valid_rew][ide],
+                min_rew + (1 - ide % 2) * 0.75 * (max_rew - min_rew),
+                _lnam,
+                fontsize=8,
+                fontweight="bold",
+                horizontalalignment="right",
+                verticalalignment="bottom",
+                rotation="vertical",
+            )
+            ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
 
         ax_rew.set_xlabel("$\\lambda\\ [\\AA]$")
         ax_rew.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
@@ -1172,7 +1176,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2"):
         plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         list_of_figs.append(copy.deepcopy(f))
-    pdfoutputfilename = "dsps_and_gelato_plots_valid_fits_v2.pdf"
+    pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join(os.path.splitext(outpdf)[0], "pdf"))
     _ = plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
 
 
