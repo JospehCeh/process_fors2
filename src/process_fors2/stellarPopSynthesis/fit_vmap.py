@@ -1100,7 +1100,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ylim_max = ymax * 3.0
         ylim_min = ymax / 3e4
 
-        filter_tags = [func_strip_name(n) for n in list_name_f_sel[valid_phot]]
+        filter_tags = [func_strip_name(n) for n, b in zip(list_name_f_sel, valid_phot, strict=True) if b]
         for idf, ftag in enumerate(filter_tags):
             ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
             ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
