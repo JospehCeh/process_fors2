@@ -233,11 +233,11 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FOR
     Object
         Return the merged outputs of DSPS and GELATO + classification info. As a dictionary if `return_dict` is `True`, otherwise as a Pandas DataFrame.
     """
-    from process_fors2.fetchData import readH5FileAttributes
+    from process_fors2.fetchData import readH5FileAttributes, rename_f2_photom
 
     gelatout = readH5FileAttributes(gelatoh5)
     if "fors2" in source.lower():
-        xmatchout = readH5FileAttributes(xmatchh5)
+        xmatchout = rename_f2_photom(readH5FileAttributes(xmatchh5))
     else:
         xmatchout = pd.read_hdf(xmatchh5)
         xmatchout = xmatchout.sort_values(by="num", ascending=True)
@@ -247,8 +247,11 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FOR
         xmatchout.reset_index(drop=True, inplace=True)
     res_table = xmatchout.merge(right=gelatout, how="outer", on=["name", "num"])
     if "fors2" in source.lower():
-        res_table["u-g"] = res_table["MAG_GAAP_u"] - res_table["MAG_GAAP_g"]
-        res_table["r-i"] = res_table["MAG_GAAP_r"] - res_table["MAG_GAAP_i"]
+        res_table["u-g"] = res_table["mag_sdss_u0"] - res_table["mag_sdss_g0"]
+        res_table["r-i"] = res_table["mag_sdss_r0"] - res_table["mag_sdss_i0"]
+    elif "gogreen" in source.lower():
+        res_table["u-g"] = res_table["mag_decam_u"] - res_table["mag_hsc_g"]
+        res_table["r-i"] = res_table["mag_hsc_r"] - res_table["mag_hsc_i"]
 
     # _sel_oiii = np.logical_and(res_table["AGN_[OIII]_5008.24_REW"] > 0., res_table["Balmer_HI_4862.68_REW"] > 0.)
     # _sel_nii = np.logical_and(res_table["AGN_[NII]_6585.27_REW"] > 0., res_table["Balmer_HI_6564.61_REW"] > 0.)

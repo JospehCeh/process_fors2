@@ -385,6 +385,45 @@ def format_gogreen_data(gg_df_in):
     return gg_df
 
 
+def rename_f2_photom(f2_df_in):
+    """rename_f2_photom Transforms the photometry data names for use with DSPS.
+
+    :param gg_df_in: FORS2 x (GALEX+KiDS) catalogue data as built with this package.
+    :type gg_df_in: pandas DataFrame
+    :return: Formatted data
+    :rtype: pandas Dataframe
+    """
+    mag_corresp_dict = {
+        "fuv_mag": "mag_galex_FUV",
+        "nuv_mag": "mag_galex_NUV",
+        "MAG_GAAP_u": "mag_sdss_u0",
+        "MAG_GAAP_g": "mag_sdss_g0",
+        "MAG_GAAP_r": "mag_sdss_r0",
+        "MAG_GAAP_i": "mag_sdss_i0",
+        "MAG_GAAP_Z": "mag_vista_vircam_Z",
+        "MAG_GAAP_Y": "mag_vista_vircam_Y",
+        "MAG_GAAP_J": "mag_vista_vircam_J",
+        "MAG_GAAP_H": "mag_vista_vircam_H",
+        "MAG_GAAP_Ks": "mag_vista_vircam_Ks",
+    }
+    magerr_corresp_dict = {
+        "fuv_magerr": "magerr_galex_FUV",
+        "nuv_magerr": "magerr_galex_NUV",
+        "MAGERR_GAAP_u": "magerr_sdss_u0",
+        "MAGERR_GAAP_g": "magerr_sdss_g0",
+        "MAGERR_GAAP_r": "magerr_sdss_r0",
+        "MAGERR_GAAP_i": "magerr_sdss_i0",
+        "MAGERR_GAAP_Z": "magerr_vista_vircam_Z",
+        "MAGERR_GAAP_Y": "magerr_vista_vircam_Y",
+        "MAGERR_GAAP_J": "magerr_vista_vircam_J",
+        "MAGERR_GAAP_H": "magerr_vista_vircam_H",
+        "MAGERR_GAAP_Ks": "magerr_vista_vircam_Ks",
+    }
+    f2_df = f2_df_in.rename(columns=mag_corresp_dict, inplace=False)
+    f2_df.rename(columns=magerr_corresp_dict, inplace=True)
+    return f2_df
+
+
 def load_filters_from_ggdf(catalogue_df, wls=None):
     """load_filters_from_ggdf _summary_
 
@@ -400,6 +439,30 @@ def load_filters_from_ggdf(catalogue_df, wls=None):
     from sedpy import observate
 
     mags_cols = [c for c in catalogue_df.columns if "mag" in c.lower() and "err" not in c.lower() and "image" not in c.lower()]
+    spy_filt_names = ["_".join(m.split("_")[1:]) for m in mags_cols]
+    spy_filts = observate.load_filters(spy_filt_names)
+    if wls is None:
+        wls = jnp.arange(100.0, 1.0e5, 10)
+    transm_list = [interp1d(wls, f.wavelength, f.transmission, method="linear", extrap=0.0) for f in spy_filts]
+    wlmean_list = [f.wave_mean for f in spy_filts]
+    return wls, jnp.array(transm_list), jnp.array(wlmean_list)
+
+
+def load_filters_from_f2df(catalogue_df, wls=None):
+    """load_filters_from_f2df _summary_
+
+    :param catalogue_df: _description_
+    :type catalogue_df: _type_
+    :param wls: _description_, defaults to None
+    :type wls: _type_, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    from interpax import interp1d
+    from jax import numpy as jnp
+    from sedpy import observate
+
+    mags_cols = [c for c in catalogue_df.columns if "mag" in c.lower() and "err" not in c.lower() and "image" not in c.lower() and c != "Rmag"]
     spy_filt_names = ["_".join(m.split("_")[1:]) for m in mags_cols]
     spy_filts = observate.load_filters(spy_filt_names)
     if wls is None:

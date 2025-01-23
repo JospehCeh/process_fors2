@@ -137,7 +137,7 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     li_names = np.unique([li.split("_REW")[0] for li in rews_list])
     li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
 
-    mags_list = [col for col in list(attrs_df.columns) if "mag" in col.lower() and "image" not in col.lower()]
+    mags_list = sorted([col for col in list(attrs_df.columns) if "mag" in col.lower() and "image" not in col.lower()])
 
     if "fors2" in source.lower():
         mags_list = [c for c in mags_list if "Rmag" not in c]
@@ -171,12 +171,9 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     rewerrs_arr = jnp.array(sel_df[[c for c in rews_list if "err" in c.lower()]])
 
     if "fors2" in source.lower():
-        from process_fors2.stellarPopSynthesis import FilterInfo
+        from process_fors2.fetchData import load_filters_from_f2df
 
-        ps = FilterInfo()
-        wls, trans = ps.get_2lists()
-        transm_arr = jnp.array([interp1d(wls_arr, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
-        list_wlmean_f_sel = jnp.array([f.wave_mean for f in ps.filters_transmissionlist])
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_f2df(sel_df, wls_arr)
     elif "gogreen" in source.lower():
         from process_fors2.fetchData import load_filters_from_ggdf
 
@@ -1003,18 +1000,14 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
     li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
 
     if "fors2" in source.lower():
-        from process_fors2.stellarPopSynthesis import FilterInfo
+        from process_fors2.fetchData import load_filters_from_f2df
 
-        ps = FilterInfo()
-        wls, trans = ps.get_2lists()
-        transm_arr = jnp.array([interp1d(wls_arr, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
-        list_wlmean_f_sel = jnp.array([f.wave_mean for f in ps.filters_transmissionlist])
-        list_name_f_sel = ps.filters_namelist
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_f2df(sel_df, wls_arr)
     else:
         from process_fors2.fetchData import load_filters_from_ggdf
 
         _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
-        list_name_f_sel = ["_".join(m.split("_")[1:]) for m in mags_list if "err" not in m.lower()]
+    list_name_f_sel = ["_".join(m.split("_")[1:]) for m in mags_list if "err" not in m.lower()]
 
     list_of_figs = []
 
