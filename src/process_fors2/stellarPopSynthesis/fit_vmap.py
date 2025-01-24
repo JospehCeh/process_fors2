@@ -683,19 +683,19 @@ def filter_tags_df(attrs_df, remove_visible=False, remove_galex=False, remove_ga
     for tag, fors2_attr in attrs_df.iterrows():
         bool_viz = not (remove_visible) or (
             remove_visible
-            and np.isfinite(fors2_attr["MAG_GAAP_u"])
-            and np.isfinite(fors2_attr["MAG_GAAP_g"])
-            and np.isfinite(fors2_attr["MAG_GAAP_r"])
-            and np.isfinite(fors2_attr["MAG_GAAP_i"])
-            and np.isfinite(fors2_attr["MAGERR_GAAP_u"])
-            and np.isfinite(fors2_attr["MAGERR_GAAP_g"])
-            and np.isfinite(fors2_attr["MAGERR_GAAP_r"])
-            and np.isfinite(fors2_attr["MAGERR_GAAP_i"])
+            and np.isfinite(fors2_attr["mag_sdss_u0"])
+            and np.isfinite(fors2_attr["mag_sdss_g0"])
+            and np.isfinite(fors2_attr["mag_sdss_r0"])
+            and np.isfinite(fors2_attr["mag_sdss_i0"])
+            and np.isfinite(fors2_attr["magerr_sdss_u0"])
+            and np.isfinite(fors2_attr["magerr_sdss_g0"])
+            and np.isfinite(fors2_attr["magerr_sdss_r0"])
+            and np.isfinite(fors2_attr["magerr_sdss_i0"])
         )
 
-        bool_fuv = not (remove_galex_fuv) or (remove_galex_fuv and np.isfinite(fors2_attr["fuv_mag"]) and np.isfinite(fors2_attr["fuv_magerr"]))
+        bool_fuv = not (remove_galex_fuv) or (remove_galex_fuv and np.isfinite(fors2_attr["mag_galex_FUV"]) and np.isfinite(fors2_attr["magerr_galex_FUV"]))
 
-        bool_nuv = not (remove_galex) or (remove_galex and np.isfinite(fors2_attr["nuv_mag"]) and np.isfinite(fors2_attr["nuv_magerr"]))
+        bool_nuv = not (remove_galex) or (remove_galex and np.isfinite(fors2_attr["mag_galex_NUV"]) and np.isfinite(fors2_attr["magerr_galex_NUV"]))
 
         if bool_viz and bool_fuv and bool_nuv:
             filtered_tags.append(tag)
@@ -763,7 +763,7 @@ def fit_vmap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 30001.0, 1.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
+    wls_interp = jnp.arange(100.0, 30010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -850,7 +850,7 @@ def fit_treemap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 30001.0, 1.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
+    wls_interp = jnp.arange(100.0, 30010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
     wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
@@ -861,7 +861,7 @@ def fit_treemap(
     if "mag" in fit_type.lower() and "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        lbfgsb_magrews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=10000)
+        lbfgsb_magrews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=2000)
 
         # @jit
         def solve(arg_tupl):
@@ -874,7 +874,7 @@ def fit_treemap(
     elif "rew" in fit_type.lower():
         if not quiet:
             print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
-        lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=10000)
+        lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=2000)
 
         # @jit
         def solve(arg_tupl):
@@ -887,7 +887,7 @@ def fit_treemap(
     else:
         if not quiet:
             print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
-        lbfgsb_mags = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=10000)
+        lbfgsb_mags = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=2000)
 
         # @jit
         def solve(arg_tupl):
