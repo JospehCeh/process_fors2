@@ -204,12 +204,12 @@ def GetColumnHfData(hff, list_of_keys, nameval):
     Extracts the values of one attribute for all listed keys.
 
     parameters
-      hff           : descriptor of h5 file
-      list_of_keys  : list of exposures
-      nameval       : name of the attribute
+        hff           : descriptor of h5 file
+        list_of_keys  : list of exposures
+        nameval       : name of the attribute
 
     return
-       The array of values in the order of appearance.
+        The array of values in the order of appearance.
     """
     all_data = []
     for key in list_of_keys:
@@ -719,9 +719,9 @@ def tableForGelato(wl, fl, std, mask=None):
         mask = np.zeros_like(fl)
     nomask = np.where(mask > 0, False, True)
     sel = np.logical_and(nomask, np.isfinite(fl))
-    sel = np.logical_and(sel, fl > 0.0)
     sel = np.logical_and(sel, np.isfinite(std))
     sel = np.logical_and(sel, std > 0.0)
+    sel = np.logical_and(sel, fl + std >= 0.0)
 
     # Transform data
     wl_gel = np.log10(wl[sel])
@@ -877,9 +877,9 @@ def gelatoToH5(outfilename, gelato_run_dir, source="FORS2"):
         res_df["FITS"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
         # res_df["name"] = np.array([n.split('_z')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
         specs = np.array([n.split("_z")[0] for n in res_df["FITS"]])
-        if "fors2" in source.lower():
+        if "fors2" in source.lower():  # noqa: SIM108
             nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
-        elif "gogreen" in source.lower():
+        else:  # elif "gogreen" in source.lower():
             nums = np.array([int(s.split("_")[-1]) for s in specs], dtype=int)
         res_df["num"] = nums
         res_df.drop(columns="Name", inplace=True)

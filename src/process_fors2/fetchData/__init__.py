@@ -31,6 +31,8 @@ from .manipulate import (
 )
 from .queries import (
     _getTargetCoordinates,
+    desi_to_gelato,
+    get_desi_edr_table,
     get_gogreen_merged_table,
     getFors2FitsTable,
     gogreen_to_gelato,
@@ -84,4 +86,6 @@ __all__ = [
     "load_filters_from_ggdf",
     "load_filters_from_f2df",
     "rename_f2_photom",
+    "get_desi_edr_table",
+    "desi_to_gelato",
 ]

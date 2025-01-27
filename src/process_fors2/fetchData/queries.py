@@ -9,6 +9,7 @@ Created on Mon Feb 26 17:17:01 2024
 
 import json
 import os
+from getpass import getpass
 from io import BytesIO
 
 import astropy.coordinates as coord
@@ -20,8 +21,10 @@ from astropy.table import Table
 from astroquery.mast import Catalogs
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
+from dl import authClient as ac
 from dl import queryClient as qc
 from dl import storeClient as sc
+from sparcl.client import SparclClient
 from tqdm import tqdm
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +54,8 @@ KIDS_TABLE = "queryESO_KiDS_RXJ0054.0-2823_rad15arcmin_SG1.fits"
 KIDSTBL_PATH = os.path.join(FORS2DATALOC, "catalogs", KIDS_TABLE)
 
 _defaults = {"Target": TARGET, "Simbad name": OBJ_SIMBAD, "Vizier catalog": CATALOG_VIZIER, "FITS location": TABLE_PATH, "GALEX FITS": GLXTBL_PATH, "KiDS FITS": KIDSTBL_PATH, "Box size": BOX_SIZE}
+
+F0AB = 3631 * (1 * u.Jy)
 
 
 def json_to_inputs(conf_json):
@@ -190,7 +195,6 @@ def get_gogreen_merged_table(outfile):
     :return: The absolute path the the written file, if successful, else None.
     :rtype: str or path-like or None
     """
-    outfile = os.path.abspath(outfile)
     cluster_table = qc.query("select * from gogreen_dr1.clusters", fmt="pandas")
     phot_table = qc.query("select * from gogreen_dr1.photo", fmt="pandas")
     redshift_table = qc.query("select * from gogreen_dr1.redshift", fmt="pandas")
@@ -207,6 +211,8 @@ def get_gogreen_merged_table(outfile):
     sel = (matched_table["redshift_quality"] == 4) * (matched_table["objclass"] == 1) * (matched_table["spec_flag"] < 1) * (matched_table["star"] != 1) * (np.isfinite(matched_table["zspec"]))
     sel_table = matched_table[sel]
     fmt_df = format_gogreen_data(sel_table)
+
+    outfile = os.path.abspath(outfile)
     fmt_df.to_hdf(outfile, key="gogreen")
     if os.path.isfile(outfile):
         print(f"File successfully written to {outfile}.")
@@ -294,7 +300,7 @@ def gogreen_to_gelato(gg_infile, output_dir):
     """
     from process_fors2.fetchData import tableForGelato
 
-    gg_df = pd.read_hdf(gg_infile, key="gogreen")
+    gg_df = pd.read_hdf(os.path.abspath(gg_infile), key="gogreen")
     all_paths = []
     all_zs = []
     oneddir = "gogreen_dr1://SPECTROSCOPY/OneD/"  # 1-d spectra
@@ -470,3 +476,238 @@ def load_filters_from_f2df(catalogue_df, wls=None):
     transm_list = [interp1d(wls, f.wavelength, f.transmission, method="linear", extrap=0.0) for f in spy_filts]
     wlmean_list = [f.wave_mean for f in spy_filts]
     return wls, jnp.array(transm_list), jnp.array(wlmean_list)
+
+
+## Function to check the bits
+def check_bits_pddf(row, bit):
+    """
+    Function to check the bits corresponding to the main target classes.
+
+    Parameters
+    ----------
+    row : pandas.DataFrame row
+        Row of one DESI target with required sv*desi_target columns
+
+    bit : int
+        Target bit from DESI global variable
+
+    Returns
+    -------
+    res : numpy array
+        Boolean array corresponding to the bit
+    """
+    # Targeting information about the DESI targeting is stored in the different desi_target columns
+    sv1_desi_tgt = row["sv1_desi_target"]
+    sv2_desi_tgt = row["sv2_desi_target"]
+    sv3_desi_tgt = row["sv3_desi_target"]
+
+    val = 2**bit
+    res = (sv1_desi_tgt & val != 0) | (sv2_desi_tgt & val != 0) | (sv3_desi_tgt & val != 0)
+
+    return res
+
+
+## Function to check the bits
+def check_bits(table, bit):
+    """
+    Function to check the bits corresponding to the main target classes.
+
+    Parameters
+    ----------
+    table : astropy table
+        Table of DESI targets with required sv*desi_target columns
+
+    bit : int
+        Target bit from DESI
+
+    Returns
+    -------
+    res : numpy array
+        Boolean array corresponding to the bit
+    """
+    # Targeting information about the DESI targeting is stored in the different desi_target columns
+    sv1_desi_tgt = table["sv1_desi_target"]
+    sv2_desi_tgt = table["sv2_desi_target"]
+    sv3_desi_tgt = table["sv3_desi_target"]
+
+    val = 2**bit
+    res = (sv1_desi_tgt & val != 0) | (sv2_desi_tgt & val != 0) | (sv3_desi_tgt & val != 0)
+
+    return res
+
+
+def get_desi_edr_table(outfile):
+    """get_desi_edr_table Queries DESI data from NOIRLAB Astro Data Lab and saves it to disk as a pandas DataFrame.
+    Cuts are operated in order to limit the number of objects that will be queried as individual spectra.
+
+    :param outfile: HDF5 file name for the output
+    :type outfile: str or path-like
+    :return: The absolute path the the written file, if successful, else None.
+    :rtype: str or path-like or None
+    """
+    _ = ac.login(input("Enter user name: (+ENTER) "), getpass("Enter password: (+ENTER) "))
+    print(ac.whoAmI())
+    query = """
+        SELECT zp.targetid, zp.survey, zp.program, zp.healpix,
+            zp.z, zp.zwarn, zp.coadd_fiberstatus, zp.spectype,
+            zp.mean_fiber_ra, zp.mean_fiber_dec, zp.zcat_nspec,
+            CAST(zp.zcat_primary as int), zp.desi_target,
+            zp.sv1_desi_target, zp.sv2_desi_target, zp.sv3_desi_target,
+            ph.ra,ph.dec, ph.morphtype,
+            ph.flux_g,ph.flux_r, ph.flux_z, ph.flux_ivar_g, ph.flux_ivar_r,ph.flux_ivar_z,
+            ph.flux_w1, ph.flux_w2, ph.flux_w3, ph.flux_w4,
+            ph.flux_ivar_w1, ph.flux_ivar_w2, ph.flux_ivar_w3, ph.flux_ivar_w4
+        FROM desi_edr.zpix AS zp JOIN desi_edr.photometry AS ph ON (zp.targetid = ph.targetid)
+    """
+    zpix = qc.query(sql=query, fmt="table")
+    # Check how many rows have unique TARGETIDs before/after applying the ZCAT_PRIMARY flag
+    print(f"Total N(rows) : {len(zpix)}")
+    print(f"N(rows) with unique TARGETIDs : {len(np.unique(zpix['targetid']))}")
+
+    is_primary = zpix["zcat_primary"] == 1
+
+    print(f"N(rows) with ZCAT_PRIMARY=True : {len(zpix[is_primary])}")
+    ## Selecting only unique objects
+    zpix_cat = zpix[is_primary]
+    df = zpix_cat.to_pandas()
+    cut = (df.flux_g == 0) | (df.flux_r == 0) | (df.flux_z == 0) | (df.flux_w1 == 0) | (df.flux_w2 == 0)
+    df = df.drop(df[cut].index)
+    df = df[df["spectype"] == "GALAXY"]
+    error_factor = 2.5 / np.log(10)
+    # assuming the flux is in maggies (erg/s/cm²/Hz)
+    df["mag_decam_g"] = df["flux_g"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_decam_r"] = df["flux_r"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_decam_z"] = df["flux_z"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    # assuming the flux is in maggies (erg/s/cm²/Hz)
+    df["mag_wise_w1"] = df["flux_w1"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_wise_w2"] = df["flux_w2"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_wise_w3"] = df["flux_w3"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_wise_w4"] = df["flux_w4"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["magerr_decam_g"] = df[["flux_g", "flux_ivar_g"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_decam_r"] = df[["flux_r", "flux_ivar_r"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_decam_z"] = df[["flux_z", "flux_ivar_z"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w1"] = df[["flux_w1", "flux_ivar_w1"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w2"] = df[["flux_w2", "flux_ivar_w2"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w3"] = df[["flux_w3", "flux_ivar_w3"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w4"] = df[["flux_w4", "flux_ivar_w4"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+
+    ## Selecting candidates
+    ## Target bits from DESI:
+    ## 1. LRG: bit 0
+    ## 2. ELG: bit 1
+    ## 3. QSO: bit 2
+    ## 4. BGS: bit 60
+    ## 5. MWS: bit 61
+    ## 6. Secondary Targets: bit 62
+
+    # LRG: Luminous Red Galaxies
+    bit = 0
+    df["LRG"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+
+    # ELG: Emission Line Galaxies
+    bit = 1
+    df["ELG"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+
+    # QSO : Quasars
+    bit = 2
+    df["QSO"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+
+    # BGS: Bright Galaxy Survey
+    bit = 60
+    df["BGS"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+
+    # MWS: Milky Way Survey (all false by constrution
+    bit = 61
+    df["MWS"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+
+    # Secondary Targets
+    bit = 62
+    df["SCND"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+
+    sel = np.logical_and(np.logical_not(df["SCND"]), np.logical_and(np.logical_not(df["QSO"]), np.logical_not(df["MWS"])))
+    df_sel = df[sel]
+    print(f"Nb of retained galaxies : {df_sel.shape[0]}")
+    df_sel.rename(columns={"z": "redshift", "targetid": "specid"}, in_place=True)
+    df_sel["num"] = df_sel["specid"]
+    outfile = os.path.abspath(outfile)
+    df_sel.to_hdf(outfile, key="desi")
+    if os.path.isfile(outfile):
+        print(f"File successfully written to {outfile}.")
+        return outfile
+    else:
+        print("Unable to write DESI data to disk.")
+        return None
+
+
+def desi_to_gelato(desi_infile, output_dir, min_coadd=3):
+    """desi_to_gelato _summary_
+
+    :param desi_infile: _description_
+    :type desi_infile: _type_
+    :param output_dir: _description_
+    :type output_dir: _type_
+    :param min_coadd: _description_, defaults to 3
+    :type min_coadd: int, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    from process_fors2.fetchData import tableForGelato
+
+    df_desi = pd.read_hdf(os.path.abspath(desi_infile), key="desi")
+    all_paths = []
+    all_zs = []
+
+    ## Instantiate SPARCL Client
+    client = SparclClient()
+
+    ## Select GALAXY with nspec > 3
+    # jj = (zpix_cat['zcat_nspec'] > 2) & (zpix_cat['spectype'] == 'GALAXY')
+    # tsel = zpix_cat[jj]
+    selection_cut = df_desi["zcat_nspec"] >= min_coadd  # & (df_desi['spectype'] == 'GALAXY')
+    df_sel = df_desi[selection_cut]
+
+    print(f"Nb of spectra with at least {min_coadd} coadditions : {df_sel.shape[0]}")
+
+    ## Randomly select an object
+    ## You can test any object with ii = 0 to 307
+    inc = ["redshift", "wavelength", "flux", "ivar", "mask", "specprimary", "survey", "program"]  # 'redshift_err', 'spectype', 'targetid', 'coadd_fiberstatus']
+    for ii, row in tqdm(df_sel.iterrows(), total=df_sel.shape[0]):
+        targetid = int(row["specid"])  ## SPARCL accepts only python integers in specid_list
+        ## Retrieve Spectra
+        res = client.retrieve_by_specid(specid_list=[targetid], include=inc, dataset_list=["DESI-EDR"])
+        records = res.records
+
+        ## Select the primary spectrum
+        spec_primary = np.array([rec.specprimary for rec in records])
+        primary_ii = np.nonzero(spec_primary)[0]
+        lam_primary = records[primary_ii].wavelength
+        flam_primary = records[primary_ii].flux
+        std_primary = np.power(records[primary_ii].ivar, -0.5)
+        mask_primary = records[primary_ii].mask
+        t = tableForGelato(lam_primary, flam_primary, std_primary, mask_primary)
+
+        # Write data
+        outdir = os.path.abspath(output_dir)
+        if not os.path.isdir(os.path.join(outdir, "SPECS")):
+            os.makedirs(os.path.join(outdir, "SPECS"))
+
+        redz = records[primary_ii].redshift  # row["z"]
+        catstr = f"{records[primary_ii].survey}_{records[primary_ii].program}"
+        if row["BGS"]:
+            catstr += "BGS"
+        if row["ELG"]:
+            catstr += "_ELG"
+        if row["LRG"]:
+            catstr += "_LRG"
+        fpath = os.path.join(outdir, "SPECS", f"{catstr}_{targetid}_z{redz:.3f}_GEL.fits")
+        t.write(fpath, format="fits", overwrite=True)
+        all_paths.append(fpath)
+        all_zs.append(redz)
+
+    # Create list of objects
+    objlist = Table([all_paths, all_zs], names=["Path", "z"])
+    writepath = os.path.join(outdir, "specs_for_GELATO.fits")
+    objlist.write(writepath, format="fits", overwrite=True)
+    print(f"Done ! List of objects written in {writepath}.")
+
+    return objlist, writepath
