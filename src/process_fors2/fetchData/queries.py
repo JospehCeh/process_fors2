@@ -33,7 +33,7 @@ try:
     FORS2DATALOC = os.environ["FORS2DATALOC"]
 except KeyError:
     try:
-        FORS2DATALOC = input("Please type in the path to FORS2 data, e.g. /home/usr/process_fors2/src/data")
+        FORS2DATALOC = input("Please type in the path to FORS2 data, e.g. /home/usr/process_fors2/src/data : ")
         os.environ["FORS2DATALOC"] = FORS2DATALOC
     except Exception:
         FORS2DATALOC = os.path.join(_script_dir, "..", "data")
@@ -479,7 +479,7 @@ def load_filters_from_f2df(catalogue_df, wls=None):
 
 
 ## Function to check the bits
-def check_bits_pddf(row, bit):
+def check_bits_pddf(row, bit=0):
     """
     Function to check the bits corresponding to the main target classes.
 
@@ -536,7 +536,7 @@ def check_bits(table, bit):
     return res
 
 
-def get_desi_edr_table(outfile):
+def get_desi_edr_table(outfile, min_coadd=3):
     """get_desi_edr_table Queries DESI data from NOIRLAB Astro Data Lab and saves it to disk as a pandas DataFrame.
     Cuts are operated in order to limit the number of objects that will be queried as individual spectra.
 
@@ -545,34 +545,50 @@ def get_desi_edr_table(outfile):
     :return: The absolute path the the written file, if successful, else None.
     :rtype: str or path-like or None
     """
-    _ = ac.login(input("Enter user name: (+ENTER) "), getpass("Enter password: (+ENTER) "))
+    if ac.whoAmI() == "":
+        _ = ac.login(input("Enter NoirLab - AstroDataLab user name: (+ENTER) "), getpass("Enter NoirLab - AstroDataLab password: (+ENTER) "))
     print(ac.whoAmI())
-    query = """
-        SELECT zp.targetid, zp.survey, zp.program, zp.healpix,
-            zp.z, zp.zwarn, zp.coadd_fiberstatus, zp.spectype,
-            zp.mean_fiber_ra, zp.mean_fiber_dec, zp.zcat_nspec,
-            CAST(zp.zcat_primary as int), zp.desi_target,
-            zp.sv1_desi_target, zp.sv2_desi_target, zp.sv3_desi_target,
-            ph.ra,ph.dec, ph.morphtype,
-            ph.flux_g,ph.flux_r, ph.flux_z, ph.flux_ivar_g, ph.flux_ivar_r,ph.flux_ivar_z,
-            ph.flux_w1, ph.flux_w2, ph.flux_w3, ph.flux_w4,
-            ph.flux_ivar_w1, ph.flux_ivar_w2, ph.flux_ivar_w3, ph.flux_ivar_w4
-        FROM desi_edr.zpix AS zp JOIN desi_edr.photometry AS ph ON (zp.targetid = ph.targetid)
+    query = f"""SELECT zp.targetid, zp.survey, zp.program, zp.healpix, zp.z, zp.zwarn, zp.coadd_fiberstatus, zp.spectype, zp.mean_fiber_ra, zp.mean_fiber_dec, zp.zcat_nspec,
+    CAST(zp.zcat_primary as int), zp.desi_target, zp.sv1_desi_target, zp.sv2_desi_target, zp.sv3_desi_target, ph.ra, ph.dec, ph.morphtype, ph.flux_g, ph.flux_r, ph.flux_z, ph.flux_ivar_g,
+    ph.flux_ivar_r, ph.flux_ivar_z, ph.flux_w1, ph.flux_w2, ph.flux_w3, ph.flux_w4, ph.flux_ivar_w1, ph.flux_ivar_w2, ph.flux_ivar_w3, ph.flux_ivar_w4
+    FROM desi_edr.zpix AS zp JOIN desi_edr.photometry AS ph ON (zp.targetid = ph.targetid)
+    WHERE (zp.spectype = 'GALAXY' and zp.zcat_primary = True and zp.zcat_nspec >= {min_coadd})
     """
-    zpix = qc.query(sql=query, fmt="table")
+    # df_zp = qc.query(
+    # "select targetid, survey, program, healpix, z, zwarn, coadd_fiberstatus, spectype, mean_fiber_ra, mean_fiber_dec, zcat_nspec, zcat_primary, desi_target, sv1_desi_target, sv2_desi_target,
+    # sv3_desi_target from desi_edr.zpix", fmt='pandas'
+    # )
+    # df_ph = qc.query(
+    # "select targetid, ra, dec, morphtype, flux_g, flux_r, flux_z, flux_ivar_g, flux_ivar_r, flux_ivar_z, flux_w1, flux_w2, flux_w3, flux_w4, flux_ivar_w1, flux_ivar_w2, flux_ivar_w3,
+    # flux_ivar_w4 from desi_edr.photometry", fmt='pandas'
+    # )
+
+    df = qc.query(sql=query, fmt="pandas")
+    ##print(query)
+    ##jobid = qc.query(sql=query, fmt="table", async_=True)
+    ##while "completed" not in qc.status(jobid).lower():
+    ##    time.sleep(1)
+    # zpix = qc.results(jobid)
+
+    # zpix = df_zp.merge(right=df_ph, how="outer", on=["targetid"])
+
     # Check how many rows have unique TARGETIDs before/after applying the ZCAT_PRIMARY flag
-    print(f"Total N(rows) : {len(zpix)}")
-    print(f"N(rows) with unique TARGETIDs : {len(np.unique(zpix['targetid']))}")
+    # print(f"Total N(rows) : {zpix.shape[0]}")
+    # print(f"N(rows) with unique TARGETIDs : {len(np.unique(zpix['targetid']))}")
 
-    is_primary = zpix["zcat_primary"] == 1
+    # is_primary = zpix["zcat_primary"]==1
+    # print(f"N(rows) with ZCAT_PRIMARY=True : {len(zpix[is_primary])}")
 
-    print(f"N(rows) with ZCAT_PRIMARY=True : {len(zpix[is_primary])}")
+    print(f"N(unique galaxies) with at least {min_coadd} coadded spectra : {df.shape[0]}")
+
     ## Selecting only unique objects
-    zpix_cat = zpix[is_primary]
-    df = zpix_cat.to_pandas()
+    # zpix_cat = zpix[is_primary]
+    # df = zpix_cat.to_pandas()
+    # df = zpix[is_primary]
     cut = (df.flux_g == 0) | (df.flux_r == 0) | (df.flux_z == 0) | (df.flux_w1 == 0) | (df.flux_w2 == 0)
     df = df.drop(df[cut].index)
-    df = df[df["spectype"] == "GALAXY"]
+    # df = df[df["spectype"] == "GALAXY"]
+    df["zcat_primary"] = np.where(df["zcat_primary"] == 1, True, False)
     error_factor = 2.5 / np.log(10)
     # assuming the flux is in maggies (erg/s/cm²/Hz)
     df["mag_decam_g"] = df["flux_g"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
@@ -602,32 +618,32 @@ def get_desi_edr_table(outfile):
 
     # LRG: Luminous Red Galaxies
     bit = 0
-    df["LRG"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+    df["LRG"] = df.apply(check_bits_pddf, axis=1, bit=bit)
 
     # ELG: Emission Line Galaxies
     bit = 1
-    df["ELG"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+    df["ELG"] = df.apply(check_bits_pddf, axis=1, bit=bit)
 
     # QSO : Quasars
     bit = 2
-    df["QSO"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+    df["QSO"] = df.apply(check_bits_pddf, axis=1, bit=bit)
 
     # BGS: Bright Galaxy Survey
     bit = 60
-    df["BGS"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+    df["BGS"] = df.apply(check_bits_pddf, axis=1, bit=bit)
 
     # MWS: Milky Way Survey (all false by constrution
     bit = 61
-    df["MWS"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+    df["MWS"] = df.apply(check_bits_pddf, axis=1, bit=bit)
 
     # Secondary Targets
     bit = 62
-    df["SCND"] = df.apply(check_bits_pddf, axis=1, args=(bit))
+    df["SCND"] = df.apply(check_bits_pddf, axis=1, bit=bit)
 
     sel = np.logical_and(np.logical_not(df["SCND"]), np.logical_and(np.logical_not(df["QSO"]), np.logical_not(df["MWS"])))
     df_sel = df[sel]
     print(f"Nb of retained galaxies : {df_sel.shape[0]}")
-    df_sel.rename(columns={"z": "redshift", "targetid": "specid"}, in_place=True)
+    df_sel.rename(columns={"z": "redshift", "targetid": "specid"}, inplace=True)
     df_sel["num"] = df_sel["specid"]
     outfile = os.path.abspath(outfile)
     df_sel.to_hdf(outfile, key="desi")
@@ -671,7 +687,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3):
     ## Randomly select an object
     ## You can test any object with ii = 0 to 307
     inc = ["redshift", "wavelength", "flux", "ivar", "mask", "specprimary", "survey", "program"]  # 'redshift_err', 'spectype', 'targetid', 'coadd_fiberstatus']
-    for ii, row in tqdm(df_sel.iterrows(), total=df_sel.shape[0]):
+    for _, row in tqdm(df_sel.iterrows(), total=df_sel.shape[0]):
         targetid = int(row["specid"])  ## SPARCL accepts only python integers in specid_list
         ## Retrieve Spectra
         res = client.retrieve_by_specid(specid_list=[targetid], include=inc, dataset_list=["DESI-EDR"])
@@ -679,11 +695,12 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3):
 
         ## Select the primary spectrum
         spec_primary = np.array([rec.specprimary for rec in records])
-        primary_ii = np.nonzero(spec_primary)[0]
-        lam_primary = records[primary_ii].wavelength
-        flam_primary = records[primary_ii].flux
-        std_primary = np.power(records[primary_ii].ivar, -0.5)
-        mask_primary = records[primary_ii].mask
+        primary_ii = np.nonzero(spec_primary)
+        _ii = primary_ii[0][0]
+        lam_primary = records[_ii].wavelength
+        flam_primary = records[_ii].flux
+        std_primary = np.power(records[_ii].ivar, -0.5)
+        mask_primary = records[_ii].mask
         t = tableForGelato(lam_primary, flam_primary, std_primary, mask_primary)
 
         # Write data
@@ -691,10 +708,10 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3):
         if not os.path.isdir(os.path.join(outdir, "SPECS")):
             os.makedirs(os.path.join(outdir, "SPECS"))
 
-        redz = records[primary_ii].redshift  # row["z"]
-        catstr = f"{records[primary_ii].survey}_{records[primary_ii].program}"
+        redz = records[_ii].redshift  # row["z"]
+        catstr = f"{records[_ii].survey}_{records[_ii].program}"
         if row["BGS"]:
-            catstr += "BGS"
+            catstr += "_BGS"
         if row["ELG"]:
             catstr += "_ELG"
         if row["LRG"]:
