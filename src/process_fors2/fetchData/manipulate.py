@@ -889,7 +889,7 @@ def gelatoToH5(outfilename, gelato_run_dir, source="FORS2"):
             except ValueError:
                 pass
         with h5py.File(fileout, "w") as h5out:
-            for i, row in res_df.iterrows():
+            for i, row in tqdm(res_df.iterrows(), total=res_df.shape[0]):
                 specin = row["FITS"]
                 fn, ext = os.path.splitext(specin)
                 specn = fn.split("_z")[0]
