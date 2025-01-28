@@ -162,6 +162,9 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     if "gogreen" in source.lower():
         columns = ["cluster", "specid"] + columns
 
+    if "desi" in source.lower():
+        columns = ["survey", "program", "specid", "morphtype", "LRG", "ELG", "QSO", "BGS", "MWS", "SCND"] + columns
+
     sel_df = attrs_df.loc[selected_tags, columns]
 
     mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c.lower()]])
@@ -174,7 +177,7 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
         from process_fors2.fetchData import load_filters_from_f2df
 
         _, transm_arr, list_wlmean_f_sel = load_filters_from_f2df(sel_df, wls_arr)
-    elif "gogreen" in source.lower():
+    else:  # elif "gogreen" in source.lower(): # the DESI case should be covered by any of these two functions, let's pick GOGREEN.
         from process_fors2.fetchData import load_filters_from_ggdf
 
         _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
@@ -763,8 +766,8 @@ def fit_vmap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 30010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
-    wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
+    wls_interp = jnp.arange(1300.0, 323110.0, 50.0) if "gogreen" in source.lower() else jnp.arange(3400.0, 285610.0, 50.0) if "desi" in source.lower() else jnp.arange(1300.0, 24310.0, 10.0)
+    wls_rews = jnp.arange(1300.0, 8000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
     zs = jnp.array(sel_df["redshift"])
@@ -850,8 +853,8 @@ def fit_treemap(
     if not quiet:
         print(f"Number of galaxies to be fitted : {len(selected_tags)}.")
 
-    wls_interp = jnp.arange(100.0, 30010.0, 10.0) if "fors2" in source.lower() else jnp.arange(100.0, 320010.0, 10.0)
-    wls_rews = jnp.arange(1000.0, 10000.1, 0.1)
+    wls_interp = jnp.arange(1300.0, 323110.0, 50.0) if "gogreen" in source.lower() else jnp.arange(3400.0, 285610.0, 50.0) if "desi" in source.lower() else jnp.arange(1300.0, 24310.0, 10.0)
+    wls_rews = jnp.arange(1300.0, 8000.1, 0.1)
 
     sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr = prepare_data_arr(merged_attrs_df, selected_tags, wls_interp, source=source)
     zs = jnp.array(sel_df["redshift"])
@@ -1003,7 +1006,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         from process_fors2.fetchData import load_filters_from_f2df
 
         _, transm_arr, list_wlmean_f_sel = load_filters_from_f2df(sel_df, wls_arr)
-    else:
+    else:  # elif "gogreen" in source.lower(): # the DESI case should be covered by any of these two functions, let's pick GOGREEN.
         from process_fors2.fetchData import load_filters_from_ggdf
 
         _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
@@ -1018,6 +1021,15 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             tag = _tag
         elif "gogreen" in source.lower():
             tag = f"{row['cluster']}_{row['specid']}"
+        elif "desi" in source.lower():
+            tag = f"{row['survey']}_{row['program']}"
+            if row["BGS"]:
+                tag += "_BGS"
+            if row["ELG"]:
+                tag += "_ELG"
+            if row["LRG"]:
+                tag += "_LRG"
+            tag += f"_{row['specid']}"
         title_spec = f"{tag} z = {z_obs:.3f}"
         spec_obs = get_fnu(gelatoh5, tag, zob=z_obs)
         Xs = spec_obs["wl"]

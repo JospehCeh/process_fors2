@@ -572,7 +572,7 @@ def get_desi_edr_table(outfile, min_coadd=3):
 
     # zpix = df_zp.merge(right=df_ph, how="outer", on=["targetid"])
 
-    # Check how many rows have unique TARGETIDs before/after applying the ZCAT_PRIMARY flag
+    # Check how many rows have unique TARGETIDs before/after applying the ZCAT_PRIoooliMARY flag
     # print(f"Total N(rows) : {zpix.shape[0]}")
     # print(f"N(rows) with unique TARGETIDs : {len(np.unique(zpix['targetid']))}")
 
