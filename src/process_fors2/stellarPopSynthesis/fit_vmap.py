@@ -278,7 +278,7 @@ def mean_spectrum(wls, params, z_obs, ssp_data):
 
     # interpolate with interpax which is differentiable
     # Fobs = jnp.interp(wls, ssp_data.ssp_wave, sed_attenuated)
-    Fobs = interp1d(wls, ssp_wave, sed_attenuated, method="cubic")
+    Fobs = interp1d(wls, ssp_wave, sed_attenuated, method="akima", extrap=False)
 
     return Fobs
 
@@ -1039,9 +1039,9 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         # get the Gelato model
         gel_obs = get_gelmod(gelatoh5, tag, zob=z_obs)
-        gemod = jnp.interp(Xs, gel_obs["wl"], gel_obs["mod"], left=0.0, right=0.0)
-        geline = jnp.interp(Xs, gel_obs["wl"], gel_obs["line"], left=0.0, right=0.0)
-        gessp = jnp.interp(Xs, gel_obs["wl"], gel_obs["ssp"], left=0.0, right=0.0)
+        gemod = interp1d(Xs, gel_obs["wl"], gel_obs["mod"], method="akima", extrap=False)
+        geline = interp1d(Xs, gel_obs["wl"], gel_obs["line"], method="akima", extrap=False)
+        gessp = interp1d(Xs, gel_obs["wl"], gel_obs["ssp"], method="akima", extrap=False)
 
         # convert to restframe
         Xspec_data, Yspec_data = convert_flux_torestframe(Xs, Ys, z_obs)
@@ -1134,7 +1134,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="orange", lw=2, label="GELATO model")
 
         srwls = jnp.arange(1000, 10000, 0.1)
-        surspec = interp1d(srwls, x, y_dust)
+        surspec = interp1d(srwls, x, y_dust, method="akima", extrap=False)
         mod_rews = vmap_calc_eqw(srwls, surspec, li_wls)
         ax_rews = ax_rew.twinx()
 
