@@ -23,7 +23,6 @@ import pandas as pd
 from astropy.table import Table
 from dsps.cosmology import DEFAULT_COSMOLOGY, luminosity_distance_to_z  # in Mpc
 from jax import numpy as jnp
-from scipy.ndimage import gaussian_filter1d
 from sedpy import observate
 from tqdm import tqdm
 
@@ -714,19 +713,34 @@ def tableForGelato(wl, fl, std, mask=None):
         2. The spectral flux density in flam units, column name: "flux"
         3. The inverse variances of the data points, column name: "ivar"
     """
+    from scipy.interpolate import PchipInterpolator
+
     # Manage mask
     if mask is None:
-        mask = np.zeros_like(fl)
-    nomask = np.where(mask > 0, False, True)
+        mask = np.full_like(wl, False)
+    nomask = np.where(mask, False, True)
     sel = np.logical_and(nomask, np.isfinite(fl))
     sel = np.logical_and(sel, np.isfinite(std))
     sel = np.logical_and(sel, std > 0.0)
     sel = np.logical_and(sel, fl + std >= 0.0)
 
-    # Transform data
-    wl_gel = np.log10(wl[sel])
-    flam_gel = fl[sel]
-    inv_var = np.power(std[sel], -2)
+    # Identify interpolation points - assume wavelengths are finite and sorted...
+    wls_interp = np.arange(wl[0], wl[-1] + 0.1, 0.1)
+
+    # Interpolate the mask
+    sel_interp = np.full_like(wls_interp, True, dtype=bool)
+    for ii, _wl in enumerate(zip(wl[:-1], wl[1:], strict=True)):
+        sel_interp = np.where(np.logical_and(_wl[0] <= wls_interp, wls_interp < _wl[1]), sel[ii], sel_interp)
+    sel_interp[-1] = sel[-1]  # ensure the last point is consistant, otherwise the 'and' above skips it.
+
+    # Interpolate data to ensure enoough points for REW calcs by GELATO
+    wls_interp = wls_interp[sel_interp]
+    flam_gel = PchipInterpolator(wl[sel], fl[sel])(wls_interp)
+    std_interp = PchipInterpolator(wl[sel], std[sel])(wls_interp)
+
+    # Convert data
+    wl_gel = np.log10(wls_interp)
+    inv_var = np.power(std_interp, -2)
 
     # Create table
     t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])
@@ -824,10 +838,10 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
 
         # Eyeball estimate of noise in flux data
         fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=nsigma, makeplots=False)
-        sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
+        # sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
 
         # Conversion to GELATO format
-        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, sm_noise, mask=maskf2)
+        t = tableForGelato(wlf2, fl_signal, fl_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2)
 
         # Write data
         outdir = os.path.abspath(output_dir)
