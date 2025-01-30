@@ -689,7 +689,7 @@ def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0, ssp_file=None):
     return t_gel
 
 
-def tableForGelato(wl, fl, std, mask=None):
+def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
     r"""
     Returns a table that contains spectral data formatted for GELATO, *i.e* the log10 of the wavelength in Angstroms,
     the spectral flux density per unit wavelength (flam) and the inverse variance of the fluxes, in corresponding units.
@@ -704,6 +704,8 @@ def tableForGelato(wl, fl, std, mask=None):
         Spectral flux errors (as standard deviation, or $\sigma$) in units $erg . cm^{-2} . s^{-1} . \AA^{-1}$.
     mask : array, optional
         Where the spectral flux is masked. 0 or False = valid flux. The default is None.
+    interp_step : float, optional
+        The interpolation step in angstroms. The default is 0.3.
 
     Returns
     -------
@@ -725,7 +727,7 @@ def tableForGelato(wl, fl, std, mask=None):
     sel = np.logical_and(sel, fl + std >= 0.0)
 
     # Identify interpolation points - assume wavelengths are finite and sorted...
-    wls_interp = np.arange(wl[0], wl[-1] + 0.1, 0.1)
+    wls_interp = np.arange(wl[0], wl[-1] + interp_step, interp_step)
 
     # Interpolate the mask
     sel_interp = np.full_like(wls_interp, True, dtype=bool)
@@ -747,7 +749,7 @@ def tableForGelato(wl, fl, std, mask=None):
     return t
 
 
-def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
+def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_step=0.3):
     """
     Reads data from input file, makes it compatible with GELATO and writes necessary files.
 
@@ -762,6 +764,8 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
     nsigma : int, optional
         Number of sigma to use at smoothing during noise estimation.\
         If `smoothe` is `True`, this also impacts the spectrum that is exported for GELATO. The default is 3.
+    interp_step : float, optional
+        The interpolation step in angstroms. The default is 0.3.
 
     Returns
     -------
@@ -843,7 +847,7 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
         sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
 
         # Conversion to GELATO format
-        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2)
+        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2, interp_step=interp_step) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2, interp_step=interp_step)
 
         # Write data
         outdir = os.path.abspath(output_dir)
