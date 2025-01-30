@@ -671,6 +671,9 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     :return: _description_
     :rtype: _type_
     """
+    from requests.exceptions import ConnectTimeout, ReadTimeout
+    from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError
+
     from process_fors2.fetchData import tableForGelato
 
     df_desi = pd.read_hdf(os.path.abspath(desi_infile), key="desi")
@@ -695,7 +698,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     def _recurse_query(specid):
         try:
             res = client.retrieve_by_specid(specid_list=[specid], include=inc, dataset_list=["DESI-EDR"])
-        except TimeoutError:
+        except (ConnectTimeout, ConnectTimeoutError, ReadTimeout, ReadTimeoutError, TimeoutError):
             res = _recurse_query(specid)
         return res
 
