@@ -691,10 +691,18 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     ## Randomly select an object
     ## You can test any object with ii = 0 to 307
     inc = ["redshift", "wavelength", "flux", "ivar", "mask", "specprimary", "survey", "program"]  # 'redshift_err', 'spectype', 'targetid', 'coadd_fiberstatus']
+
+    def _recurse_query(specid):
+        try:
+            res = client.retrieve_by_specid(specid_list=[specid], include=inc, dataset_list=["DESI-EDR"])
+        except TimeoutError:
+            res = _recurse_query(specid)
+        return res
+
     for _, row in tqdm(df_sel.iterrows(), total=df_sel.shape[0]):
         targetid = int(row["specid"])  ## SPARCL accepts only python integers in specid_list
         ## Retrieve Spectra
-        res = client.retrieve_by_specid(specid_list=[targetid], include=inc, dataset_list=["DESI-EDR"])
+        res = _recurse_query(targetid)
         records = res.records
 
         ## Select the primary spectrum
