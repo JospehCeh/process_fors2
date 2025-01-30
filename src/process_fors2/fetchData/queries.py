@@ -678,7 +678,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     all_zs = []
 
     ## Instantiate SPARCL Client
-    client = SparclClient()
+    client = SparclClient(connect_timeout=2.0, read_timeout=180 * 60)
 
     ## Select GALAXY with nspec > 3
     # jj = (zpix_cat['zcat_nspec'] > 2) & (zpix_cat['spectype'] == 'GALAXY')
