@@ -721,10 +721,7 @@ def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
     if mask is None:
         mask = np.full_like(wl, False)
     nomask = np.where(mask, False, True)
-    sel = np.logical_and(nomask, np.isfinite(fl))
-    sel = np.logical_and(sel, np.isfinite(std))
-    sel = np.logical_and(sel, std > 0.0)
-    sel = np.logical_and(sel, fl + std >= 0.0)
+    sel = np.logical_and(nomask, np.logical_and(np.isfinite(fl), np.logical_and(np.isfinite(std), np.logical_and(std > 0.0, fl > 0.0))))
 
     # Identify interpolation points - assume wavelengths are finite and sorted...
     wls_interp = np.arange(wl[0], wl[-1] + interp_step, interp_step)

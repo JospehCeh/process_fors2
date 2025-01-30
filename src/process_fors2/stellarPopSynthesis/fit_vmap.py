@@ -1133,7 +1133,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rew.fill_between(Xspec_data, Yspec_data - EYspec_data, Yspec_data + EYspec_data, color="b", alpha=0.2)
         (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="orange", lw=2, label="GELATO model")
 
-        srwls = jnp.arange(1000, 10000, 0.1)
+        srwls = jnp.arange(1300.0, 8000.1, 0.1)
         surspec = interp1d(srwls, x, y_dust, method="akima", extrap=False)
         mod_rews = vmap_calc_eqw(srwls, surspec, li_wls)
         ax_rews = ax_rew.twinx()
