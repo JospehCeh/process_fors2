@@ -23,6 +23,7 @@ import pandas as pd
 from astropy.table import Table
 from dsps.cosmology import DEFAULT_COSMOLOGY, luminosity_distance_to_z  # in Mpc
 from jax import numpy as jnp
+from scipy.ndimage import gaussian_filter1d
 from sedpy import observate
 from tqdm import tqdm
 
@@ -715,7 +716,7 @@ def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
         2. The spectral flux density in flam units, column name: "flux"
         3. The inverse variances of the data points, column name: "ivar"
     """
-    from scipy.interpolate import PchipInterpolator
+    from scipy.interpolate import Akima1DInterpolator
 
     # Manage mask
     if mask is None:
@@ -734,8 +735,8 @@ def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
 
     # Interpolate data to ensure enoough points for REW calcs by GELATO
     wls_interp = wls_interp[sel_interp]
-    flam_gel = PchipInterpolator(wl[sel], fl[sel])(wls_interp)
-    std_interp = PchipInterpolator(wl[sel], std[sel])(wls_interp)
+    flam_gel = Akima1DInterpolator(wl[sel], fl[sel])(wls_interp)
+    std_interp = Akima1DInterpolator(wl[sel], std[sel])(wls_interp)
 
     # Convert data
     wl_gel = np.log10(wls_interp)
@@ -860,6 +861,46 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_s
     # Create list of objects
     objlist = Table([all_paths, all_zs], names=["Path", "z"])
     writepath = os.path.join(outdir, "specs_for_GELATO.fits")
+    objlist.write(writepath, format="fits", overwrite=True)
+    print(f"Done ! List of objects written in {writepath}.")
+
+    return objlist, writepath
+
+
+def smoothe_gelato(input_dir, output_dir, nsigma=3):
+    """smoothe_gelato _summary_
+
+    :param input_dir: _description_
+    :type input_dir: _type_
+    :param output_dir: _description_
+    :type output_dir: _type_
+    :param nsigma: _description_, defaults to 3
+    :type nsigma: int, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    input_tabf = os.path.abspath(os.path.join(input_dir, "specs_for_GELATO.fits"))
+    input_tab = Table.read(input_tabf)
+    input_df = input_tab.to_pandas()
+    outdirspecs = os.path.abspath(os.path.join(output_dir, "SPECS"))
+    os.makedirs(outdirspecs, exist_ok=True)
+    # input_df['Path'] = np.array([n.decode('UTF-8') for n in input_df['Path']])
+    all_paths = []
+    all_zs = []
+    for ii, row in tqdm(input_df.iterrows(), total=input_df.shape[0]):
+        datapath = os.path.abspath(row["Path"])
+        spec_data = Table.read(datapath)
+        fl_smooth = gaussian_filter1d(spec_data["flux"], nsigma)
+        std_smooth = gaussian_filter1d(np.power(spec_data["ivar"], -0.5), nsigma)
+        outf = os.path.join(outdirspecs, os.path.basename(datapath))
+        t = Table([spec_data["loglam"], fl_smooth, np.power(std_smooth, -2)], names=["loglam", "flux", "ivar"])
+        t.write(outf, format="fits", overwrite=True)
+        all_paths.append(outf)
+        all_zs.append(row["z"])
+
+    # Create list of objects
+    objlist = Table([all_paths, all_zs], names=["Path", "z"])
+    writepath = os.path.join(os.path.abspath(output_dir), "specs_for_GELATO.fits")
     objlist.write(writepath, format="fits", overwrite=True)
     print(f"Done ! List of objects written in {writepath}.")
 

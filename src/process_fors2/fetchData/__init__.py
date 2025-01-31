@@ -25,6 +25,7 @@ from .manipulate import (
     readPhotoZHDF5_fromListObs,
     readPZinputsHDF5,
     readTemplatesHDF5,
+    smoothe_gelato,
     starlightToH5,
     tableForGelato,
     templatesToHDF5,
@@ -88,4 +89,5 @@ __all__ = [
     "rename_f2_photom",
     "get_desi_edr_table",
     "desi_to_gelato",
+    "smoothe_gelato",
 ]
