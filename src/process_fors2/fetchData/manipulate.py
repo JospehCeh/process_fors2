@@ -722,28 +722,29 @@ def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
     if mask is None:
         mask = np.full_like(wl, False)
     nomask = np.where(mask, False, True)
-    sel = np.logical_and(nomask, np.logical_and(np.isfinite(fl), np.logical_and(np.isfinite(std), np.logical_and(std > 0.0, fl > 0.0))))
+    sel = np.logical_and(nomask, np.logical_and(np.isfinite(fl), np.isfinite(std)))
 
     # Identify interpolation points - assume wavelengths are finite and sorted...
     wls_interp = np.arange(wl[0], wl[-1] + interp_step, interp_step)
 
     # Interpolate the mask
-    sel_interp = np.full_like(wls_interp, True, dtype=bool)
+    nmask_interp = np.full_like(wls_interp, True, dtype=bool)
     for ii, _wl in enumerate(zip(wl[:-1], wl[1:], strict=True)):
-        sel_interp = np.where(np.logical_and(_wl[0] <= wls_interp, wls_interp < _wl[1]), sel[ii], sel_interp)
-    sel_interp[-1] = sel[-1]  # ensure the last point is consistant, otherwise the 'and' above skips it.
+        nmask_interp = np.where(np.logical_and(_wl[0] <= wls_interp, wls_interp < _wl[1]), nomask[ii], nmask_interp)
+    nmask_interp[-1] = nomask[-1]  # ensure the last point is consistant, otherwise the 'and' above skips it.
 
     # Interpolate data to ensure enoough points for REW calcs by GELATO
-    wls_interp = wls_interp[sel_interp]
     flam_gel = Akima1DInterpolator(wl[sel], fl[sel])(wls_interp)
     std_interp = Akima1DInterpolator(wl[sel], std[sel])(wls_interp)
 
+    sel_interp = np.logical_and(nmask_interp, np.logical_and(np.isfinite(flam_gel), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_gel > 0.0, std_interp > 0.0))))
+
     # Convert data
-    wl_gel = np.log10(wls_interp)
-    inv_var = np.power(std_interp, -2)
+    wl_gel = np.log10(wls_interp[sel_interp])
+    inv_var = np.power(std_interp[sel_interp], -2)
 
     # Create table
-    t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])
+    t = Table([wl_gel, flam_gel[sel_interp], inv_var], names=["loglam", "flux", "ivar"])
     return t
 
 

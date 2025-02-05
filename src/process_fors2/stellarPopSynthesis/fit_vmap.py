@@ -1091,7 +1091,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         # plot Fors2 data
         label = "Obs.\nspectrum"
-        (l2,) = ax_spec.plot(Xspec_data * (1 + z_obs), Yspec_data, "b-", lw=0.5, label=label)
+        (l2,) = ax_spec.plot(Xspec_data * (1 + z_obs), Yspec_data, "b-", lw=0.5, alpha=0.3, label=label)
 
         # plot photometric data
         label = "Catalog\nphotometry"
@@ -1102,8 +1102,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
-        ymax = y_nodust.max()
-        ymin = y_dust.min()
+        ymax = max(y_nodust.max(), Yspec_data.max())
+        ymin = Yspec_data.min()
         ylim_max = ymax * 2.0
         ylim_min = ymin / 1.5
 
