@@ -672,6 +672,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     :rtype: _type_
     """
     from requests.exceptions import ConnectTimeout, ReadTimeout
+    from sparcl.exceptions import ReadTimeout as ScTimeout
     from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError
 
     from process_fors2.fetchData import tableForGelato
@@ -698,7 +699,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     def _recurse_query(specid):
         try:
             res = client.retrieve_by_specid(specid_list=[specid], include=inc, dataset_list=["DESI-EDR"])
-        except (ConnectTimeout, ConnectTimeoutError, ReadTimeout, ReadTimeoutError, TimeoutError):
+        except (ConnectTimeout, ConnectTimeoutError, ReadTimeout, ReadTimeoutError, ScTimeout, TimeoutError):
             res = _recurse_query(specid)
         return res
 
