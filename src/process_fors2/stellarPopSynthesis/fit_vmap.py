@@ -1103,8 +1103,9 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         ymax = y_nodust.max()
-        ylim_max = ymax * 3.0
-        ylim_min = ymax / 3e4
+        ymin = y_dust.min()
+        ylim_max = ymax * 2.0
+        ylim_min = ymin / 1.5
 
         filter_tags = [func_strip_name(n) for n, b in zip(list_name_f_sel, valid_phot, strict=True) if b]
         for idf, ftag in enumerate(filter_tags):
@@ -1146,8 +1147,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         ymax = jnp.nanmax(Yspec_data)
         ymin = jnp.nanmin(Yspec_data)
-        ylim_max = ymax * 3
-        ylim_min = ymin / 3
+        ylim_max = ymax * 1.2
+        ylim_min = ymin / 1.2
 
         min_rew = jnp.nanmin(rews_arr[valid_rew]) - 3
         max_rew = jnp.nanmax(rews_arr[valid_rew]) + 3
@@ -1182,7 +1183,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         list_of_figs.append(copy.deepcopy(f))
-    pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join(os.path.splitext(outpdf)[0], "pdf"))
+    pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
     _ = plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
 
 
