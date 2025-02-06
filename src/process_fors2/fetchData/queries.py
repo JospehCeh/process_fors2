@@ -714,8 +714,8 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
         primary_ii = np.nonzero(spec_primary)
         _ii = primary_ii[0][0]
         lam_primary = records[_ii].wavelength
-        flam_primary = records[_ii].flux
-        std_primary = np.power(records[_ii].ivar, -0.5)
+        flam_primary = records[_ii].flux * 1.0e-17
+        std_primary = np.power(records[_ii].ivar, -0.5) * 1.0e-17
         mask_primary = records[_ii].mask
         t = tableForGelato(lam_primary, flam_primary, std_primary, mask_primary, interp_step)
 

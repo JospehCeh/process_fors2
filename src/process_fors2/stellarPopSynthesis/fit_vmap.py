@@ -1085,13 +1085,12 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_yscale("log")
         ax_spec.set_xscale("log")
 
+        # plot Fors2 data
+        (l2,) = ax_spec.plot(Xspec_data * (1 + z_obs), Yspec_data, "b-", lw=0.2, label="Obs.\nspectrum")
+
         # plot SED model
         (l0,) = ax_spec.plot(x * (1 + z_obs), y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
         (l1,) = ax_spec.plot(x * (1 + z_obs), y_nodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
-
-        # plot Fors2 data
-        label = "Obs.\nspectrum"
-        (l2,) = ax_spec.plot(Xspec_data * (1 + z_obs), Yspec_data, "b-", lw=0.5, alpha=0.3, label=label)
 
         # plot photometric data
         label = "Catalog\nphotometry"
@@ -1128,11 +1127,11 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (ld,) = ax_rew.plot(x, y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
-        label = "Obs. spectrum"
-        (lf,) = ax_rew.plot(Xspec_data, Yspec_data, "b-", lw=0.5, label=label)
+        (lf,) = ax_rew.plot(Xspec_data, Yspec_data, "b-", lw=0.2, label="Obs. spectrum")
         ax_rew.fill_between(Xspec_data, Yspec_data - EYspec_data, Yspec_data + EYspec_data, color="b", alpha=0.2)
-        (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="orange", lw=2, label="GELATO model")
+
+        (ld,) = ax_rew.plot(x, y_dust, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="orange", lw=2, alpha=0.7, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
         surspec = interp1d(srwls, x, y_dust, method="akima", extrap=False)
