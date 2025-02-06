@@ -23,6 +23,7 @@ import pandas as pd
 from astropy.table import Table
 from dsps.cosmology import DEFAULT_COSMOLOGY, luminosity_distance_to_z  # in Mpc
 from jax import numpy as jnp
+from scipy.interpolate import Akima1DInterpolator
 from scipy.ndimage import gaussian_filter1d
 from sedpy import observate
 from tqdm import tqdm
@@ -690,7 +691,7 @@ def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0, ssp_file=None):
     return t_gel
 
 
-def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
+def tableForGelato(wl, fl, std, mask=None, interp_step=None):
     r"""
     Returns a table that contains spectral data formatted for GELATO, *i.e* the log10 of the wavelength in Angstroms,
     the spectral flux density per unit wavelength (flam) and the inverse variance of the fluxes, in corresponding units.
@@ -706,7 +707,7 @@ def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
     mask : array, optional
         Where the spectral flux is masked. 0 or False = valid flux. The default is None.
     interp_step : float, optional
-        The interpolation step in angstroms. The default is 0.3.
+        The interpolation step in angstroms. The default is None.
 
     Returns
     -------
@@ -716,39 +717,44 @@ def tableForGelato(wl, fl, std, mask=None, interp_step=0.3):
         2. The spectral flux density in flam units, column name: "flux"
         3. The inverse variances of the data points, column name: "ivar"
     """
-    from scipy.interpolate import Akima1DInterpolator
-
     # Manage mask
     if mask is None:
         mask = np.full_like(wl, False)
     nomask = np.where(mask, False, True)
     sel = np.logical_and(nomask, np.logical_and(np.isfinite(fl), np.isfinite(std)))
 
-    # Identify interpolation points - assume wavelengths are finite and sorted...
-    wls_interp = np.arange(wl[0], wl[-1] + interp_step, interp_step)
+    if interp_step is not None:
+        # Identify interpolation points - assume wavelengths are finite and sorted...
+        wls_interp = np.arange(wl[0], wl[-1] + interp_step, interp_step)
 
-    # Interpolate the mask
-    nmask_interp = np.full_like(wls_interp, True, dtype=bool)
-    for ii, _wl in enumerate(zip(wl[:-1], wl[1:], strict=True)):
-        nmask_interp = np.where(np.logical_and(_wl[0] <= wls_interp, wls_interp < _wl[1]), nomask[ii], nmask_interp)
-    nmask_interp[-1] = nomask[-1]  # ensure the last point is consistant, otherwise the 'and' above skips it.
+        # Interpolate the mask
+        nmask_interp = np.full_like(wls_interp, True, dtype=bool)
+        for ii, _wl in enumerate(zip(wl[:-1], wl[1:], strict=True)):
+            nmask_interp = np.where(np.logical_and(_wl[0] <= wls_interp, wls_interp < _wl[1]), nomask[ii], nmask_interp)
+        nmask_interp[-1] = nomask[-1]  # ensure the last point is consistant, otherwise the 'and' above skips it.
 
-    # Interpolate data to ensure enoough points for REW calcs by GELATO
-    flam_gel = Akima1DInterpolator(wl[sel], fl[sel])(wls_interp)
-    std_interp = Akima1DInterpolator(wl[sel], std[sel])(wls_interp)
+        # Interpolate data to ensure enoough points for REW calcs by GELATO
+        flam_interp = Akima1DInterpolator(wl[sel], fl[sel])(wls_interp)
+        std_interp = Akima1DInterpolator(wl[sel], std[sel])(wls_interp)
 
-    sel_interp = np.logical_and(nmask_interp, np.logical_and(np.isfinite(flam_gel), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_gel > 0.0, std_interp > 0.0))))
+        sel_interp = np.logical_and(nmask_interp, np.logical_and(np.isfinite(flam_interp), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_interp > 0.0, std_interp > 0.0))))
 
-    # Convert data
-    wl_gel = np.log10(wls_interp[sel_interp])
-    inv_var = np.power(std_interp[sel_interp], -2)
+        # Convert data
+        wl_gel = np.log10(wls_interp[sel_interp])
+        inv_var = np.power(std_interp[sel_interp], -2)
+        flam_gel = flam_interp[sel_interp]
+    else:
+        selsup0 = np.logical_and(sel, np.logical_and(fl > 0.0, std > 0.0))
+        wl_gel = np.log10(wl[selsup0])
+        inv_var = np.power(std[selsup0], -2)
+        flam_gel = fl[selsup0]
 
     # Create table
-    t = Table([wl_gel, flam_gel[sel_interp], inv_var], names=["loglam", "flux", "ivar"])
+    t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])
     return t
 
 
-def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_step=0.3):
+def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_step=None):
     """
     Reads data from input file, makes it compatible with GELATO and writes necessary files.
 
@@ -764,7 +770,7 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_s
         Number of sigma to use at smoothing during noise estimation.\
         If `smoothe` is `True`, this also impacts the spectrum that is exported for GELATO. The default is 3.
     interp_step : float, optional
-        The interpolation step in angstroms. The default is 0.3.
+        The interpolation step in angstroms ; if None, no interpolation is performed. The default is None.
 
     Returns
     -------
@@ -843,7 +849,7 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_s
 
         # Eyeball estimate of noise in flux data
         fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=nsigma, makeplots=False)
-        sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
+        sm_noise = gaussian_filter1d(fl_noise, nsigma)  # smoothing of the noise, just because.
 
         # Conversion to GELATO format
         t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2, interp_step=interp_step) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2, interp_step=interp_step)
@@ -868,7 +874,7 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_s
     return objlist, writepath
 
 
-def smoothe_gelato(input_dir, output_dir, nsigma=3):
+def smoothe_gelato(input_dir, output_dir, nsigma=3, interp_step=None):
     """smoothe_gelato _summary_
 
     :param input_dir: _description_
@@ -877,6 +883,8 @@ def smoothe_gelato(input_dir, output_dir, nsigma=3):
     :type output_dir: _type_
     :param nsigma: _description_, defaults to 3
     :type nsigma: int, optional
+    :param interp_step: _description_, defaults to None
+    :type interp_step: int, optional
     :return: _description_
     :rtype: _type_
     """
@@ -891,10 +899,33 @@ def smoothe_gelato(input_dir, output_dir, nsigma=3):
     for ii, row in tqdm(input_df.iterrows(), total=input_df.shape[0]):
         datapath = os.path.abspath(row["Path"])
         spec_data = Table.read(datapath, format="fits")
+
         fl_smooth = gaussian_filter1d(spec_data["flux"], nsigma)
         std_smooth = gaussian_filter1d(np.power(spec_data["ivar"], -0.5), nsigma)
+
+        if interp_step is not None:
+            # Identify interpolation points - assume wavelengths are finite and sorted...
+            wls = np.power(10, spec_data["loglam"])
+            wls_interp = np.arange(wls[0], wls[-1] + interp_step, interp_step)
+
+            # Interpolate data to ensure enoough points for REW calcs by GELATO
+            flam_interp = Akima1DInterpolator(wls, fl_smooth)(wls_interp)
+            std_interp = Akima1DInterpolator(wls, std_smooth)(wls_interp)
+
+            sel_interp = np.logical_and(np.logical_and(np.isfinite(flam_interp), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_interp > 0.0, std_interp > 0.0))))
+
+            # Convert data
+            wl_gel = np.log10(wls_interp[sel_interp])
+            inv_var = np.power(std_interp[sel_interp], -2)
+            fl_gel = flam_interp[sel_interp]
+        else:
+            sel = np.logical_and(np.logical_and(np.isfinite(fl_smooth), np.logical_and(np.isfinite(std_smooth), np.logical_and(fl_smooth > 0.0, std_smooth > 0.0))))
+            wl_gel = spec_data["loglam"][sel]
+            fl_gel = fl_smooth[sel]
+            inv_var = np.power(std_smooth[sel], -2)
+
         outf = os.path.join(outdirspecs, os.path.basename(datapath))
-        t = Table([spec_data["loglam"], fl_smooth, np.power(std_smooth, -2)], names=["loglam", "flux", "ivar"])
+        t = Table([wl_gel, fl_gel, inv_var], names=["loglam", "flux", "ivar"])
         t.write(outf, format="fits", overwrite=True)
         all_paths.append(outf)
         all_zs.append(row["z"])

@@ -288,14 +288,14 @@ def get_gogreen_spectrum(hdu, extver, units="fl", return_frame="observed", redsh
     return lam, spec, np.sqrt(var)
 
 
-def gogreen_to_gelato(gg_infile, output_dir, interp_step=0.3):
+def gogreen_to_gelato(gg_infile, output_dir, interp_step=None):
     """gogreen_to_gelato Queries individual spectra matching the data in the input file and writes them to disk as FITS files for use with GELATO.
 
     :param gg_infile: HDF5 file containing the GOGREEN data as a pandas DataFrame.
     :type gg_infile: str or path-like
     :param output_dir: Directory where to store the GELATO inputs as FITS files
     :type output_dir: str or path-like
-    :param interp_step: _description_, defaults to 0.3
+    :param interp_step: _description_, defaults to None
     :type interp_step: float, optional
     :return: The list of FITS spectra as an Astropy Table and the path to the output directory
     :rtype: tuple(Table, str)
@@ -657,7 +657,7 @@ def get_desi_edr_table(outfile, min_coadd=3):
         return None
 
 
-def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
+def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=None):
     """desi_to_gelato _summary_
 
     :param desi_infile: _description_
@@ -666,7 +666,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=0.3):
     :type output_dir: _type_
     :param min_coadd: _description_, defaults to 3
     :type min_coadd: int, optional
-    :param interp_step: _description_, defaults to 0.3
+    :param interp_step: _description_, defaults to None
     :type interp_step: float, optional
     :return: _description_
     :rtype: _type_
