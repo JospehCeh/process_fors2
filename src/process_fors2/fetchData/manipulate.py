@@ -902,7 +902,11 @@ def smoothe_gelato(input_dir, output_dir, nsigma=3, interp_step=None):
 
         fl_smooth = gaussian_filter1d(spec_data["flux"], nsigma)
         std_smooth = gaussian_filter1d(np.power(spec_data["ivar"], -0.5), nsigma)
+        wls = np.power(10, spec_data["loglam"])
 
+        t = tableForGelato(wls, fl_smooth, std_smooth, interp_step=interp_step)
+
+        """
         if interp_step is not None:
             # Identify interpolation points - assume wavelengths are finite and sorted...
             wls = np.power(10, spec_data["loglam"])
@@ -912,20 +916,20 @@ def smoothe_gelato(input_dir, output_dir, nsigma=3, interp_step=None):
             flam_interp = Akima1DInterpolator(wls, fl_smooth)(wls_interp)
             std_interp = Akima1DInterpolator(wls, std_smooth)(wls_interp)
 
-            sel_interp = np.logical_and(np.logical_and(np.isfinite(flam_interp), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_interp > 0.0, std_interp > 0.0))))
+            sel_interp = np.logical_and(np.isfinite(flam_interp), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_interp > 0.0, std_interp > 0.0)))
 
             # Convert data
             wl_gel = np.log10(wls_interp[sel_interp])
             inv_var = np.power(std_interp[sel_interp], -2)
             fl_gel = flam_interp[sel_interp]
         else:
-            sel = np.logical_and(np.logical_and(np.isfinite(fl_smooth), np.logical_and(np.isfinite(std_smooth), np.logical_and(fl_smooth > 0.0, std_smooth > 0.0))))
+            sel = np.logical_and(np.isfinite(fl_smooth), np.logical_and(np.isfinite(std_smooth), np.logical_and(fl_smooth > 0.0, std_smooth > 0.0)))
             wl_gel = spec_data["loglam"][sel]
             fl_gel = fl_smooth[sel]
             inv_var = np.power(std_smooth[sel], -2)
+        """
 
         outf = os.path.join(outdirspecs, os.path.basename(datapath))
-        t = Table([wl_gel, fl_gel, inv_var], names=["loglam", "flux", "ivar"])
         t.write(outf, format="fits", overwrite=True)
         all_paths.append(outf)
         all_zs.append(row["z"])
