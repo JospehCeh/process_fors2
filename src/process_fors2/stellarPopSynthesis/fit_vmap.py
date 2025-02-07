@@ -1131,7 +1131,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         # convert to restframe
         Xspec_data, Yspec_data = convert_flux_torestframe(wls, flam, z_obs)
-        EYspec_data = convert_flux_torestframe(wls, flamerr, z_obs)
+        _, EYspec_data = convert_flux_torestframe(wls, flamerr, z_obs)
         _, gmod_data = convert_flux_torestframe(wls, gemod, z_obs)
 
         (lf,) = ax_rew.plot(Xspec_data, Yspec_data, "b-", lw=0.2, label="Obs. spectrum")
