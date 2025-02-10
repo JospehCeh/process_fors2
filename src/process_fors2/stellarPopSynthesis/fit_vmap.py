@@ -1039,22 +1039,22 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         with h5py.File(gelatoh5, "r") as gel5:
             group = gel5.get(tag)
-            wls = jnp.array(group.get("wl_ang"))
+            wlo = jnp.array(group.get("wl_ang"))
             flamo = jnp.array(group.get("flam"))
             flamoerr = jnp.array(group.get("flam_err"))
             glamo = jnp.array(group.get("gelato_mod"))
 
-        wlr, flamr = convert_flux_torestframe(wls, flamo, z_obs)
-        _, flamrerr = convert_flux_torestframe(wls, flamoerr, z_obs)
-        _, glamr = convert_flux_torestframe(wls, glamo, z_obs)
+        wlr, flamr = convert_flux_torestframe(wlo, flamo, z_obs)
+        _, flamrerr = convert_flux_torestframe(wlo, flamoerr, z_obs)
+        _, glamr = convert_flux_torestframe(wlo, glamo, z_obs)
 
         fnur = convertFlambdaToFnu(wlr, flamr)
         fnurerr = convertFlambdaToFnu(wlr, flamrerr)
         gnur = convertFlambdaToFnu(wlr, glamr)
 
-        wlo, fnuo = convert_flux_toobsframe(wls, fnur, z_obs)
-        _, fnuoerr = convert_flux_toobsframe(wls, fnurerr, z_obs)
-        _, gnuo = convert_flux_toobsframe(wls, gnur, z_obs)
+        _, fnuo = convert_flux_toobsframe(wlr, fnur, z_obs)
+        _, fnuoerr = convert_flux_toobsframe(wlr, fnurerr, z_obs)
+        _, gnuo = convert_flux_toobsframe(wlr, gnur, z_obs)
 
         rchi2 = row["rChi2"]
 
