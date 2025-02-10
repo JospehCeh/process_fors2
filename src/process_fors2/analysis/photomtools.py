@@ -97,7 +97,7 @@ def convertFlambdaToFnu(wl, flambda):
     Compute Fnu = wl**2/c Flambda
     check the conversion units with astropy units and constants
     """
-    fnu = (flambda * U_FL * (wl * u.AA) ** 2 / const.c).to(U_FNU) / (1 * U_FNU)
+    fnu = (flambda * U_FL * (wl * u.AA) ** 2 / const.c).to(U_FNU).value  # / (1 * U_FNU)
     return fnu
 
 
@@ -118,7 +118,7 @@ def convertFnuToFlambda(wl, fnu):
     Compute Flambda = Fnu / (wl**2/c)
     check the conversion units with astropy units and constants
     """
-    flambda = (fnu * U_FNU * const.c / ((wl * u.AA) ** 2)).to(U_FL) / (1 * U_FL)
+    flambda = (fnu * U_FNU * const.c / ((wl * u.AA) ** 2)).to(U_FL).value  # / (1 * U_FL)
     return flambda
 
 
@@ -288,7 +288,7 @@ def lsunPerHz_to_flam(wl, fsun, zob):
     """
     dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
     dist_fact = 4 * jnp.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
-    fnu = (fsun * U_LSUNperHz / dist_fact).to(u.Jy).to(U_FNU).value
+    fnu = (fsun * U_LSUNperHz / dist_fact).to(U_FNU).value  # .to(u.Jy).to(U_FNU).value
     flam = convertFnuToFlambda(wl, fnu)
     return flam
 

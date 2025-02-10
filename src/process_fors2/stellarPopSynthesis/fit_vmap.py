@@ -994,7 +994,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
     :param outpdf: Name or path to the PDF output file, defaults to None
     :type oudf: str or path-like, optional
     """
-    from process_fors2.analysis import convert_flux_toobsframe, convert_flux_torestframe, lsunPerHz_to_flam
+    from process_fors2.analysis import convert_flux_toobsframe, convert_flux_torestframe, convertFlambdaToFnu, lsunPerHz_to_flam
 
     gelatoh5 = os.path.abspath(gelato_h5)
 
@@ -1040,9 +1040,9 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         with h5py.File(gelatoh5, "r") as gel5:
             group = gel5.get(tag)
             wls = jnp.array(group.get("wl_ang"))
-            flam = jnp.array(group.get("flam"))
-            flamerr = jnp.array(group.get("flam_err"))
-            gemod = jnp.array(group.get("gelato_mod"))
+            fnu = jnp.array(convertFlambdaToFnu(wls, group.get("flam")))
+            fnuerr = jnp.array(convertFlambdaToFnu(wls, group.get("flam_err")))
+            gemod = jnp.array(convertFlambdaToFnu(wls, group.get("gelato_mod")))
 
         rchi2 = row["rChi2"]
 
@@ -1077,8 +1077,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         # Plot Photometry
         x, y_nodust, y_dust = ssp_spectrum_fromparam(params_arr, z_obs, ssp_data)
-        flam_dsps = lsunPerHz_to_flam(x, y_dust, z_obs)
-        flam_dsps_nodust = lsunPerHz_to_flam(x, y_nodust, z_obs)
+        fnu_dsps = convertFlambdaToFnu(x, lsunPerHz_to_flam(x, y_dust, z_obs))
+        fnu_dsps_nodust = convertFlambdaToFnu(x, lsunPerHz_to_flam(x, y_nodust, z_obs))
 
         mags_predictions = vmap_calc_obs_mag(x, y_dust, wls_arr, transm_arr, z_obs)
 
@@ -1087,11 +1087,11 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_xscale("log")
 
         # plot Fors2 data
-        (l2,) = ax_spec.plot(wls, flam, "b-", lw=0.2, label="Obs.\nspectrum")
+        (l2,) = ax_spec.plot(wls, fnu, "b-", lw=0.2, label="Obs.\nspectrum")
 
         # plot SED model
-        (l0,) = ax_spec.plot(*convert_flux_toobsframe(x, flam_dsps, z_obs), "-", color="green", lw=1, label="DSPS output\nwith dust")
-        (l1,) = ax_spec.plot(*convert_flux_toobsframe(x, flam_dsps_nodust, z_obs), "-", color="red", lw=1, label="DSPS output\nwithout dust")
+        (l0,) = ax_spec.plot(*convert_flux_toobsframe(x, fnu_dsps, z_obs), "-", color="green", lw=1, label="DSPS output\nwith dust")
+        (l1,) = ax_spec.plot(*convert_flux_toobsframe(x, fnu_dsps_nodust, z_obs), "-", color="red", lw=1, label="DSPS output\nwithout dust")
 
         # plot photometric data
         label = "Catalog\nphotometry"
@@ -1102,8 +1102,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
-        ymax = max(flam_dsps_nodust.max(), flam.max())
-        ymin = flam.min()
+        ymax = max(fnu_dsps_nodust.max(), fnu.max())
+        ymin = fnu.min()
         ylim_max = ymax * 2.0
         ylim_min = ymin / 1.5
 
@@ -1130,18 +1130,18 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # ax_rew.set_xscale("log")
 
         # convert to restframe
-        Xspec_data, Yspec_data = convert_flux_torestframe(wls, flam, z_obs)
-        _, EYspec_data = convert_flux_torestframe(wls, flamerr, z_obs)
+        Xspec_data, Yspec_data = convert_flux_torestframe(wls, fnu, z_obs)
+        _, EYspec_data = convert_flux_torestframe(wls, fnuerr, z_obs)
         _, gmod_data = convert_flux_torestframe(wls, gemod, z_obs)
 
         (lf,) = ax_rew.plot(Xspec_data, Yspec_data, "b-", lw=0.2, label="Obs. spectrum")
         ax_rew.fill_between(Xspec_data, Yspec_data - EYspec_data, Yspec_data + EYspec_data, color="b", alpha=0.2)
 
-        (ld,) = ax_rew.plot(x, flam_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
         (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="orange", lw=2, alpha=0.7, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
-        surspec = interp1d(srwls, x, flam_dsps, method="akima", extrap=False)
+        surspec = interp1d(srwls, x, fnu_dsps, method="akima", extrap=False)
         mod_rews = vmap_calc_eqw(srwls, surspec, li_wls)
         ax_rews = ax_rew.twinx()
 
