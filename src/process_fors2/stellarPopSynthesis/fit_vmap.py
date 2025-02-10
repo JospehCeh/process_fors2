@@ -1096,8 +1096,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # plot photometric data
         label = "Catalog\nphotometry"
         valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
-        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=9, label=label)
-        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], marker="s", c="orange", label="Modeled\nphotometry")
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=20, label=label)
+        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], s=100, marker="s", c="orange", label="Modeled\nphotometry")
 
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
@@ -1141,7 +1141,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rew.fill_between(Xspec_data, Yspec_data - EYspec_data, Yspec_data + EYspec_data, color="b", alpha=0.2)
 
         (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
-        (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="maroon", lw=2, alpha=0.7, label="GELATO model")
+        (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="maroon", lw=1, alpha=0.7, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
         surspec = interp1d(srwls, x, fnu_dsps, method="akima", extrap=False)
@@ -1151,8 +1151,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
 
         label = "Restframe\nEq. Widths"
-        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=9, label=label)
-        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], marker="s", c="orange", label="Modeled REWs")
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=20, label=label)
+        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], s=100, marker="s", c="orange", label="Modeled REWs")
 
         ymax = jnp.nanmax(Yspec_data)
         ymin = jnp.nanmin(Yspec_data)
