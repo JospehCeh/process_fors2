@@ -1040,9 +1040,21 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         with h5py.File(gelatoh5, "r") as gel5:
             group = gel5.get(tag)
             wls = jnp.array(group.get("wl_ang"))
-            fnu = jnp.array(convertFlambdaToFnu(wls, group.get("flam")))
-            fnuerr = jnp.array(convertFlambdaToFnu(wls, group.get("flam_err")))
-            gemod = jnp.array(convertFlambdaToFnu(wls, group.get("gelato_mod")))
+            flamo = jnp.array(group.get("flam"))
+            flamoerr = jnp.array(group.get("flam_err"))
+            glamo = jnp.array(group.get("gelato_mod"))
+
+        wlr, flamr = convert_flux_torestframe(wls, flamo, z_obs)
+        _, flamrerr = convert_flux_torestframe(wls, flamoerr, z_obs)
+        _, glamr = convert_flux_torestframe(wls, glamo, z_obs)
+
+        fnur = convertFlambdaToFnu(wlr, flamr)
+        fnurerr = convertFlambdaToFnu(wlr, flamrerr)
+        gnur = convertFlambdaToFnu(wlr, glamr)
+
+        wlo, fnuo = convert_flux_toobsframe(wls, fnur, z_obs)
+        _, fnuoerr = convert_flux_toobsframe(wls, fnurerr, z_obs)
+        _, gnuo = convert_flux_toobsframe(wls, gnur, z_obs)
 
         rchi2 = row["rChi2"]
 
@@ -1087,7 +1099,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_xscale("log")
 
         # plot Fors2 data
-        (l2,) = ax_spec.plot(wls, fnu, "b-", lw=0.2, label="Obs.\nspectrum")
+        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, label="Obs.\nspectrum")
 
         # plot SED model
         (l0,) = ax_spec.plot(*convert_flux_toobsframe(x, fnu_dsps, z_obs), "-", color="green", lw=1, label="DSPS output\nwith dust")
@@ -1102,8 +1114,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
-        ymax = max(fnu_dsps_nodust.max(), fnu.max())
-        ymin = fnu.min()
+        ymax = max(fnu_dsps_nodust.max() / (1 + z_obs), fnuo.max())
+        ymin = fnuo.min()
         ylim_max = ymax * 2.0
         ylim_min = ymin / 1.5
 
@@ -1132,16 +1144,11 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        # convert to restframe
-        Xspec_data, Yspec_data = convert_flux_torestframe(wls, fnu, z_obs)
-        _, EYspec_data = convert_flux_torestframe(wls, fnuerr, z_obs)
-        _, gmod_data = convert_flux_torestframe(wls, gemod, z_obs)
-
-        (lf,) = ax_rew.plot(Xspec_data, Yspec_data, "b-", lw=0.2, label="Obs. spectrum")
-        ax_rew.fill_between(Xspec_data, Yspec_data - EYspec_data, Yspec_data + EYspec_data, color="b", alpha=0.2)
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, label="Obs. spectrum")
+        ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.2)
 
         (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
-        (lg,) = ax_rew.plot(Xspec_data, gmod_data, color="maroon", lw=1, alpha=0.7, label="GELATO model")
+        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=1, alpha=0.7, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
         surspec = interp1d(srwls, x, fnu_dsps, method="akima", extrap=False)
@@ -1154,8 +1161,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=20, label=label)
         lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], s=100, marker="s", c="orange", label="Modeled REWs")
 
-        ymax = jnp.nanmax(Yspec_data)
-        ymin = jnp.nanmin(Yspec_data)
+        ymax = jnp.nanmax(fnur)
+        ymin = jnp.nanmin(fnur)
         ylim_max = ymax * 1.2
         ylim_min = ymin / 1.2
 
@@ -1181,7 +1188,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rews.set_ylabel(r"${\rm Restframe Eq. Width\ [\AA]}$")
         # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
 
-        ax_rew.set_xlim(min(Xspec_data) - 200.0, max(Xspec_data) + 200.0)
+        ax_rew.set_xlim(min(wlr) - 200.0, max(wlr) + 200.0)
         ax_rew.set_ylim(ylim_min, ylim_max)
         ax_rews.set_ylim(min_rew, max_rew)
         # ax_rews.set_ylim(29, 18)
