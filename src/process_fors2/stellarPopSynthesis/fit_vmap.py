@@ -1123,7 +1123,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         m_min = min(mags_arr[valid_phot].min(), mags_predictions[valid_phot].min())
         m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
-        ax_phot.set_ylim(m_min - 1, m_max + 1)
+        ax_phot.set_ylim(m_max + 1, m_min - 1)
 
         ax_spec.grid()
         plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
@@ -1166,13 +1166,13 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
             ax_rews.text(
                 li_wls[valid_rew][ide],
-                min_rew + (1 - ide % 2) * 0.75 * (max_rew - min_rew),
+                min_rew * (1 - ide % 2) + max_rew * (ide % 2),
                 _lnam,
                 fontsize=8,
                 fontweight="bold",
                 horizontalalignment="center",
                 verticalalignment="center",
-                rotation="horizontal",
+                rotation="vertical",
             )
             ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
 
