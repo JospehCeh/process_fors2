@@ -994,7 +994,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
     :param outpdf: Name or path to the PDF output file, defaults to None
     :type oudf: str or path-like, optional
     """
-    from process_fors2.analysis import convert_flux_toobsframe, convert_flux_torestframe, convertFlambdaToFnu, lsunPerHz_to_flam
+    from process_fors2.analysis import convert_flux_toobsframe, convert_flux_torestframe, convertFlambdaToFnu, lsunPerHz_to_fnu
 
     gelatoh5 = os.path.abspath(gelato_h5)
 
@@ -1077,8 +1077,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         # Plot Photometry
         x, y_nodust, y_dust = ssp_spectrum_fromparam(params_arr, z_obs, ssp_data)
-        fnu_dsps = convertFlambdaToFnu(x, lsunPerHz_to_flam(x, y_dust, z_obs))
-        fnu_dsps_nodust = convertFlambdaToFnu(x, lsunPerHz_to_flam(x, y_nodust, z_obs))
+        fnu_dsps = lsunPerHz_to_fnu(y_dust, z_obs)
+        fnu_dsps_nodust = lsunPerHz_to_fnu(y_nodust, z_obs)
 
         mags_predictions = vmap_calc_obs_mag(x, y_dust, wls_arr, transm_arr, z_obs)
 
@@ -1120,7 +1120,10 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         ax_spec.set_xlim(jnp.min(list_wlmean_f_sel[valid_phot]) * 0.9, jnp.max(list_wlmean_f_sel[valid_phot]) * 1.1)
         ax_spec.set_ylim(ylim_min, ylim_max)
-        ax_phot.set_ylim(29, 18)
+
+        m_min = min(mags_arr[valid_phot].min(), mags_predictions[valid_phot].min())
+        m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
+        ax_phot.set_ylim(m_min - 1, m_max + 1)
 
         ax_spec.grid()
         plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))

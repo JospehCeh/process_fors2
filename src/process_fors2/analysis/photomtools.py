@@ -274,6 +274,40 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
     return fl_mean, fl_std
 
 
+def lsunPerHz_to_fnu(fsun, zob):
+    """lsunPerHz_to_fnu _summary_
+
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
+    dist_fact = 4 * jnp.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
+    fnu = (fsun * U_LSUNperHz / dist_fact).to(U_FNU).value  # .to(u.Jy).to(U_FNU).value
+    return fnu
+
+
+def fnu_to_lsunPerHz(fnu, zob):
+    """fnu_to_lsunPerHz _summary_
+
+    :param wl: _description_
+    :type wl: _type_
+    :param fnu: _description_
+    :type fnu: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
+    dist_fact = 4 * np.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
+    fsun = (fnu * U_FNU * dist_fact).to(U_LSUNperHz).value
+    return fsun
+
+
 def lsunPerHz_to_flam(wl, fsun, zob):
     """lsunPerHz_to_flam _summary_
 
@@ -286,9 +320,7 @@ def lsunPerHz_to_flam(wl, fsun, zob):
     :return: _description_
     :rtype: _type_
     """
-    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
-    dist_fact = 4 * jnp.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
-    fnu = (fsun * U_LSUNperHz / dist_fact).to(U_FNU).value  # .to(u.Jy).to(U_FNU).value
+    fnu = lsunPerHz_to_fnu(fsun, zob)
     flam = convertFnuToFlambda(wl, fnu)
     return flam
 
@@ -305,10 +337,8 @@ def flam_to_lsunPerHz(wl, flam, zob):
     :return: _description_
     :rtype: _type_
     """
-    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
-    dist_fact = 4 * np.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
-    fjy = (convertFlambdaToFnu(wl, flam) * U_FNU).to(u.Jy)
-    fsun = (fjy * dist_fact).to(U_LSUNperHz).value
+    fnu = convertFlambdaToFnu(wl, flam)
+    fsun = fnu_to_lsunPerHz(fnu, zob)
     return fsun
 
 

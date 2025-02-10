@@ -12,10 +12,12 @@ from .photomtools import (
     convertFnuToFlambda_noU,
     estimateErrors,
     flam_to_lsunPerHz,
+    fnu_to_lsunPerHz,
     get_fnu,
     get_fnu_clean,
     get_gelmod,
     lsunPerHz_to_flam,
+    lsunPerHz_to_fnu,
     scalingToBand,
 )
 from .rungelato import run_gelato, run_gelato_single
@@ -38,6 +40,8 @@ __all__ = [
     "get_gelmod",
     "flam_to_lsunPerHz",
     "lsunPerHz_to_flam",
+    "fnu_to_lsunPerHz",
+    "lsunPerHz_to_fnu",
     "U_FNU",
     "U_FL",
     "U_LSUNperHz",
