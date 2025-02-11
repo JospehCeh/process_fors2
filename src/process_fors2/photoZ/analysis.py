@@ -94,7 +94,7 @@ def load_data_for_run(inp_glob):
 
     filters_names = [_f["name"] for _, _f in filters_dict.items()]
     wls, trans = get_2lists(filters_arr)
-    transm_arr = jnp.array([interp1d(wl_grid, wl, tr, method="linear", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
+    transm_arr = jnp.array([interp1d(wl_grid, wl, tr, method="akima", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
 
     print("Building templates :")
     sps_temp_h5 = os.path.abspath(inputs["Templates"]["input"])
@@ -343,18 +343,18 @@ def run_from_inputs(inputs):
         return probz_dict  # , observ.z_spec  # chi2_arr, z_phot_loc
     """
 
-    anu_arr = jnp.arange(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"] + 0.5, 0.5)
+    av_arr = jnp.linspace(PARS_DF.loc["AV", "MIN"], PARS_DF.loc["AV", "MAX"], num=6, endpoint=True)
 
     if inputs["photoZ"]["i_colors"]:
         if "sps" in inputs["photoZ"]["Mode"].lower():
-            templ_tuples = make_sps_itemplates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
+            templ_tuples = make_sps_itemplates(templ_parsarr, wl_grid, transm_arr, z_grid, av_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
         else:
-            templ_tuples = make_legacy_itemplates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
+            templ_tuples = make_legacy_itemplates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, av_arr, sspdata, id_imag=inputs["photoZ"]["i_band_num"])
     else:
         if "sps" in inputs["photoZ"]["Mode"].lower():
-            templ_tuples = make_sps_templates(templ_parsarr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
+            templ_tuples = make_sps_templates(templ_parsarr, wl_grid, transm_arr, z_grid, av_arr, sspdata)
         else:
-            templ_tuples = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, anu_arr, sspdata)
+            templ_tuples = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, av_arr, sspdata)
 
     if inputs["photoZ"]["prior"]:
         probz_arr = jax.tree_util.tree_map(

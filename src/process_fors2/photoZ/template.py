@@ -63,7 +63,7 @@ def read_h5_table(templ_h5_file, group="fit_dsps", classif="Classification"):
 
 
 @jit
-def templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
+def templ_mags(params, wls, filt_trans_arr, z_obs, av, ssp_data):
     """Return the photometric magnitudes for the given filters transmission
     in X : predict the magnitudes in Filters
     :param params: Model parameters
@@ -74,15 +74,15 @@ def templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param z_obs: Redshift of the observations
     :type z_obs: float
-    :param anu: Attenuation parameter in dust law
-    :type anu: float
+    :param av: Attenuation parameter in dust law
+    :type av: float
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
 
     :return: array the predicted magnitude for the SED spectrum model represented by its parameters.
     :rtype: 1D JAX-array of floats of length (nb bands+2)
     """
-    _pars = params.at[13].set(anu)
+    _pars = params.at[13].set(av)
     # get the restframe spectra without and with dust attenuation
     ssp_wave, _, sed_attenuated = ssp_spectrum_fromparam(_pars, z_obs, ssp_data)
     _mags = vmap_calc_obs_mag(ssp_wave, sed_attenuated, wls, filt_trans_arr[:-2], z_obs)
@@ -93,12 +93,12 @@ def templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
     return mags_predictions
 
 
-vmap_mags_anu = vmap(templ_mags, in_axes=(None, None, None, None, 0, None))
-vmap_mags_zobs = vmap(vmap_mags_anu, in_axes=(None, None, None, 0, None, None))
+vmap_mags_av = vmap(templ_mags, in_axes=(None, None, None, None, 0, None))
+vmap_mags_zobs = vmap(vmap_mags_av, in_axes=(None, None, None, 0, None, None))
 vmap_mags_pars = vmap(vmap_mags_zobs, in_axes=(0, None, None, None, None, None))
 
 
-def templ_clrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
+def templ_clrs_nuvk(params, wls, filt_trans_arr, z_obs, av, ssp_data):
     """Return the photometric color indices for the given filters transmission
     :param params: Model parameters
     :type params: Dictionnary of parameters
@@ -108,24 +108,24 @@ def templ_clrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data):
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param z_obs: Redshift of the observations
     :type z_obs: float
-    :param anu: Attenuation parameter in dust law
-    :type anu: float
+    :param av: Attenuation parameter in dust law
+    :type av: float
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
 
     :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
     :rtype: tuple(array of floats of length (nb bands-1), float)
     """
-    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, av, ssp_data)
     return _mags[:-3] - _mags[1:-2], _mags[-2] - _mags[-1]
 
 
-vmap_clrs_anu = vmap(templ_clrs_nuvk, in_axes=(None, None, None, None, 0, None))
-vmap_clrs_zobs = vmap(vmap_clrs_anu, in_axes=(None, None, None, 0, None, None))
+vmap_clrs_av = vmap(templ_clrs_nuvk, in_axes=(None, None, None, None, 0, None))
+vmap_clrs_zobs = vmap(vmap_clrs_av, in_axes=(None, None, None, 0, None, None))
 vmap_clrs_pars = vmap(vmap_clrs_zobs, in_axes=(0, None, None, None, None, None))
 
 
-def templ_iclrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data, id_imag):
+def templ_iclrs_nuvk(params, wls, filt_trans_arr, z_obs, av, ssp_data, id_imag):
     """Return the photometric color indices for the given filters transmission
     :param params: Model parameters
     :type params: Dictionnary of parameters
@@ -135,8 +135,8 @@ def templ_iclrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data, id_imag)
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param z_obs: Redshift of the observations
     :type z_obs: float
-    :param anu: Attenuation parameter in dust law
-    :type anu: float
+    :param av: Attenuation parameter in dust law
+    :type av: float
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
@@ -145,12 +145,12 @@ def templ_iclrs_nuvk(params, wls, filt_trans_arr, z_obs, anu, ssp_data, id_imag)
     :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
     :rtype: tuple(array of floats of length (nb bands), float)
     """
-    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    _mags = templ_mags(params, wls, filt_trans_arr, z_obs, av, ssp_data)
     return _mags[:-2] - _mags[id_imag], _mags[-2] - _mags[-1]
 
 
-vmap_iclrs_anu = vmap(templ_iclrs_nuvk, in_axes=(None, None, None, None, 0, None, None))
-vmap_iclrs_zobs = vmap(vmap_iclrs_anu, in_axes=(None, None, None, 0, None, None, None))
+vmap_iclrs_av = vmap(templ_iclrs_nuvk, in_axes=(None, None, None, None, 0, None, None))
+vmap_iclrs_zobs = vmap(vmap_iclrs_av, in_axes=(None, None, None, 0, None, None, None))
 vmap_iclrs_pars = vmap(vmap_iclrs_zobs, in_axes=(0, None, None, None, None, None, None))
 
 
@@ -178,7 +178,7 @@ def calc_nuvk(wls, params_dict, zobs, ssp_data):
 v_nuvk = vmap(calc_nuvk, in_axes=(None, None, 0, None))
 
 
-def make_sps_templates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data):
+def make_sps_templates(params_arr, wls, transm_arr, redz_arr, av_arr, ssp_data):
     """make_sps_templates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
 
     :param params_arr: Model parameters as output by DSPS
@@ -189,8 +189,8 @@ def make_sps_templates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param redz_arr: redshift grid on which to compute the templates photometry
     :type redz_arr: array
-    :param anu_arr: Attenuation grid on which to compute the templates photometry
-    :type anu_arr: array
+    :param av_arr: Attenuation grid on which to compute the templates photometry
+    :type av_arr: array
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
@@ -200,12 +200,12 @@ def make_sps_templates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
     templ_tupl = [tuple(_pars) for _pars in params_arr]
-    reslist_of_tupl = tree_map(lambda partup: vmap_clrs_zobs(jnp.array(partup), wls, transm_arr, redz_arr, anu_arr, ssp_data), templ_tupl, is_leaf=istuple)
+    reslist_of_tupl = tree_map(lambda partup: vmap_clrs_zobs(jnp.array(partup), wls, transm_arr, redz_arr, av_arr, ssp_data), templ_tupl, is_leaf=istuple)
     # colors, nuvk = vmap_clrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     return reslist_of_tupl
 
 
-def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag=3):
+def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, av_arr, ssp_data, id_imag=3):
     """make_sps_itemplates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
 
     :param params_arr: Model parameters as output by DSPS
@@ -216,8 +216,8 @@ def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param redz_arr: redshift grid on which to compute the templates photometry
     :type redz_arr: array
-    :param anu_arr: Attenuation grid on which to compute the templates photometry
-    :type anu_arr: array
+    :param av_arr: Attenuation grid on which to compute the templates photometry
+    :type av_arr: array
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
@@ -230,13 +230,13 @@ def make_sps_itemplates(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-2] - i_mag
     templ_tupl = [tuple(_pars) for _pars in params_arr]
-    reslist_of_tupl = tree_map(lambda partup: vmap_iclrs_zobs(jnp.array(partup), wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag), templ_tupl, is_leaf=istuple)
+    reslist_of_tupl = tree_map(lambda partup: vmap_iclrs_zobs(jnp.array(partup), wls, transm_arr, redz_arr, av_arr, ssp_data, id_imag), templ_tupl, is_leaf=istuple)
     # colors, nuvk = vmap_iclrs_pars(params_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
     return reslist_of_tupl
 
 
 @jit
-def templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data):
+def templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, av, ssp_data):
     """Return the photometric magnitudes for the given filters transmission
     :param params: Model parameters
     :type params: Dictionnary of parameters
@@ -248,8 +248,8 @@ def templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data):
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param z_obs: Redshift of the observations
     :type z_obs: float
-    :param anu: Attenuation parameter in dust law
-    :type anu: float
+    :param av: Attenuation parameter in dust law
+    :type av: float
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
 
@@ -257,7 +257,7 @@ def templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data):
     :rtype: 1D JAX-array of floats of length (nb bands+2)
 
     """
-    _pars = params.at[13].set(anu)
+    _pars = params.at[13].set(av)
     # get the restframe spectra without and with dust attenuation
     ssp_wave, _, sed_attenuated = ssp_spectrum_fromparam(_pars, z_ref, ssp_data)
     _mags = vmap_calc_obs_mag(ssp_wave, sed_attenuated, wls, filt_trans_arr[:-2], z_obs)
@@ -268,12 +268,12 @@ def templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data):
     return mags_predictions
 
 
-vmap_mags_anu_legacy = vmap(templ_mags_legacy, in_axes=(None, None, None, None, None, 0, None))
-vmap_mags_zobs_legacy = vmap(vmap_mags_anu_legacy, in_axes=(None, None, None, None, 0, None, None))
+vmap_mags_av_legacy = vmap(templ_mags_legacy, in_axes=(None, None, None, None, None, 0, None))
+vmap_mags_zobs_legacy = vmap(vmap_mags_av_legacy, in_axes=(None, None, None, None, 0, None, None))
 vmap_mags_pars_legacy = vmap(vmap_mags_zobs_legacy, in_axes=(0, 0, None, None, None, None, None))
 
 
-def templ_clrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data):
+def templ_clrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, av, ssp_data):
     """Return the photometric color indices for the given filters transmission
     :param params: Model parameters
     :type params: Dictionnary of parameters
@@ -285,24 +285,24 @@ def templ_clrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_d
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param z_obs: Redshift of the observations
     :type z_obs: float
-    :param anu: Attenuation parameter in dust law
-    :type anu: float
+    :param av: Attenuation parameter in dust law
+    :type av: float
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
 
     :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
     :rtype: tuple(array of floats of length (nb bands-1), float)
     """
-    _mags = templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    _mags = templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, av, ssp_data)
     return _mags[:-3] - _mags[1:-2], _mags[-2] - _mags[-1]
 
 
-vmap_clrs_anu_legacy = vmap(templ_clrs_nuvk_legacy, in_axes=(None, None, None, None, None, 0, None))
-vmap_clrs_zobs_legacy = vmap(vmap_clrs_anu_legacy, in_axes=(None, None, None, None, 0, None, None))
+vmap_clrs_av_legacy = vmap(templ_clrs_nuvk_legacy, in_axes=(None, None, None, None, None, 0, None))
+vmap_clrs_zobs_legacy = vmap(vmap_clrs_av_legacy, in_axes=(None, None, None, None, 0, None, None))
 vmap_clrs_pars_legacy = vmap(vmap_clrs_zobs_legacy, in_axes=(0, 0, None, None, None, None, None))
 
 
-def templ_iclrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data, id_imag):
+def templ_iclrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, av, ssp_data, id_imag):
     """Return the photometric color indices for the given filters transmission
     :param params: Model parameters
     :type params: Dictionnary of parameters
@@ -314,8 +314,8 @@ def templ_iclrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param z_obs: Redshift of the observations
     :type z_obs: float
-    :param anu: Attenuation parameter in dust law
-    :type anu: float
+    :param av: Attenuation parameter in dust law
+    :type av: float
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
@@ -324,16 +324,16 @@ def templ_iclrs_nuvk_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_
     :return: tuple of arrays the predicted colors for the SED spectrum model represented by its parameters.
     :rtype: tuple(array of floats of length (nb bands), float)
     """
-    _mags = templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, anu, ssp_data)
+    _mags = templ_mags_legacy(params, z_ref, wls, filt_trans_arr, z_obs, av, ssp_data)
     return _mags[:-2] - _mags[id_imag], _mags[-2] - _mags[-1]
 
 
-vmap_iclrs_anu_legacy = vmap(templ_iclrs_nuvk_legacy, in_axes=(None, None, None, None, None, 0, None, None))
-vmap_iclrs_zobs_legacy = vmap(vmap_iclrs_anu_legacy, in_axes=(None, None, None, None, 0, None, None, None))
+vmap_iclrs_av_legacy = vmap(templ_iclrs_nuvk_legacy, in_axes=(None, None, None, None, None, 0, None, None))
+vmap_iclrs_zobs_legacy = vmap(vmap_iclrs_av_legacy, in_axes=(None, None, None, None, 0, None, None, None))
 vmap_iclrs_pars_legacy = vmap(vmap_iclrs_zobs_legacy, in_axes=(0, 0, None, None, None, None, None, None))
 
 
-def make_legacy_templates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data):
+def make_legacy_templates(params_arr, zref_arr, wls, transm_arr, redz_arr, av_arr, ssp_data):
     """make_legacy_templates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
 
     :param params_arr: Model parameters as output by DSPS
@@ -346,23 +346,23 @@ def make_legacy_templates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_a
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param redz_arr: redshift grid on which to compute the templates photometry
     :type redz_arr: array
-    :param anu_arr: Attenuation grid on which to compute the templates photometry
-    :type anu_arr: array
+    :param av_arr: Attenuation grid on which to compute the templates photometry
+    :type av_arr: array
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :return: Templates for photoZ estimation, accounting for the Star Formation History up to the redshift value, as estimated by DSPS
     :rtype: Tuple of arrays of floats
     """
-    # template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
+    # template_mags = vmap_mags_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, av_arr, ssp_data)
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-3] - template_mags[:, :, :, 1:-2]
     templ_tupl = [tuple(_pars) + tuple([z]) for _pars, z in zip(params_arr, zref_arr, strict=True)]
-    reslist_of_tupl = tree_map(lambda partup: vmap_clrs_zobs_legacy(jnp.array(partup[:-1]), partup[-1], wls, transm_arr, redz_arr, anu_arr, ssp_data), templ_tupl, is_leaf=istuple)
+    reslist_of_tupl = tree_map(lambda partup: vmap_clrs_zobs_legacy(jnp.array(partup[:-1]), partup[-1], wls, transm_arr, redz_arr, av_arr, ssp_data), templ_tupl, is_leaf=istuple)
     # colors, nuvk = vmap_clrs_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data)
     return reslist_of_tupl
 
 
-def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag=3):
+def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, av_arr, ssp_data, id_imag=3):
     """make_legacy_itemplates Creates the set of templates for photo-z estimation, using DSPS to syntheticize the photometry from a set of input parameters.
 
     :param params_arr: Model parameters as output by DSPS
@@ -375,8 +375,8 @@ def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_
     :type filt_trans_arr: JAX-array of floats of dimension (nb bands+2) * len(wls). The last two bands are for the prior computation.
     :param redz_arr: redshift grid on which to compute the templates photometry
     :type redz_arr: array
-    :param anu_arr: Attenuation grid on which to compute the templates photometry
-    :type anu_arr: array
+    :param av_arr: Attenuation grid on which to compute the templates photometry
+    :type av_arr: array
     :param ssp_data: SSP library
     :type ssp_data: namedtuple
     :param id_imag: index of reference band (usually i). For 6-band LSST : u=0 g=1 r=2 i=3 z=4 y=5, defaults to 3
@@ -389,8 +389,8 @@ def make_legacy_itemplates(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_
     # nuvk = template_mags[:, :, :, -2] - template_mags[:, :, :, -1]
     # colors = template_mags[:, :, :, :-2] - i_mag
     templ_tupl = [tuple(_pars) + tuple([z]) for _pars, z in zip(params_arr, zref_arr, strict=True)]
-    reslist_of_tupl = tree_map(lambda partup: vmap_iclrs_zobs_legacy(jnp.array(partup[:-1]), partup[-1], wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag), templ_tupl, is_leaf=istuple)
-    # colors, nuvk = vmap_iclrs_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, anu_arr, ssp_data, id_imag)
+    reslist_of_tupl = tree_map(lambda partup: vmap_iclrs_zobs_legacy(jnp.array(partup[:-1]), partup[-1], wls, transm_arr, redz_arr, av_arr, ssp_data, id_imag), templ_tupl, is_leaf=istuple)
+    # colors, nuvk = vmap_iclrs_pars_legacy(params_arr, zref_arr, wls, transm_arr, redz_arr, av_arr, ssp_data, id_imag)
     return reslist_of_tupl
 
 
