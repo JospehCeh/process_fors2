@@ -250,7 +250,7 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FOR
         res_table["u-g"] = res_table["mag_sdss_u0"] - res_table["mag_sdss_g0"]
         res_table["r-i"] = res_table["mag_sdss_r0"] - res_table["mag_sdss_i0"]
     elif "gogreen" in source.lower():
-        res_table["u-g"] = res_table["mag_decam_u"] - res_table["mag_hsc_g"]
+        res_table["u-g"] = res_table["mag_cfht_megacam_us_9301"] - res_table["mag_hsc_g"]
         res_table["r-i"] = res_table["mag_hsc_r"] - res_table["mag_hsc_i"]
     elif "desi" in source.lower():
         res_table["g-r"] = res_table["mag_decam_g"] - res_table["mag_decam_r"]
