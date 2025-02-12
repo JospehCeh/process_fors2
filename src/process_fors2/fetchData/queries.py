@@ -372,7 +372,7 @@ def format_gogreen_data(gg_df_in):
         "mips24": "spitzer_mips_24",
         "nuv": "galex_NUV",
         "r": "hsc_r",
-        "u": "decam_u",
+        "u": "cfht_megacam_us_9301",
         "v": "subaru_suprimecam_V",
         "y": "hsc_y",
         "z": "hsc_z",

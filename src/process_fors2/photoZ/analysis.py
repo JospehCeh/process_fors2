@@ -28,6 +28,7 @@ import jax
 import numpy as np
 import pandas as pd
 from jax import numpy as jnp
+from sedpy import observate
 from tqdm import tqdm
 
 from process_fors2.fetchData import json_to_inputs
@@ -86,14 +87,26 @@ def load_data_for_run(inp_glob):
     z_grid = jnp.arange(inputs["Z_GRID"]["z_min"], inputs["Z_GRID"]["z_max"] + inputs["Z_GRID"]["z_step"], inputs["Z_GRID"]["z_step"])
     wl_grid = jnp.arange(inputs["WL_GRID"]["lambda_min"], inputs["WL_GRID"]["lambda_max"] + inputs["WL_GRID"]["lambda_step"], inputs["WL_GRID"]["lambda_step"])
 
-    filters_dict = inputs["Filters"]
-    for _f in filters_dict:
-        filters_dict[_f]["path"] = os.path.abspath(os.path.join(DATALOC, filters_dict[_f]["path"]))
     print("Loading filters :")
-    filters_arr = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict)) + (NUV_filt, NIR_filt)
-
+    filters_dict = inputs["Filters"]
     filters_names = [_f["name"] for _, _f in filters_dict.items()]
-    wls, trans = get_2lists(filters_arr)
+    filts_tup = []
+    val_sedpy = observate.list_available_filters()
+    for _if, (_fnumstr, _f) in tqdm(enumerate(filters_dict.items()), total=len(filters_dict)):
+        fnam = filters_names[_if]
+        if _f["path"] == "":
+            assert fnam in val_sedpy, f"Filter {_fnumstr} ({fnam}) is not available.\
+                \nPlease provide path to an ASCII file with transmission table or use one of : {val_sedpy}."
+            _filt = observate.Filter(fnam)
+            # _filt = sedpyFilter(_fnumstr, _sedpyf.wavelength, _sedpyf.transmission)
+        else:
+            _f["path"] = os.path.abspath(os.path.join(DATALOC, _f["path"]))
+            _filt = sedpyFilter(*load_filt(int(_fnumstr), _f["path"], _f["transmission"]))  # Could also use sedpy directly I think.
+        filts_tup.append(_filt)
+    filts_tup = tuple(filts_tup) + (NUV_filt, NIR_filt)
+    # filts_tup = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict)) + (NUV_filt, NIR_filt)
+
+    wls, trans = get_2lists(filts_tup)
     transm_arr = jnp.array([interp1d(wl_grid, wl, tr, method="akima", extrap=0.0) for wl, tr in zip(wls, trans, strict=True)])
 
     print("Building templates :")

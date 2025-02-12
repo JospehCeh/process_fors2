@@ -25,7 +25,7 @@ except ImportError:
 lightspeed = 2.998e18  # AA/s
 ab_gnu = 3.631e-20  # AB reference spctrum in erg/s/cm^2/Hz
 
-sedpyFilter = namedtuple("sedpyFilter", ["name", "wavelengths", "transmission"])
+sedpyFilter = namedtuple("sedpyFilter", ["name", "wavelength", "transmission"])
 
 # NUV
 _wls = np.arange(1000.0, 3000.0, 1.0)
@@ -341,7 +341,7 @@ def get_2lists(filter_list):
     :rtype: tuple of lists
     """
     transms = [filt.transmission for filt in filter_list]
-    waves = [filt.wavelengths for filt in filter_list]
+    waves = [filt.wavelength for filt in filter_list]
     return (waves, transms)
 
 
