@@ -14,8 +14,10 @@
 from .dsps_params import SSPParametersFit, paramslist_to_dict
 from .fit_filters import FilterInfo
 from .fit_vmap import (
+    bootstrapFitsToHDF5,
     calc_eqw,
     filter_tags_df,
+    fit_bootstrap,
     fit_treemap,
     fit_vmap,
     has_redshift,
@@ -30,7 +32,9 @@ from .fit_vmap import (
     mean_mags,
     mean_sfr,
     mean_spectrum,
+    prepare_bootstrap_arr,
     prepare_data_arr,
+    readBootstrapFitsFromHDF5,
     readVmapFitsFromHDF5,
     red_chi2,
     ssp_spectrum_fromparam,
@@ -97,6 +101,10 @@ __all__ = [
     "vmapFitsToHDF5",
     "write_fsps_data",
     "istuple",
+    "bootstrapFitsToHDF5",
+    "fit_bootstrap",
+    "prepare_bootstrap_arr",
+    "readBootstrapFitsFromHDF5",
 ]
 
 """

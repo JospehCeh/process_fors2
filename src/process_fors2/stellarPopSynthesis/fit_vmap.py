@@ -186,6 +186,107 @@ def prepare_data_arr(attrs_df, selected_tags, wls_arr, source="FORS2"):
     return sel_df, mags_arr, magerrs_arr, rews_arr, rewerrs_arr, li_wls, list_wlmean_f_sel, transm_arr
 
 
+def prepare_bootstrap_arr(attrs_df, selected_tags, wls_arr, source="FORS2", n_fits=10, bs_type="mags"):
+    """prepare_bootstrap_arr _summary_
+
+    :param attrs_df: _description_
+    :type attrs_df: _type_
+    :param selected_tags: _description_
+    :type selected_tags: _type_
+    :param wls_arr: _description_
+    :type wls_arr: _type_
+    :param source: _description_, defaults to "FORS2"
+    :type source: str, optional
+    :param n_fits: _description_, defaults to 10
+    :type n_fits: int, optional
+    :param bs_type: _description_, defaults to "mags"
+    :type bs_type: str, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    rews_list = sorted([col for col in list(attrs_df.columns) if "rew" in col.lower()])
+    li_names = np.unique([li.split("_REW")[0] for li in rews_list])
+    li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
+
+    mags_list = sorted([col for col in list(attrs_df.columns) if "mag" in col.lower() and "image" not in col.lower()])
+
+    if "fors2" in source.lower():
+        mags_list = [c for c in mags_list if "Rmag" not in c]
+
+    columns = (
+        [
+            "num",
+            "redshift",
+            "ra",
+            "dec",
+            "Classification",
+            "rChi2",
+            "CAT_NII",
+            "CAT_SII",
+            "CAT_OI",
+            "CAT_OIII/OIIvsOI",
+        ]
+        + mags_list
+        + rews_list
+    )
+
+    if "gogreen" in source.lower():
+        columns = ["cluster", "specid"] + columns
+
+    if "desi" in source.lower():
+        columns = ["survey", "program", "specid", "morphtype", "LRG", "ELG", "QSO", "BGS", "MWS", "SCND"] + columns
+
+    sel_df = attrs_df.loc[selected_tags, columns]
+
+    mags_arr = jnp.array(sel_df[[c for c in mags_list if "err" not in c.lower()]])
+    magerrs_arr = jnp.array(sel_df[[c for c in mags_list if "err" in c.lower()]])
+
+    rews_arr = jnp.array(sel_df[[c for c in rews_list if "err" not in c.lower()]])
+    rewerrs_arr = jnp.array(sel_df[[c for c in rews_list if "err" in c.lower()]])
+
+    if "fors2" in source.lower():
+        from process_fors2.fetchData import load_filters_from_f2df
+
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_f2df(sel_df, wls_arr)
+    else:  # elif "gogreen" in source.lower(): # the DESI case should be covered by any of these two functions, let's pick GOGREEN.
+        from process_fors2.fetchData import load_filters_from_ggdf
+
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
+
+    jkey = jax.random.key(717)
+
+    all_mags_arr, all_magerrs_arr, all_rews_arr, all_rewerrs_arr = [], [], [], []
+
+    for idx, (_meanmag, _stdmag, _meanrew, _stdrew) in enumerate(zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, strict=True)):
+        # indiv_df = pd.DataFrame(columns=[mags_list, rews_list])
+        if "mag" in bs_type.lower():
+            jkey, jsubkey = jax.random.split(jkey)
+            rnd_norm = jax.random.normal(jsubkey, shape=(n_fits, _meanmag.shape[0]))
+            rnd_mags = jnp.array([rnd_row * _stdmag + _meanmag for rnd_row in rnd_norm])  # Shape issue to be expected here
+        else:
+            rnd_mags = jnp.array([_meanmag for _ in range(n_fits)])
+        rnd_magerrs = jnp.array([_stdmag for _ in range(n_fits)])
+        all_mags_arr.append(rnd_mags)
+        all_magerrs_arr.append(rnd_magerrs)
+
+        if "rew" in bs_type.lower():
+            jkey, jsubkey = jax.random.split(jkey)
+            rnd_norm = jax.random.normal(jsubkey, shape=(n_fits, _meanrew.shape[0]))
+            rnd_rews = jnp.array([rnd_row * _stdrew + _meanrew for rnd_row in rnd_norm])  # Shape issue to be expected here
+        else:
+            rnd_rews = jnp.array([_meanrew for _ in range(n_fits)])
+        rnd_rewerrs = jnp.array([_stdrew for _ in range(n_fits)])
+        all_rews_arr.append(rnd_rews)
+        all_rewerrs_arr.append(rnd_rewerrs)
+
+        # indiv_df.loc[idx, [c for c in mags_list if "err" not in c.lower()] ] = rnd_mags
+        # indiv_df.loc[idx, [c for c in mags_list if "err" in c.lower()] ] = rnd_magerrs
+        # indiv_df.loc[idx, [c for c in rews_list if "err" not in c.lower()] ] = rnd_rews
+        # indiv_df.loc[idx, [c for c in rews_list if "err" in c.lower()] ] = rnd_rewerrs
+
+    return sel_df, tuple(all_mags_arr), tuple(all_magerrs_arr), tuple(all_rews_arr), tuple(all_rewerrs_arr), li_wls, list_wlmean_f_sel, transm_arr
+
+
 @jit
 def mean_sfr(params):
     """Model of the SFR
@@ -911,6 +1012,152 @@ def fit_treemap(
     return sel_df, jnp.array(pars_list), low_bound, high_bound
 
 
+def fit_bootstrap(
+    xmatch_h5,
+    gelato_h5,
+    fit_type="mags",
+    bs_tags=None,
+    bs_classif=None,
+    bs_type="mags",
+    n_fits=10,
+    ssp_file=None,
+    weight_mag=0.5,
+    remove_visible=False,
+    remove_galex=False,
+    remove_galex_fuv=True,
+    quiet=False,
+    source="FORS2",
+):
+    """fit_bootstrap _summary_
+
+    :param xmatch_h5: _description_
+    :type xmatch_h5: _type_
+    :param gelato_h5: _description_
+    :type gelato_h5: _type_
+    :param fit_type: _description_, defaults to "mags"
+    :type fit_type: str, optional
+    :param bs_tags: _description_, defaults to None
+    :type bs_tags: _type_, optional
+    :param bs_classif: _description_, defaults to None
+    :type bs_classif: _type_, optional
+    :param bs_type: _description_, defaults to "mags"
+    :type bs_type: str, optional
+    :param n_fits: _description_, defaults to 10
+    :type n_fits: int, optional
+    :param ssp_file: _description_, defaults to None
+    :type ssp_file: _type_, optional
+    :param weight_mag: _description_, defaults to 0.5
+    :type weight_mag: float, optional
+    :param remove_visible: _description_, defaults to False
+    :type remove_visible: bool, optional
+    :param remove_galex: _description_, defaults to False
+    :type remove_galex: bool, optional
+    :param remove_galex_fuv: _description_, defaults to True
+    :type remove_galex_fuv: bool, optional
+    :param quiet: _description_, defaults to False
+    :type quiet: bool, optional
+    :param source: _description_, defaults to "FORS2"
+    :type source: str, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    ssp_data = load_ssp(ssp_file)
+    xmatchh5 = os.path.abspath(xmatch_h5)
+    gelatoh5 = os.path.abspath(gelato_h5)
+    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source=source)
+
+    classif_tags = []
+    for tag, row in merged_attrs_df.iterrows():
+        if (row["Classification"].lower() == bs_classif.lower()) or bs_classif == "" or bs_classif is None:
+            classif_tags.append(tag)
+    classif_tags = np.array(classif_tags)
+
+    # ## Select applicable spectra
+    if "fors2" in source.lower():
+        filtered_tags = filter_tags_df(merged_attrs_df, remove_visible=remove_visible, remove_galex=remove_galex, remove_galex_fuv=remove_galex_fuv)
+    else:
+        filtered_tags = list(merged_attrs_df.index)
+
+    list_tags = np.intersect1d(np.array(filtered_tags), classif_tags)
+
+    selected_tags = list_tags if (bs_tags is None or len(bs_tags) == 0) else np.intersect1d(list_tags, np.array(bs_tags))
+    if not quiet:
+        print(f"Number of galaxies to be fitted : {len(selected_tags)}. Number of bootstrap draws : {n_fits}.")
+
+    wls_interp = jnp.arange(1300.0, 323110.0, 50.0) if "gogreen" in source.lower() else jnp.arange(3400.0, 285610.0, 50.0) if "desi" in source.lower() else jnp.arange(1300.0, 24310.0, 10.0)
+    wls_rews = jnp.arange(1300.0, 8000.1, 0.1)
+
+    sel_df, mags_tupl, magerrs_tupl, rews_tupl, rewerrs_tupl, li_wls, list_wlmean_f_sel, transm_arr = prepare_bootstrap_arr(
+        merged_attrs_df, selected_tags, wls_interp, bs_type=bs_type, n_fits=n_fits, source=source
+    )
+    zs = jnp.array(sel_df["redshift"])
+
+    # fit loop
+    # for tag in tqdm(dict_fors2_for_fit):
+    if "mag" in fit_type.lower() and "rew" in fit_type.lower():
+        if not quiet:
+            print("Fitting SPS on observed magnitudes and restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        lbfgsb_magrews = jaxopt.ScipyBoundedMinimize(fun=lik_mag_rew, method="L-BFGS-B", maxiter=2000)
+
+        # @jit
+        def solve(arg_tupl):
+            omags, omagerrs, rews_arr, rewerrs_arr, zobs = arg_tupl
+            pars, stat = lbfgsb_magrews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data, weight_mag)
+            return pars, stat
+
+        _arglist = []
+        for mags_arr, magerrs_arr, rews_arr, rewerrs_arr, z in zip(mags_tupl, magerrs_tupl, rews_tupl, rewerrs_tupl, zs, strict=True):
+            _arglist.append([tuple((ma, mer, rew, rer, z)) for ma, mer, rew, rer in zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, strict=True)])
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
+    elif "rew" in fit_type.lower():
+        if not quiet:
+            print("Fitting SPS on restframe equivalent widths... it may take (more than) a few minutes, please be patient.")
+        lbfgsb_rews = jaxopt.ScipyBoundedMinimize(fun=lik_rew, method="L-BFGS-B", maxiter=2000)
+
+        # @jit
+        def solve(arg_tupl):
+            rews_arr, rewerrs_arr, zobs = arg_tupl
+            pars, stat = lbfgsb_rews.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_rews, li_wls, rews_arr, rewerrs_arr, zobs, ssp_data)
+            return pars, stat
+
+        _arglist = []
+        for rews_arr, rewerrs_arr, z in zip(rews_tupl, rewerrs_tupl, zs, strict=True):
+            _arglist.append([tuple((rew, rer, z)) for rew, rer in zip(rews_arr, rewerrs_arr, strict=True)])
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
+    else:
+        if not quiet:
+            print("Fitting SPS on observed magnitudes... it may take (more than) a few minutes, please be patient.")
+        lbfgsb_mags = jaxopt.ScipyBoundedMinimize(fun=lik_mag, method="L-BFGS-B", maxiter=2000)
+
+        # @jit
+        def solve(arg_tupl):
+            omags, omagerrs, zobs = arg_tupl
+            pars, stat = lbfgsb_mags.run(INIT_PARAMS, (PARAMS_MIN, PARAMS_MAX), wls_interp, transm_arr, omags, omagerrs, zobs, ssp_data)
+            return pars, stat
+
+        _arglist = []
+        for mags_arr, magerrs_arr, z in zip(mags_tupl, magerrs_tupl, zs, strict=True):
+            _arglist.append([tuple((ma, mer, z)) for ma, mer in zip(mags_arr, magerrs_arr, strict=True)])
+        fit_results_tree = tree_map(lambda otupl: solve(otupl), _arglist, is_leaf=istuple)
+
+    all_means = []
+    all_stds = []
+    all_succ_counts = []
+
+    for _fitresults in fit_results_tree:
+        pars_list, stats_list = zip(*_fitresults, strict=True)
+        succ = [_s.success for _s in stats_list]
+        pars_arr = jnp.array([_p for _p, _s in zip(pars_list, succ, strict=True) if _s])
+        gal_pars_mean = jnp.nanmean(pars_arr, axis=0)
+        gal_pars_std = jnp.nanstd(pars_arr, axis=0)
+        all_means.append(gal_pars_mean)
+        all_stds.append(gal_pars_std)
+        all_succ_counts.append(pars_arr.shape[0])
+    sel_df["Success count"] = jnp.array(all_succ_counts)
+
+    return sel_df, jnp.array(all_means), jnp.array(all_stds)
+
+
 def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
     """vmapFitsToHDF5 _summary_
 
@@ -933,6 +1180,30 @@ def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
     return ret
 
 
+def bootstrapFitsToHDF5(df_outfilename, ref_df, fit_means_arr, fit_stds_arr):
+    """bootstrapFitsToHDF5 _summary_
+
+    :param df_outfilename: _description_
+    :type df_outfilename: _type_
+    :param ref_df: _description_
+    :type ref_df: _type_
+    :param fit_means_arr: _description_
+    :type fit_means_arr: _type_
+    :param fit_stds_arr: _description_
+    :type fit_stds_arr: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    res_df = pd.DataFrame(index=ref_df.index, columns=_DUMMY_P_ADQ.PARAM_NAMES_FLAT + [f"{_p}_ERR" for _p in _DUMMY_P_ADQ.PARAM_NAMES_FLAT], data=jnp.column_stack((fit_means_arr, fit_stds_arr)))
+    out_df = ref_df.join(res_df, how="inner")
+    outpath = os.path.abspath(df_outfilename)
+    out_df.to_hdf(outpath, key="boot_dsps")
+    ret = outpath
+    if not os.path.isfile(outpath):
+        ret = f"Unable to write file to {outpath}. Please check that the run finished correctly."
+    return ret
+
+
 def readVmapFitsFromHDF5(dspsFitsH5, group="fit_dsps"):
     """readVmapFitsFromHDF5 _summary_
 
@@ -945,6 +1216,24 @@ def readVmapFitsFromHDF5(dspsFitsH5, group="fit_dsps"):
     """
     fitres_df = pd.read_hdf(os.path.abspath(dspsFitsH5), key=group)
     fitres_df = fitres_df[_DUMMY_P_ADQ.PARAM_NAMES_FLAT + ["redshift"]]
+    sps_params_dict = fitres_df.to_dict("index")
+    for key, dico in sps_params_dict.items():
+        dico.update({"tag": key})
+    return sps_params_dict
+
+
+def readBootstrapFitsFromHDF5(dspsFitsH5, group="boot_dsps"):
+    """readBootstrapFitsFromHDF5 _summary_
+
+    :param dspsFitsH5: _description_
+    :type dspsFitsH5: _type_
+    :param group: _description_, defaults to "boot_dsps"
+    :type group: str, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    fitres_df = pd.read_hdf(os.path.abspath(dspsFitsH5), key=group)
+    fitres_df = fitres_df[[_DUMMY_P_ADQ.PARAM_NAMES_FLAT] + [f"{p}_ERR" for p in _DUMMY_P_ADQ.PARAM_NAMES_FLAT] + ["redshift"]]
     sps_params_dict = fitres_df.to_dict("index")
     for key, dico in sps_params_dict.items():
         dico.update({"tag": key})
@@ -1274,6 +1563,58 @@ def main(args):
 
     filename_params = os.path.join(outdir, f"fitparams_{_fit_type}_{low_bound+1}_to_{high_bound}.h5")
     status = vmapFitsToHDF5(filename_params, sel_df, fit_results_arr)
+    print(status)
+
+
+def run_bs_fit(args):
+    """run_bs_fit _summary_
+
+    :param args: _description_
+    :type args: _type_
+    """
+    from process_fors2.fetchData import json_to_inputs
+    from process_fors2.fetchData.queries import FORS2DATALOC
+
+    conf_json = args[3] if len(args) > 3 else os.path.join(FORS2DATALOC, "defaults.json")  # attention à la localisation du fichier !
+
+    xmatchh5 = args[1]  # le premier argument de args est toujours `__main__.py`
+    gelatoh5 = args[2]
+    inputs = json_to_inputs(conf_json)["fitDSPS"]
+    _fit_type = inputs["fit_type"]
+    # _use_bounds = inputs["bounded_fit"]
+    _weight_mag = inputs["weight_mag"]  # Only for combined fit : mags + rews
+    _ssp_file = None if (inputs["ssp_file"].lower() == "default" or inputs["ssp_file"] == "" or inputs["ssp_file"] is None) else os.path.abspath(inputs["ssp_file"])
+
+    # _low = inputs["first_spec"]
+    # _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
+    _src = inputs["data_origin"]
+
+    inp_tags = inputs["bootstrap_id"]
+    inp_tags = np.array(inp_tags) if isinstance(inp_tags, list) else np.array([inp_tags])
+
+    sel_df, fit_means, fit_stds = fit_bootstrap(
+        xmatchh5,
+        gelatoh5,
+        fit_type=_fit_type,
+        bs_tags=inp_tags,
+        bs_classif=inputs["bootstrap_classif"],
+        bs_type=inputs["bootstrap_type"],
+        n_fits=inputs["number_bootstrap"],
+        ssp_file=_ssp_file,
+        weight_mag=_weight_mag,
+        remove_visible=inputs["remove_visible"],
+        remove_galex=inputs["remove_galex"],
+        remove_galex_fuv=inputs["remove_fuv"],
+        quiet=False,
+        source=_src,
+    )
+    outdir = os.path.abspath(f"./DSPS_hdf5_BOOTSTRAP{inputs['bootstrap_type']}_{_src}_{_fit_type}")
+
+    if not os.path.isdir(outdir):
+        os.makedirs(outdir)
+
+    filename_params = os.path.join(outdir, f"fitparams_{_fit_type}_bs_{inputs['bootstrap_type']}.h5")
+    status = bootstrapFitsToHDF5(filename_params, sel_df, fit_means, fit_stds)
     print(status)
 
 
