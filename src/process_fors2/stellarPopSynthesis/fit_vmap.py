@@ -1149,7 +1149,7 @@ def fit_bootstrap(
     for _tag, _fitresults in zip(sel_df.index, fit_results_tree, strict=True):
         pars_list, stats_list = zip(*_fitresults, strict=True)
         succ = jnp.array([_s.success for _s in stats_list], dtype=bool)
-        funvals = jnp.array([_s.fun_val for _s in stats_list], dtype=jnp.float)
+        funvals = jnp.array([_s.fun_val for _s in stats_list], dtype=jnp.float64)
         status = [_s.status for _s in stats_list]
         if jnp.any(jnp.array(succ)):
             pars_arr = jnp.array([_p for _p, _s in zip(pars_list, succ, strict=True) if _s])
