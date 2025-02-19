@@ -1143,17 +1143,34 @@ def fit_bootstrap(
     all_means = []
     all_stds = []
     all_succ_counts = []
+    all_succ = []
+    all_fun_vals = []
 
-    for _fitresults in fit_results_tree:
+    for _tag, _fitresults in zip(sel_df.index, fit_results_tree, strict=True):
         pars_list, stats_list = zip(*_fitresults, strict=True)
-        succ = [_s.success for _s in stats_list]
-        pars_arr = jnp.array([_p for _p, _s in zip(pars_list, succ, strict=True) if _s])
-        gal_pars_mean = jnp.nanmean(pars_arr, axis=0)
-        gal_pars_std = jnp.nanstd(pars_arr, axis=0)
-        all_means.append(gal_pars_mean)
-        all_stds.append(gal_pars_std)
-        all_succ_counts.append(pars_arr.shape[0])
-    sel_df["Success count"] = jnp.array(all_succ_counts)
+        succ = jnp.array([_s.success for _s in stats_list], dtype=bool)
+        funvals = jnp.array([_s.fun_val for _s in stats_list], dtype=jnp.float)
+        status = [_s.status for _s in stats_list]
+        if jnp.any(jnp.array(succ)):
+            pars_arr = jnp.array([_p for _p, _s in zip(pars_list, succ, strict=True) if _s])
+            gal_pars_mean = jnp.nanmean(pars_arr, axis=0)
+            gal_pars_std = jnp.nanstd(pars_arr, axis=0)
+            fun_mean = jnp.nanmean(funvals)
+            all_means.append(gal_pars_mean)
+            all_stds.append(gal_pars_std)
+            all_succ_counts.append(pars_arr.shape[0])
+            all_fun_vals.append(fun_mean)
+            all_succ.append(True)
+        else:
+            all_succ.append(False)
+            all_fun_vals.append(jnp.nan)
+            all_succ_counts.append(0)
+            all_means.append(jnp.full(pars_list[0].shape, jnp.nan))
+            all_stds.append(jnp.full(pars_list[0].shape, jnp.nan))
+            sel_df.loc[_tag, "status"] = status
+    sel_df["success"] = jnp.array(all_succ)
+    sel_df["success_count"] = jnp.array(all_succ_counts)
+    sel_df["fun_val"] = jnp.array(all_fun_vals)
 
     return sel_df, jnp.array(all_means), jnp.array(all_stds)
 
