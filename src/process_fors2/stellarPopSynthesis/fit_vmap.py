@@ -1606,8 +1606,10 @@ def run_bs_fit(args):
     # _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
     _src = inputs["data_origin"]
 
-    inp_tags = inputs["bootstrap_id"]
-    inp_tags = np.array(inp_tags) if isinstance(inp_tags, list) else np.array([inp_tags])
+    if inputs["bootstrap_id"] is None or len(inputs["bootstrap_id"]) == 0:  # noqa: SIM108
+        inp_tags = None
+    else:
+        inp_tags = np.array(inp_tags) if isinstance(inp_tags, list) else np.array([inp_tags])
 
     sel_df, fit_means, fit_stds = fit_bootstrap(
         xmatchh5,

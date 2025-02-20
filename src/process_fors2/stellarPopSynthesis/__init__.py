@@ -37,6 +37,7 @@ from .fit_vmap import (
     readBootstrapFitsFromHDF5,
     readVmapFitsFromHDF5,
     red_chi2,
+    run_bs_fit,
     ssp_spectrum_fromparam,
     vmap_calc_eqw,
     vmap_calc_obs_mag,
@@ -103,6 +104,7 @@ __all__ = [
     "istuple",
     "bootstrapFitsToHDF5",
     "fit_bootstrap",
+    "run_bs_fit",
     "prepare_bootstrap_arr",
     "readBootstrapFitsFromHDF5",
 ]
