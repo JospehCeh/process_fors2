@@ -259,30 +259,27 @@ def prepare_bootstrap_arr(attrs_df, selected_tags, wls_arr, source="FORS2", n_fi
 
     for idx, (_meanmag, _stdmag, _meanrew, _stdrew) in enumerate(zip(mags_arr, magerrs_arr, rews_arr, rewerrs_arr, strict=True)):
         # indiv_df = pd.DataFrame(columns=[mags_list, rews_list])
+        _mags = jnp.tile(_meanmag, reps=(n_fits, 1))
+        _merrs = jnp.tile(_stdmag, reps=(n_fits, 1))
         if "mag" in bs_type.lower():
             jkey, jsubkey = jax.random.split(jkey)
-            rnd_norm = jax.random.normal(jsubkey, shape=(n_fits, _meanmag.shape[0]))
-            rnd_mags = jnp.array([rnd_row * _stdmag + _meanmag for rnd_row in rnd_norm])  # Shape issue to be expected here
+            rnd_norm = jax.random.normal(jsubkey, shape=_mags.shape)
+            rnd_mags = rnd_norm * _merrs + _mags
+            all_mags_arr.append(rnd_mags)
         else:
-            rnd_mags = jnp.array([_meanmag for _ in range(n_fits)])
-        rnd_magerrs = jnp.array([_stdmag for _ in range(n_fits)])
-        all_mags_arr.append(rnd_mags)
-        all_magerrs_arr.append(rnd_magerrs)
+            all_mags_arr.append(_mags)
+        all_magerrs_arr.append(_merrs)
 
+        _rews = jnp.tile(_meanrew, reps=(n_fits, 1))
+        _rerrs = jnp.tile(_stdrew, reps=(n_fits, 1))
         if "rew" in bs_type.lower():
             jkey, jsubkey = jax.random.split(jkey)
-            rnd_norm = jax.random.normal(jsubkey, shape=(n_fits, _meanrew.shape[0]))
-            rnd_rews = jnp.array([rnd_row * _stdrew + _meanrew for rnd_row in rnd_norm])  # Shape issue to be expected here
+            rnd_norm = jax.random.normal(jsubkey, shape=_rews.shape)
+            rnd_rews = rnd_norm * _rerrs + _rews
+            all_rews_arr.append(rnd_rews)
         else:
-            rnd_rews = jnp.array([_meanrew for _ in range(n_fits)])
-        rnd_rewerrs = jnp.array([_stdrew for _ in range(n_fits)])
-        all_rews_arr.append(rnd_rews)
-        all_rewerrs_arr.append(rnd_rewerrs)
-
-        # indiv_df.loc[idx, [c for c in mags_list if "err" not in c.lower()] ] = rnd_mags
-        # indiv_df.loc[idx, [c for c in mags_list if "err" in c.lower()] ] = rnd_magerrs
-        # indiv_df.loc[idx, [c for c in rews_list if "err" not in c.lower()] ] = rnd_rews
-        # indiv_df.loc[idx, [c for c in rews_list if "err" in c.lower()] ] = rnd_rewerrs
+            all_rews_arr.append(_rews)
+        all_rewerrs_arr.append(_rerrs)
 
     return sel_df, tuple(all_mags_arr), tuple(all_magerrs_arr), tuple(all_rews_arr), tuple(all_rewerrs_arr), li_wls, list_wlmean_f_sel, transm_arr
 
@@ -509,13 +506,14 @@ def calc_eqw(sur_wls, sur_spec, lin):
     float
         Value of the nequivalent width of spectral line at $\lambda=$`lin`.
     """
-    from process_fors2.analysis import C_KMS
+    from process_fors2.analysis import C_KMS, lsunPerHz_to_flam_noU
 
     line_wid = lin * 300 / C_KMS / 2
     cont_wid = lin * 1500 / C_KMS / 2
-    nancont = jnp.where(jnp.logical_or(jnp.logical_and(sur_wls > lin - cont_wid, sur_wls < lin - line_wid), jnp.logical_and(sur_wls > lin + line_wid, sur_wls < lin + cont_wid)), sur_spec, jnp.nan)
+    sur_flam = lsunPerHz_to_flam_noU(sur_wls, sur_spec, 0.0)
+    nancont = jnp.where(jnp.logical_or(jnp.logical_and(sur_wls > lin - cont_wid, sur_wls < lin - line_wid), jnp.logical_and(sur_wls > lin + line_wid, sur_wls < lin + cont_wid)), sur_flam, jnp.nan)
     height = jnp.nanmean(nancont)
-    vals = jnp.where(jnp.logical_and(sur_wls > lin - line_wid, sur_wls < lin + line_wid), sur_spec / height - 1.0, 0.0)
+    vals = jnp.where(jnp.logical_and(sur_wls > lin - line_wid, sur_wls < lin + line_wid), sur_flam / height - 1.0, 0.0)
     ew = trapz(vals, x=sur_wls)
     return ew
 
@@ -1521,6 +1519,266 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         list_of_figs.append(copy.deepcopy(f))
     pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
+    _ = plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
+
+
+def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, source="FORS2", outpdf=None):
+    """make_bootstrap_plots _summary_
+
+    :param sel_df: _description_
+    :type sel_df: _type_
+    :param params_dict: _description_
+    :type params_dict: _type_
+    :param gelato_h5: _description_
+    :type gelato_h5: _type_
+    :param wls_arr: _description_
+    :type wls_arr: _type_
+    :param ssp_data: _description_
+    :type ssp_data: _type_
+    :param source: _description_, defaults to "FORS2"
+    :type source: str, optional
+    :param outpdf: _description_, defaults to None
+    :type outpdf: _type_, optional
+    """
+    from process_fors2.analysis import convert_flux_toobsframe, convert_flux_torestframe, convertFlambdaToFnu, lsunPerHz_to_fnu
+
+    gelatoh5 = os.path.abspath(gelato_h5)
+
+    rews_list = [col for col in list(sel_df.columns) if ("rew" in col.lower())]
+    mags_list = [col for col in list(sel_df.columns) if ("mag" in col.lower() and "image" not in col.lower())]
+    li_names = np.unique([li.split("_REW")[0] for li in rews_list])
+    li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
+
+    if "fors2" in source.lower():
+        from process_fors2.fetchData import load_filters_from_f2df
+
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_f2df(sel_df, wls_arr)
+    else:  # elif "gogreen" in source.lower(): # the DESI case should be covered by any of these two functions, let's pick GOGREEN.
+        from process_fors2.fetchData import load_filters_from_ggdf
+
+        _, transm_arr, list_wlmean_f_sel = load_filters_from_ggdf(sel_df, wls_arr)
+    list_name_f_sel = ["_".join(m.split("_")[1:]) for m in mags_list if "err" not in m.lower()]
+
+    list_of_figs = []
+    v_mags = vmap(vmap_calc_obs_mag, in_axes=(None, 0, None, None, None))
+    vrews = vmap(vmap_calc_eqw, in_axes=(None, 0, None))
+    v_spec = vmap(ssp_spectrum_fromparam, in_axes=(0, None, None))
+
+    for _tag, row in sel_df.iterrows():
+        f, (a_sfh, ax_spec, ax_rew) = plt.subplots(3, 1, figsize=(7, 10), constrained_layout=True)
+        z_obs = row["redshift"]
+        if "fors2" in source.lower():
+            tag = _tag
+        elif "gogreen" in source.lower():
+            tag = f"{row['cluster']}_{row['specid']}"
+        elif "desi" in source.lower():
+            tag = f"{row['survey']}_{row['program']}"
+            if row["BGS"]:
+                tag += "_BGS"
+            if row["ELG"]:
+                tag += "_ELG"
+            if row["LRG"]:
+                tag += "_LRG"
+            tag += f"_{row['specid']}"
+        title_spec = f"{tag} z = {z_obs:.3f}"
+        # spec_obs = get_fnu(gelatoh5, tag, zob=z_obs)
+        # Xs = spec_obs["wl"]
+        # Ys = spec_obs["fnu"]
+        # EYs = spec_obs["fnuerr"]
+
+        with h5py.File(gelatoh5, "r") as gel5:
+            group = gel5.get(tag)
+            wlo = jnp.array(group.get("wl_ang"))
+            flamo = jnp.array(group.get("flam"))
+            flamoerr = jnp.array(group.get("flam_err"))
+            glamo = jnp.array(group.get("gelato_mod"))
+
+        wlr, flamr = convert_flux_torestframe(wlo, flamo, z_obs)
+        _, flamrerr = convert_flux_torestframe(wlo, flamoerr, z_obs)
+        _, glamr = convert_flux_torestframe(wlo, glamo, z_obs)
+
+        fnur = convertFlambdaToFnu(wlr, flamr)
+        fnurerr = convertFlambdaToFnu(wlr, flamrerr)
+        gnur = convertFlambdaToFnu(wlr, glamr)
+
+        _, fnuo = convert_flux_toobsframe(wlr, fnur, z_obs)
+        _, fnuoerr = convert_flux_toobsframe(wlr, fnurerr, z_obs)
+        _, gnuo = convert_flux_toobsframe(wlr, gnur, z_obs)
+
+        rchi2 = row["rChi2"]
+
+        mags_arr = jnp.array(row[[c for c in mags_list if "err" not in c.lower()]].values, dtype=jnp.float64)
+        magerrs_arr = jnp.array(row[[c for c in mags_list if "err" in c.lower()]].values, dtype=jnp.float64)
+
+        rews_arr = jnp.array(row[[c for c in rews_list if "err" not in c.lower()]].values, dtype=jnp.float64)
+        rewerrs_arr = jnp.array(row[[c for c in rews_list if "err" in c.lower()]].values, dtype=jnp.float64)
+
+        # param_means_arr = jnp.tile(
+        #    jnp.array(row[_DUMMY_P_ADQ.PARAM_NAMES_FLAT].values, dtype=jnp.float64),
+        #    (n_bootstraps, 1)
+        # )
+
+        # param_errs_arr = jnp.tile(
+        #    jnp.array(row[[f"{p}_ERR" for p in _DUMMY_P_ADQ.PARAM_NAMES_FLAT]].values, dtype=jnp.float64),
+        #    (n_bootstraps, 1)
+        # )
+
+        # jkey = jax.random.key(141)
+        # jkey, jsubkey = jax.random.split(jkey)
+        # rnd_draws = jax.random.normal(jsubkey, shape=param_means_arr.shape)
+
+        params_rnd = jnp.array(params_dict[_tag], dtype=jnp.float64)  # rnd_draws*param_errs_arr + param_means_arr
+
+        # Plot SFH
+        sfh_gal = vmap_mean_sfr(params_rnd)
+        sfh_mean = jnp.mean(sfh_gal, axis=0)
+        sfh_std = jnp.std(sfh_gal, axis=0)
+        t_obs = age_at_z(z_obs, *DEFAULT_COSMOLOGY)  # age of the universe in Gyr at z_obs
+        t_obs = t_obs[0]  # age_at_z function returns an array, but SED functions accept a float for this argument
+
+        a_sfh.plot(T_ARR, sfh_mean, "-k", lw=2)
+        a_sfh.fill_between(T_ARR, sfh_mean - sfh_std, sfh_mean + sfh_std, alpha=0.3, color="gray")
+        a_sfh.axvline(t_obs, color="red")
+
+        sfr_max = sfh_mean.max() * 1.1
+        sfr_min = 0.0
+        a_sfh.set_ylim(sfr_min, sfr_max)
+
+        a_sfh.set_title("Fitted SFH")
+        a_sfh.set_xlabel(r"${\rm cosmic\ time\ [Gyr]}$")
+        a_sfh.set_ylabel(r"${\rm SFR\ [M_{\odot}/yr]}$")
+        a_sfh.grid()
+
+        # Plot Photometry
+        x, y_nodust, y_dust = v_spec(params_rnd, z_obs, ssp_data)
+        ynu_nodust = jnp.array([lsunPerHz_to_fnu(_y, z_obs) for _y in y_nodust])
+        ynu_dust = jnp.array([lsunPerHz_to_fnu(_y, z_obs) for _y in y_dust])
+        x = x[0, :]
+        fnu_dsps_nodust, fnu_dsps = jnp.mean(ynu_nodust, axis=0), jnp.mean(ynu_dust, axis=0)
+        fnuerr_dsps, fnuerr_dsps_nodust = jnp.std(ynu_nodust, axis=0), jnp.std(ynu_dust, axis=0)
+
+        mags_predictions = v_mags(x, y_dust, wls_arr, transm_arr, z_obs)
+        mags_means, mags_std = jnp.mean(mags_predictions, axis=0), jnp.std(mags_predictions, axis=0)
+
+        ax_phot = ax_spec.twinx()
+        ax_spec.set_yscale("log")
+        ax_spec.set_xscale("log")
+
+        # plot Fors2 data
+        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, label="Obs.\nspectrum")
+
+        # plot SED model
+        xplot, fnuobs = convert_flux_toobsframe(x, fnu_dsps, z_obs)
+        _, fnumax = convert_flux_toobsframe(x, fnu_dsps + fnuerr_dsps, z_obs)
+        _, fnumin = convert_flux_toobsframe(x, fnu_dsps - fnuerr_dsps, z_obs)
+        (l0,) = ax_spec.plot(xplot, fnuobs, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        ax_spec.fill_between(xplot, fnumin, fnumax, color="green", alpha=0.3)
+
+        _, fnuobs_nodust = convert_flux_toobsframe(x, fnu_dsps_nodust, z_obs)
+        _, fnumax_nodust = convert_flux_toobsframe(x, fnu_dsps_nodust + fnuerr_dsps_nodust, z_obs)
+        _, fnumin_nodust = convert_flux_toobsframe(x, fnu_dsps_nodust - fnuerr_dsps_nodust, z_obs)
+        (l1,) = ax_spec.plot(xplot, fnuobs_nodust, "-", color="red", lw=1, label="DSPS output\nwithout dust")
+        ax_spec.fill_between(xplot, fnumin_nodust, fnumax_nodust, color="red", alpha=0.3)
+
+        # plot photometric data
+        label = "Catalog\nphotometry"
+        valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=20, label=label)
+        l4 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_means[valid_phot], mags_std[valid_phot], fmt="s", markersize=7, color="orange", ecolor="orange", label="Modeled\nphotometry")
+
+        ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
+        # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        ymax = max(fnu_dsps_nodust.max() / (1 + z_obs), fnuo.max())
+        ymin = fnuo.min()
+        ylim_max = ymax * 2.0
+        ylim_min = ymin / 1.5
+
+        filter_tags = [func_strip_name(n) for n, b in zip(list_name_f_sel, valid_phot, strict=True) if b]
+        for idf, ftag in enumerate(filter_tags):
+            ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+            ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
+
+        ax_spec.set_xlabel("$\\lambda\\ [\\AA]$")
+        # ax_spec.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
+        ax_spec.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
+        ax_phot.set_ylabel("$m_{AB}$")
+        # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+
+        ax_spec.set_xlim(jnp.min(list_wlmean_f_sel[valid_phot]) * 0.9, jnp.max(list_wlmean_f_sel[valid_phot]) * 1.1)
+        ax_spec.set_ylim(ylim_min, ylim_max)
+
+        m_min = min(mags_arr[valid_phot].min(), mags_means[valid_phot].min())
+        m_max = max(mags_arr[valid_phot].max(), mags_means[valid_phot].max())
+        ax_phot.set_ylim(m_max + 1, m_min - 1)
+
+        ax_spec.grid()
+        plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        # Plot Equivalent widths + GELATO
+        ax_rew.set_yscale("log")
+        # ax_rew.set_xscale("log")
+
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, label="Obs. spectrum")
+        ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.2)
+
+        (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=1, alpha=0.7, label="GELATO model")
+
+        srwls = jnp.arange(1300.0, 8000.1, 0.1)
+
+        v_interp = vmap(lambda _y: interp1d(srwls, x, _y, method="akima", extrap=False))  # noqa: B023
+        surspec = v_interp(y_dust)
+
+        mod_rews = vrews(srwls, surspec, li_wls)
+        rews_means, rews_std = jnp.mean(mod_rews, axis=0), jnp.std(mod_rews, axis=0)
+        ax_rews = ax_rew.twinx()
+
+        valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
+
+        label = "Restframe\nEq. Widths"
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=20, label=label)
+        lrd = ax_rews.errorbar(li_wls[valid_rew], rews_means[valid_rew], yerr=rews_std[valid_rew], fmt="s", markersize=7, color="orange", ecolor="orange", label="Modeled REWs")
+
+        ymax = jnp.nanmax(fnur)
+        ymin = jnp.nanmin(fnur)
+        ylim_max = ymax * 1.2
+        ylim_min = ymin / 1.2
+
+        min_rew = jnp.nanmin(rews_means[valid_rew]) - 3
+        max_rew = jnp.nanmax(rews_means[valid_rew]) + 3
+
+        for ide, etag in enumerate(li_names[valid_rew]):
+            _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
+            ax_rews.text(
+                li_wls[valid_rew][ide],
+                min_rew * (1 - ide % 2) + max_rew * (ide % 2),
+                _lnam,
+                fontsize=8,
+                fontweight="bold",
+                horizontalalignment="center",
+                verticalalignment="center",
+                rotation="vertical",
+            )
+            ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
+
+        ax_rew.set_xlabel("$\\lambda\\ [\\AA]$")
+        ax_rew.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
+        ax_rews.set_ylabel(r"${\rm Restframe Eq. Width\ [\AA]}$")
+        # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
+
+        ax_rew.set_xlim(min(wlr) - 200.0, max(wlr) + 200.0)
+        ax_rew.set_ylim(ylim_min, ylim_max)
+        ax_rews.set_ylim(min_rew, max_rew)
+        # ax_rews.set_ylim(29, 18)
+
+        ax_rews.grid()
+        ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
+        f.suptitle(title_spec)
+        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        list_of_figs.append(copy.deepcopy(f))
+    pdfoutputfilename = f"BOOTSTRAP-{source}_dsps_and_gelato_plots.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
     _ = plot_figs_to_PDF(pdfoutputfilename, list_of_figs)
 
 

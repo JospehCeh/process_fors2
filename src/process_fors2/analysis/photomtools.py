@@ -35,6 +35,9 @@ jy_to_lsun = (1 * u.Jy).to(U_LSUNperm2perHz)
 U_FNU = u.def_unit("erg . cm^{-2} . s^{-1} . Hz^{-1}", u.erg / (u.cm**2 * u.s * u.Hz))
 U_FL = u.def_unit("erg . cm^{-2} . s^{-1} . AA^{-1}", u.erg / (u.cm**2 * u.s * u.AA))
 
+MPC_TO_M = (1 * u.Mpc).to(u.m).value
+LSUN_TO_FNU = (1 * U_LSUNperHz / (u.m * u.m)).to(U_FNU).value
+
 
 def convert_flux_torestframe(wl, fl, redshift=0.0):
     """
@@ -290,6 +293,22 @@ def lsunPerHz_to_fnu(fsun, zob):
     return fnu
 
 
+def lsunPerHz_to_fnu_noU(fsun, zob):
+    """lsunPerHz_to_fnu _summary_
+
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY)  # in Mpc
+    dist_fact = 4 * jnp.pi * jnp.power(dl * MPC_TO_M, 2)  # * (1 + zob)
+    fnu = fsun * LSUN_TO_FNU / dist_fact
+    return fnu
+
+
 def fnu_to_lsunPerHz(fnu, zob):
     """fnu_to_lsunPerHz _summary_
 
@@ -322,6 +341,23 @@ def lsunPerHz_to_flam(wl, fsun, zob):
     """
     fnu = lsunPerHz_to_fnu(fsun, zob)
     flam = convertFnuToFlambda(wl, fnu)
+    return flam
+
+
+def lsunPerHz_to_flam_noU(wl, fsun, zob):
+    """lsunPerHz_to_flam _summary_
+
+    :param wl: _description_
+    :type wl: _type_
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fnu = lsunPerHz_to_fnu_noU(fsun, zob)
+    flam = convertFnuToFlambda_noU(wl, fnu)
     return flam
 
 
