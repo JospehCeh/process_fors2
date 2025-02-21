@@ -1142,6 +1142,7 @@ def fit_bootstrap(
 
     all_means = []
     all_stds = []
+    all_pars = {}
     all_succ_counts = []
     all_succ = []
     all_fun_vals = []
@@ -1161,18 +1162,20 @@ def fit_bootstrap(
             all_succ_counts.append(pars_arr.shape[0])
             all_fun_vals.append(fun_mean)
             all_succ.append(True)
+            all_pars.update({_tag: {"bs_pars": pars_arr}})
         else:
             all_succ.append(False)
             all_fun_vals.append(jnp.nan)
             all_succ_counts.append(0)
             all_means.append(jnp.full(pars_list[0].shape, jnp.nan))
             all_stds.append(jnp.full(pars_list[0].shape, jnp.nan))
+            all_pars.update({_tag: {"bs_pars": None}})
             sel_df.loc[_tag, "status"] = status
     sel_df["success"] = jnp.array(all_succ)
     sel_df["success_count"] = jnp.array(all_succ_counts)
     sel_df["fun_val"] = jnp.array(all_fun_vals)
 
-    return sel_df, jnp.array(all_means), jnp.array(all_stds)
+    return sel_df, jnp.array(all_means), jnp.array(all_stds), all_pars
 
 
 def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
@@ -1197,7 +1200,7 @@ def vmapFitsToHDF5(df_outfilename, ref_df, fit_res_arr):
     return ret
 
 
-def bootstrapFitsToHDF5(df_outfilename, ref_df, fit_means_arr, fit_stds_arr):
+def bootstrapFitsToHDF5(df_outfilename, ref_df, fit_means_arr, fit_stds_arr, fit_pars_dict):
     """bootstrapFitsToHDF5 _summary_
 
     :param df_outfilename: _description_
@@ -1208,13 +1211,21 @@ def bootstrapFitsToHDF5(df_outfilename, ref_df, fit_means_arr, fit_stds_arr):
     :type fit_means_arr: _type_
     :param fit_stds_arr: _description_
     :type fit_stds_arr: _type_
+    :param fit_pars_list: _description_
+    :type fit_pars_list: _type_
     :return: _description_
     :rtype: _type_
     """
     res_df = pd.DataFrame(index=ref_df.index, columns=_DUMMY_P_ADQ.PARAM_NAMES_FLAT + [f"{_p}_ERR" for _p in _DUMMY_P_ADQ.PARAM_NAMES_FLAT], data=jnp.column_stack((fit_means_arr, fit_stds_arr)))
     out_df = ref_df.join(res_df, how="inner")
     outpath = os.path.abspath(df_outfilename)
-    out_df.to_hdf(outpath, key="boot_dsps")
+    with h5py.File(outpath, "w") as h5f:
+        grp = h5f.create_group("boot_dsps")
+        for _tag, row in out_df.iterrows():
+            sgrp = grp.create_group(_tag)
+            sgrp.create_dataset("bs_pars", data=np.array(fit_pars_dict.pop(_tag).pop("bs_pars"), dtype=np.float64))
+            for key, val in row.to_dict().items():
+                sgrp.attrs[key] = val
     ret = outpath
     if not os.path.isfile(outpath):
         ret = f"Unable to write file to {outpath}. Please check that the run finished correctly."
@@ -1249,12 +1260,16 @@ def readBootstrapFitsFromHDF5(dspsFitsH5, group="boot_dsps"):
     :return: _description_
     :rtype: _type_
     """
-    fitres_df = pd.read_hdf(os.path.abspath(dspsFitsH5), key=group)
-    fitres_df = fitres_df[[_DUMMY_P_ADQ.PARAM_NAMES_FLAT] + [f"{p}_ERR" for p in _DUMMY_P_ADQ.PARAM_NAMES_FLAT] + ["redshift"]]
-    sps_params_dict = fitres_df.to_dict("index")
-    for key, dico in sps_params_dict.items():
-        dico.update({"tag": key})
-    return sps_params_dict
+    dico_to_df = {}
+    dico_pars = {}
+    with h5py.File(os.path.abspath(dspsFitsH5), "r") as h5f:
+        grp = h5f.get(group)
+        for _tag in grp:
+            sgrp = grp.get(_tag)
+            dico_to_df.update({_tag: {_k: sgrp.attrs.get(_k) for _k in sgrp.attrs}})
+            dico_pars.update({_tag: jnp.array(sgrp.get("bs_pars"), dtype=jnp.float64)})
+    fitres_df = pd.DataFrame.from_dict(dico_to_df, orient="index")
+    return fitres_df, dico_pars
 
 
 def func_strip_name(x):
@@ -1609,9 +1624,9 @@ def run_bs_fit(args):
     if inputs["bootstrap_id"] is None or len(inputs["bootstrap_id"]) == 0:  # noqa: SIM108
         inp_tags = None
     else:
-        inp_tags = np.array(inp_tags) if isinstance(inp_tags, list) else np.array([inp_tags])
+        inp_tags = np.array(inputs["bootstrap_id"]) if isinstance(inputs["bootstrap_id"], list) else np.array([inputs["bootstrap_id"]])
 
-    sel_df, fit_means, fit_stds = fit_bootstrap(
+    sel_df, fit_means, fit_stds, pars_dict = fit_bootstrap(
         xmatchh5,
         gelatoh5,
         fit_type=_fit_type,
@@ -1633,7 +1648,7 @@ def run_bs_fit(args):
         os.makedirs(outdir)
 
     filename_params = os.path.join(outdir, f"fitparams_{_fit_type}_bs_{inputs['bootstrap_type']}.h5")
-    status = bootstrapFitsToHDF5(filename_params, sel_df, fit_means, fit_stds)
+    status = bootstrapFitsToHDF5(filename_params, sel_df, fit_means, fit_stds, pars_dict)
     print(status)
 
 
