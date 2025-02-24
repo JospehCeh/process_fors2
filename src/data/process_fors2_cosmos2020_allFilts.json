@@ -169,6 +169,7 @@
         "last_spec": -1,
         "fit_type": "mags+rews",
         "data_origin": "FORS2",
+        "data_selection": null,
         "bounded_fit": true,
         "use_clean": true,
         "weight_mag": 0.8,

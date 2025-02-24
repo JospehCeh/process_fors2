@@ -211,7 +211,7 @@ def Ke06_oi(log_oi_ha):
     return 1.18 * log_oi_ha + 1.30
 
 
-def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FORS2"):
+def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False, return_dict=False):
     """
     Use Restframe Equivalent Widths from GELATO outputs to provide an rudimentary classification of galaxies, using BPT diagrams as described in
     [Kewley et al., 2006](https://ui.adsabs.harvard.edu/abs/2006MNRAS.372..961K/abstract).
@@ -222,12 +222,15 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FOR
         Name or path to the `HDF5` file that contains GELATO outputs.
     xmatchh5 : str or path
         Name or path to the `HDF5` file that contains cross-matched data.
+    source : str, optional
+        Origin of the data : "FORS2", "GOGREEN" or "DESI". The default is "FORS2".
+    selsplit : str, optional
+        Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data.
+        If None, the default behaviour is not to look for splitted data in the file. The default is None.
     use_nc : bool, optional
         Whether to use the 'NC' value for amibuous classifications instead of the highest score. The default is False.
     return_dict : bool, optional
         Whether to return the results as a dictionary (similar to `process_fors2.fetchData.gelato_xmatch_todict`) or a DataFrame. The default is False.
-    source : str, optional
-        Origin of the data : "FORS2", "GOGREEN" or "DESI". The default is "FORS2".
     Returns
     -------
     Object
@@ -237,9 +240,9 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source="FOR
 
     gelatout = readH5FileAttributes(gelatoh5)
     if "fors2" in source.lower():
-        xmatchout = rename_f2_photom(readH5FileAttributes(xmatchh5))
+        xmatchout = rename_f2_photom(readH5FileAttributes(xmatchh5)) if selsplit is None else pd.read_hdf(xmatchh5, key=f"{selsplit.lower()}_data")
     else:
-        xmatchout = pd.read_hdf(xmatchh5)
+        xmatchout = pd.read_hdf(xmatchh5, key=f"{source.lower().split('_')[0]}" if selsplit is None else f"{selsplit.lower()}_data")
         xmatchout = xmatchout.sort_values(by="num", ascending=True)
         df_info_num = xmatchout["num"].values
         key_tags = [f"SPEC{num}" for num in df_info_num]

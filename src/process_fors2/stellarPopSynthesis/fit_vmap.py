@@ -807,7 +807,19 @@ def filter_tags_df(attrs_df, remove_visible=False, remove_galex=False, remove_ga
 
 
 def fit_vmap(
-    xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False, source="FORS2"
+    xmatch_h5,
+    gelato_h5,
+    fit_type="mags",
+    low_bound=0,
+    high_bound=None,
+    ssp_file=None,
+    weight_mag=0.5,
+    remove_visible=False,
+    remove_galex=False,
+    remove_galex_fuv=True,
+    quiet=False,
+    source="FORS2",
+    selsplit=None,
 ):
     """fit_vmap Function to fit a stellar population onto observations of galaxies, using a vmapped algorithm on JAX arrays.
 
@@ -840,13 +852,16 @@ def fit_vmap(
     :type quiet: bool, optional
     :param source: Origin of the spectroscopic and photometric data. Mostly used to identify the filters used in the photometry, defaults to "FORS2"
     :type source: str, optional
+    :param selsplit:  Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data. If None, the default behaviour is not to look for splitted data in the file.
+            Defaults to None.
+    :type selplit: str, optional
     :return: The properties of fitted galaxies in a dataframe, the array of SPS parameters and the boundaries of the selected slice of the set of galaxies.
     :rtype: tuple of (DataFrame, array, int, int)
     """
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
-    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source=source)
+    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, source=source, selsplit=selsplit, use_nc=False, return_dict=False)
 
     # ## Select applicable spectra
     if "fors2" in source.lower():
@@ -899,7 +914,19 @@ def fit_vmap(
 
 
 def fit_treemap(
-    xmatch_h5, gelato_h5, fit_type="mags", low_bound=0, high_bound=None, ssp_file=None, weight_mag=0.5, remove_visible=False, remove_galex=False, remove_galex_fuv=True, quiet=False, source="FORS2"
+    xmatch_h5,
+    gelato_h5,
+    fit_type="mags",
+    low_bound=0,
+    high_bound=None,
+    ssp_file=None,
+    weight_mag=0.5,
+    remove_visible=False,
+    remove_galex=False,
+    remove_galex_fuv=True,
+    quiet=False,
+    source="FORS2",
+    selsplit=None,
 ):
     """fit_treemap _summary_
 
@@ -927,13 +954,16 @@ def fit_treemap(
     :type quiet: bool, optional
     :param source: Origin of the spectroscopic and photometric data. Mostly used to identify the filters used in the photometry, defaults to "FORS2"
     :type source: str, optional
+    :param selsplit:  Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data. If None, the default behaviour is not to look for splitted data in the file.
+            Defaults to None.
+    :type selplit: str, optional
     :return: _description_
     :rtype: _type_
     """
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
-    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source=source)
+    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, source=source, selsplit=selsplit, use_nc=False, return_dict=False)
 
     # ## Select applicable spectra
     if "fors2" in source.lower():
@@ -1025,6 +1055,7 @@ def fit_bootstrap(
     remove_galex_fuv=True,
     quiet=False,
     source="FORS2",
+    selsplit=None,
 ):
     """fit_bootstrap _summary_
 
@@ -1056,13 +1087,16 @@ def fit_bootstrap(
     :type quiet: bool, optional
     :param source: _description_, defaults to "FORS2"
     :type source: str, optional
+    :param selsplit:  Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data. If None, the default behaviour is not to look for splitted data in the file.
+            Defaults to None.
+    :type selplit: str, optional
     :return: _description_
     :rtype: _type_
     """
     ssp_data = load_ssp(ssp_file)
     xmatchh5 = os.path.abspath(xmatch_h5)
     gelatoh5 = os.path.abspath(gelato_h5)
-    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False, source=source)
+    merged_attrs_df = bpt_classif(gelatoh5, xmatchh5, source=source, selsplit=selsplit, use_nc=False, return_dict=False)
 
     classif_tags = []
     for tag, row in merged_attrs_df.iterrows():
@@ -1814,6 +1848,7 @@ def main(args):
     _low = inputs["first_spec"]
     _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
     _src = inputs["data_origin"]
+    _split = inputs["data_selection"]
 
     if _use_bounds:
         sel_df, fit_results_arr, low_bound, high_bound = fit_treemap(
@@ -1829,6 +1864,7 @@ def main(args):
             remove_galex_fuv=inputs["remove_fuv"],
             quiet=False,
             source=_src,
+            selsplit=_split,
         )
         outdir = os.path.abspath(f"./DSPS_hdf5_TREEMAPfit_{_src}_{_fit_type}")
     else:
@@ -1845,6 +1881,7 @@ def main(args):
             remove_galex_fuv=inputs["remove_fuv"],
             quiet=False,
             source=_src,
+            selsplit=_split,
         )
         outdir = os.path.abspath(f"./DSPS_hdf5_VMAPfit_{_src}_{_fit_type}")
 
@@ -1878,6 +1915,7 @@ def run_bs_fit(args):
     # _low = inputs["first_spec"]
     # _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
     _src = inputs["data_origin"]
+    _split = inputs["data_selection"]
 
     if inputs["bootstrap_id"] is None or len(inputs["bootstrap_id"]) == 0:  # noqa: SIM108
         inp_tags = None
@@ -1899,8 +1937,9 @@ def run_bs_fit(args):
         remove_galex_fuv=inputs["remove_fuv"],
         quiet=False,
         source=_src,
+        selsplit=_split,
     )
-    outdir = os.path.abspath(f"./DSPS_hdf5_BOOTSTRAP{inputs['bootstrap_type']}_{_src}_{_fit_type}")
+    outdir = os.path.abspath(f"./DSPS_hdf5_BOOTSTRAP{inputs['bootstrap_type']}_{_src}_{_split}_{_fit_type}")
 
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
