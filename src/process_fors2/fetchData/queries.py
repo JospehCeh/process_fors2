@@ -657,6 +657,125 @@ def get_desi_edr_table(outfile, min_coadd=3):
         return None
 
 
+def get_desiQSO_edr_table(outfile, min_coadd=3):
+    """get_desiQSO_edr_table Queries DESI data from NOIRLAB Astro Data Lab and saves it to disk as a pandas DataFrame.
+    Cuts are operated in order to limit the number of objects that will be queried as individual spectra.
+
+    :param outfile: HDF5 file name for the output
+    :type outfile: str or path-like
+    :return: The absolute path the the written file, if successful, else None.
+    :rtype: str or path-like or None
+    """
+    if ac.whoAmI() == "":
+        _ = ac.login(input("Enter NoirLab - AstroDataLab user name: (+ENTER) "), getpass("Enter NoirLab - AstroDataLab password: (+ENTER) "))
+    print(ac.whoAmI())
+    query = f"""SELECT zp.targetid, zp.survey, zp.program, zp.healpix, zp.z, zp.zwarn, zp.coadd_fiberstatus, zp.spectype, zp.mean_fiber_ra, zp.mean_fiber_dec, zp.zcat_nspec,
+    CAST(zp.zcat_primary as int), zp.desi_target, zp.sv1_desi_target, zp.sv2_desi_target, zp.sv3_desi_target, ph.ra, ph.dec, ph.morphtype, ph.flux_g, ph.flux_r, ph.flux_z, ph.flux_ivar_g,
+    ph.flux_ivar_r, ph.flux_ivar_z, ph.flux_w1, ph.flux_w2, ph.flux_w3, ph.flux_w4, ph.flux_ivar_w1, ph.flux_ivar_w2, ph.flux_ivar_w3, ph.flux_ivar_w4
+    FROM desi_edr.zpix AS zp JOIN desi_edr.photometry AS ph ON (zp.targetid = ph.targetid)
+    WHERE (zp.spectype = 'GALAXY' and zp.zcat_primary = True and zp.zcat_nspec >= {min_coadd})
+    """
+    # df_zp = qc.query(
+    # "select targetid, survey, program, healpix, z, zwarn, coadd_fiberstatus, spectype, mean_fiber_ra, mean_fiber_dec, zcat_nspec, zcat_primary, desi_target, sv1_desi_target, sv2_desi_target,
+    # sv3_desi_target from desi_edr.zpix", fmt='pandas'
+    # )
+    # df_ph = qc.query(
+    # "select targetid, ra, dec, morphtype, flux_g, flux_r, flux_z, flux_ivar_g, flux_ivar_r, flux_ivar_z, flux_w1, flux_w2, flux_w3, flux_w4, flux_ivar_w1, flux_ivar_w2, flux_ivar_w3,
+    # flux_ivar_w4 from desi_edr.photometry", fmt='pandas'
+    # )
+
+    df = qc.query(sql=query, fmt="pandas")
+    ##print(query)
+    ##jobid = qc.query(sql=query, fmt="table", async_=True)
+    ##while "completed" not in qc.status(jobid).lower():
+    ##    time.sleep(1)
+    # zpix = qc.results(jobid)
+
+    # zpix = df_zp.merge(right=df_ph, how="outer", on=["targetid"])
+
+    # Check how many rows have unique TARGETIDs before/after applying the ZCAT_PRIoooliMARY flag
+    # print(f"Total N(rows) : {zpix.shape[0]}")
+    # print(f"N(rows) with unique TARGETIDs : {len(np.unique(zpix['targetid']))}")
+
+    # is_primary = zpix["zcat_primary"]==1
+    # print(f"N(rows) with ZCAT_PRIMARY=True : {len(zpix[is_primary])}")
+
+    print(f"N(unique galaxies) with at least {min_coadd} coadded spectra : {df.shape[0]}")
+
+    ## Selecting only unique objects
+    # zpix_cat = zpix[is_primary]
+    # df = zpix_cat.to_pandas()
+    # df = zpix[is_primary]
+    cut = (df.flux_g == 0) | (df.flux_r == 0) | (df.flux_z == 0) | (df.flux_w1 == 0) | (df.flux_w2 == 0)
+    df = df.drop(df[cut].index)
+    # df = df[df["spectype"] == "GALAXY"]
+    df["zcat_primary"] = np.where(df["zcat_primary"] == 1, True, False)
+    error_factor = 2.5 / np.log(10)
+    # assuming the flux is in maggies (erg/s/cm²/Hz)
+    df["mag_decam_g"] = df["flux_g"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_decam_r"] = df["flux_r"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_decam_z"] = df["flux_z"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    # assuming the flux is in maggies (erg/s/cm²/Hz)
+    df["mag_wise_w1"] = df["flux_w1"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_wise_w2"] = df["flux_w2"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_wise_w3"] = df["flux_w3"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["mag_wise_w4"] = df["flux_w4"].apply(lambda x: (x * u.erg / u.s / (u.cm) ** 2 / u.Hz).to_value(u.ABmag) + 48.6 + 22.5)
+    df["magerr_decam_g"] = df[["flux_g", "flux_ivar_g"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_decam_r"] = df[["flux_r", "flux_ivar_r"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_decam_z"] = df[["flux_z", "flux_ivar_z"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w1"] = df[["flux_w1", "flux_ivar_w1"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w2"] = df[["flux_w2", "flux_ivar_w2"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w3"] = df[["flux_w3", "flux_ivar_w3"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+    df["magerr_wise_w4"] = df[["flux_w4", "flux_ivar_w4"]].apply(lambda x: np.abs(error_factor / x[0] / np.sqrt(x[1])), raw=True, axis=1)
+
+    ## Selecting candidates
+    ## Target bits from DESI:
+    ## 1. LRG: bit 0
+    ## 2. ELG: bit 1
+    ## 3. QSO: bit 2
+    ## 4. BGS: bit 60
+    ## 5. MWS: bit 61
+    ## 6. Secondary Targets: bit 62
+
+    # LRG: Luminous Red Galaxies
+    bit = 0
+    df["LRG"] = df.apply(check_bits_pddf, axis=1, bit=bit)
+
+    # ELG: Emission Line Galaxies
+    bit = 1
+    df["ELG"] = df.apply(check_bits_pddf, axis=1, bit=bit)
+
+    # QSO : Quasars
+    bit = 2
+    df["QSO"] = df.apply(check_bits_pddf, axis=1, bit=bit)
+
+    # BGS: Bright Galaxy Survey
+    bit = 60
+    df["BGS"] = df.apply(check_bits_pddf, axis=1, bit=bit)
+
+    # MWS: Milky Way Survey (all false by constrution
+    bit = 61
+    df["MWS"] = df.apply(check_bits_pddf, axis=1, bit=bit)
+
+    # Secondary Targets
+    bit = 62
+    df["SCND"] = df.apply(check_bits_pddf, axis=1, bit=bit)
+
+    sel = np.logical_and(np.logical_not(df["SCND"]), np.logical_and(df["QSO"], np.logical_not(df["MWS"])))
+    df_sel = df[sel]
+    print(f"Nb of retained galaxies : {df_sel.shape[0]}")
+    df_sel.rename(columns={"z": "redshift", "targetid": "specid"}, inplace=True)
+    df_sel["num"] = df_sel["specid"]
+    outfile = os.path.abspath(outfile)
+    df_sel.to_hdf(outfile, key="desi")
+    if os.path.isfile(outfile):
+        print(f"File successfully written to {outfile}.")
+        return outfile
+    else:
+        print("Unable to write DESI data to disk.")
+        return None
+
+
 def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=None):
     """desi_to_gelato _summary_
 
@@ -732,6 +851,8 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=None):
             catstr += "_ELG"
         if row["LRG"]:
             catstr += "_LRG"
+        if row["QSO"]:
+            catstr += "_QSO"
         fpath = os.path.join(outdir, "SPECS", f"{catstr}_{targetid}_z{redz:.3f}_GEL.fits")
         t.write(fpath, format="fits", overwrite=True)
         all_paths.append(fpath)
