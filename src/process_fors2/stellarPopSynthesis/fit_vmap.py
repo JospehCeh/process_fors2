@@ -1383,6 +1383,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
                 tag += "_ELG"
             if row["LRG"]:
                 tag += "_LRG"
+            if row["QSO"]:
+                tag += "_QSO"
             tag += f"_{row['specid']}"
         title_spec = f"{tag} z = {z_obs:.3f}"
         # spec_obs = get_fnu(gelatoh5, tag, zob=z_obs)
@@ -1613,6 +1615,8 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
                 tag += "_ELG"
             if row["LRG"]:
                 tag += "_LRG"
+            if row["QSO"]:
+                tag += "_QSO"
             tag += f"_{row['specid']}"
         title_spec = f"{tag} z = {z_obs:.3f}"
         # spec_obs = get_fnu(gelatoh5, tag, zob=z_obs)
