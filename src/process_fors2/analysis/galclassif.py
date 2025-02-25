@@ -242,13 +242,13 @@ def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False,
     if "fors2" in source.lower():
         xmatchout = rename_f2_photom(readH5FileAttributes(xmatchh5)) if selsplit is None else pd.read_hdf(xmatchh5, key=f"{selsplit.lower()}_data")
     else:
-        xmatchout = pd.read_hdf(xmatchh5, key=f"{source.lower().split('_')[0]}" if selsplit is None else f"{selsplit.lower()}_data")
+        xmatchout = pd.read_hdf(xmatchh5, key=f"{source.lower().split('_sm')[0]}" if selsplit is None else f"{selsplit.lower()}_data")
         xmatchout = xmatchout.sort_values(by="num", ascending=True)
         df_info_num = xmatchout["num"].values
         key_tags = [f"SPEC{num}" for num in df_info_num]
         xmatchout["name"] = key_tags
         xmatchout.reset_index(drop=True, inplace=True)
-    res_table = xmatchout.merge(right=gelatout, how="outer", on=["name", "num"])
+    res_table = xmatchout.merge(right=gelatout, how="inner", on=["name", "num"])
     if "fors2" in source.lower():
         res_table["u-g"] = res_table["mag_sdss_u0"] - res_table["mag_sdss_g0"]
         res_table["r-i"] = res_table["mag_sdss_r0"] - res_table["mag_sdss_i0"]

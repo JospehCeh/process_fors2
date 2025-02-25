@@ -956,7 +956,7 @@ def fit_treemap(
     :type source: str, optional
     :param selsplit:  Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data. If None, the default behaviour is not to look for splitted data in the file.
             Defaults to None.
-    :type selplit: str, optional
+    :type selsplit: str, optional
     :return: _description_
     :rtype: _type_
     """
@@ -1089,7 +1089,7 @@ def fit_bootstrap(
     :type source: str, optional
     :param selsplit:  Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data. If None, the default behaviour is not to look for splitted data in the file.
             Defaults to None.
-    :type selplit: str, optional
+    :type selsplit: str, optional
     :return: _description_
     :rtype: _type_
     """
@@ -1916,6 +1916,7 @@ def run_bs_fit(args):
     # _high = None if inputs["last_spec"] < 0 else inputs["last_spec"]
     _src = inputs["data_origin"]
     _split = inputs["data_selection"]
+    print(f"Fit on {_split}_data.")
 
     if inputs["bootstrap_id"] is None or len(inputs["bootstrap_id"]) == 0:  # noqa: SIM108
         inp_tags = None
