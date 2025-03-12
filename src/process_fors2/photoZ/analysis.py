@@ -73,7 +73,7 @@ def load_data_for_run(inp_glob):
     """
     from interpax import interp1d
 
-    from process_fors2.photoZ import DATALOC, NIR_filt, NUV_filt, get_2lists, load_filt, read_h5_table, sedpyFilter
+    from process_fors2.photoZ import NIR_filt, NUV_filt, get_2lists, read_h5_table
     from process_fors2.stellarPopSynthesis import load_ssp
 
     _ssp_file = (
@@ -100,8 +100,8 @@ def load_data_for_run(inp_glob):
             _filt = observate.Filter(fnam)
             # _filt = sedpyFilter(_fnumstr, _sedpyf.wavelength, _sedpyf.transmission)
         else:
-            _f["path"] = os.path.abspath(os.path.join(DATALOC, _f["path"]))
-            _filt = sedpyFilter(*load_filt(int(_fnumstr), _f["path"], _f["transmission"]))  # Could also use sedpy directly I think.
+            _f["path"] = os.path.abspath(_f["path"])  # os.path.abspath(os.path.join(DATALOC, _f["path"]))
+            _filt = observate.Filter(fnam, _f["path"])  # sedpyFilter(*load_filt(int(_fnumstr), _f["path"], _f["transmission"]))  # Could also use sedpy directly I think.
         filts_tup.append(_filt)
     filts_tup = tuple(filts_tup) + (NUV_filt, NIR_filt)
     # filts_tup = tuple(sedpyFilter(*load_filt(int(ident), filters_dict[ident]["path"], filters_dict[ident]["transmission"])) for ident in tqdm(filters_dict)) + (NUV_filt, NIR_filt)

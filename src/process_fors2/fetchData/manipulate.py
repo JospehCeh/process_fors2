@@ -1424,7 +1424,7 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
 
     df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "z_spec"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
     outfilename = os.path.abspath(h5file)
-    df_clrs.to_hdf(outfilename, "pz_inputs")
+    df_clrs.to_hdf(outfilename, key="pz_inputs")
     respath = outfilename if os.path.isfile(outfilename) else f"Unable to write data to {outfilename}"
     return respath
 
