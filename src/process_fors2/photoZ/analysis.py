@@ -316,6 +316,8 @@ def run_from_inputs(inputs):
     :return: Photo-z estimation results. These are not written to disk within this function.
     :rtype: list (tree-like)
     """
+    from jaxlib.xla_extension import XlaRuntimeError
+
     from process_fors2.photoZ import (
         likelihood,
         load_data_for_run,
@@ -369,21 +371,50 @@ def run_from_inputs(inputs):
         else:
             templ_tuples = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, av_arr, sspdata)
 
-    if inputs["photoZ"]["prior"]:
-        probz_arr = jax.tree_util.tree_map(
-            lambda sed_tupl: posterior(sed_tupl[0], observed_colors, observed_noise, observed_imags, z_grid, sed_tupl[1]),
-            templ_tuples,
-            is_leaf=istuple,
-        )
-    else:
-        probz_arr = jax.tree_util.tree_map(
-            lambda sed_tupl: likelihood(sed_tupl[0], observed_colors, observed_noise),
-            templ_tuples,
-            is_leaf=istuple,
-        )
+    try:
+        if inputs["photoZ"]["prior"]:
+            probz_arr = jax.tree_util.tree_map(
+                lambda sed_tupl: posterior(sed_tupl[0], observed_colors, observed_noise, observed_imags, z_grid, sed_tupl[1]),
+                templ_tuples,
+                is_leaf=istuple,
+            )
+        else:
+            probz_arr = jax.tree_util.tree_map(
+                lambda sed_tupl: likelihood(sed_tupl[0], observed_colors, observed_noise),
+                templ_tuples,
+                is_leaf=istuple,
+            )
 
-    probz_arr = jnp.array(probz_arr)
+        probz_arr = jnp.array(probz_arr)
 
+    except XlaRuntimeError:
+        print("Out of memory error during initial run : falls back to chunked run...")
+        col_chunks = jnp.array_split(observed_colors, 10, axis=0)
+        sig_chunks = jnp.array_split(observed_noise, 10, axis=0)
+        imag_chunks = jnp.array_split(observed_imags, 10, axis=0)
+        p_list = []
+
+        for c_chun, s_chun, i_chun in tqdm(zip(col_chunks, sig_chunks, imag_chunks, strict=True)):
+
+            def _run(templates, cols=c_chun, errs=s_chun, imags=i_chun):
+                if inputs["photoZ"]["prior"]:
+                    probz_list = jax.tree_util.tree_map(
+                        lambda sed_tupl: posterior(sed_tupl[0], cols, errs, imags, z_grid, sed_tupl[1]),
+                        templates,
+                        is_leaf=istuple,
+                    )
+                else:
+                    probz_list = jax.tree_util.tree_map(
+                        lambda sed_tupl: likelihood(sed_tupl[0], cols, errs),
+                        templates,
+                        is_leaf=istuple,
+                    )
+                return probz_list
+
+            p_list.extend(_run(templ_tuples))
+        probz_arr = jnp.array(p_list)
+
+    results_dict = extract_pdz(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     """
     if inputs["photoZ"]["Templates"]["as_array"]:
         if inputs["photoZ"]["prior"]:
@@ -423,7 +454,6 @@ def run_from_inputs(inputs):
             probz_arr *= prior_arr
     """
 
-    results_dict = extract_pdz(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     print("All done !")
 
     return results_dict
