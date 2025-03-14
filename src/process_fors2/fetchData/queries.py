@@ -21,10 +21,6 @@ from astropy.table import Table
 from astroquery.mast import Catalogs
 from astroquery.simbad import Simbad
 from astroquery.vizier import Vizier
-from dl import authClient as ac
-from dl import queryClient as qc
-from dl import storeClient as sc
-from sparcl.client import SparclClient
 from tqdm import tqdm
 
 _script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -195,6 +191,8 @@ def get_gogreen_merged_table(outfile):
     :return: The absolute path the the written file, if successful, else None.
     :rtype: str or path-like or None
     """
+    from dl import queryClient as qc
+
     cluster_table = qc.query("select * from gogreen_dr1.clusters", fmt="pandas")
     phot_table = qc.query("select * from gogreen_dr1.photo", fmt="pandas")
     redshift_table = qc.query("select * from gogreen_dr1.redshift", fmt="pandas")
@@ -300,6 +298,8 @@ def gogreen_to_gelato(gg_infile, output_dir, interp_step=None):
     :return: The list of FITS spectra as an Astropy Table and the path to the output directory
     :rtype: tuple(Table, str)
     """
+    from dl import storeClient as sc
+
     from process_fors2.fetchData import tableForGelato
 
     gg_df = pd.read_hdf(os.path.abspath(gg_infile), key="gogreen")
@@ -547,6 +547,9 @@ def get_desi_edr_table(outfile, min_coadd=3):
     :return: The absolute path the the written file, if successful, else None.
     :rtype: str or path-like or None
     """
+    from dl import authClient as ac
+    from dl import queryClient as qc
+
     if ac.whoAmI() == "":
         _ = ac.login(input("Enter NoirLab - AstroDataLab user name: (+ENTER) "), getpass("Enter NoirLab - AstroDataLab password: (+ENTER) "))
     print(ac.whoAmI())
@@ -666,6 +669,9 @@ def get_desiQSO_edr_table(outfile, min_coadd=3):
     :return: The absolute path the the written file, if successful, else None.
     :rtype: str or path-like or None
     """
+    from dl import authClient as ac
+    from dl import queryClient as qc
+
     if ac.whoAmI() == "":
         _ = ac.login(input("Enter NoirLab - AstroDataLab user name: (+ENTER) "), getpass("Enter NoirLab - AstroDataLab password: (+ENTER) "))
     print(ac.whoAmI())
@@ -791,6 +797,7 @@ def desi_to_gelato(desi_infile, output_dir, min_coadd=3, interp_step=None):
     :rtype: _type_
     """
     from requests.exceptions import ConnectTimeout, ReadTimeout
+    from sparcl.client import SparclClient
     from sparcl.exceptions import ReadTimeout as ScTimeout
     from urllib3.exceptions import ConnectTimeoutError, ReadTimeoutError
 
