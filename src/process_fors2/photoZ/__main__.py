@@ -21,7 +21,10 @@
 #
 #
 
+import os
 import sys
+
+from jaxlib.xla_extension import XlaRuntimeError
 
 # import pandas as pd
 # from jax import debug
@@ -37,9 +40,12 @@ def main(args):
     from process_fors2.photoZ import run_from_inputs
 
     conf_json = args[1] if len(args) > 1 else "./defaults.json"  # le premier argument de args est toujours `__main__.py` ; attention à la localisation du fichier !
-    inputs = json_to_inputs(conf_json)
-
-    tree_of_results_dict = run_from_inputs(inputs)
+    try:
+        inputs = json_to_inputs(conf_json)
+        tree_of_results_dict = run_from_inputs(inputs)
+    except XlaRuntimeError:
+        os.environ["XLA_PYTHON_CLIENT_ALLOCATOR"] = "platform"
+        tree_of_results_dict = run_from_inputs(inputs)
 
     if inputs["photoZ"]["save results"]:
         from process_fors2.fetchData import photoZtoHDF5
