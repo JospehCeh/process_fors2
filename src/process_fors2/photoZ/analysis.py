@@ -389,9 +389,9 @@ def run_from_inputs(inputs):
 
     except XlaRuntimeError:
         print("Out of memory error during initial run : falls back to chunked run...")
-        col_chunks = jnp.array_split(observed_colors, 10, axis=0)
-        sig_chunks = jnp.array_split(observed_noise, 10, axis=0)
-        imag_chunks = jnp.array_split(observed_imags, 10, axis=0)
+        col_chunks = jnp.array_split(observed_colors, 50, axis=0)
+        sig_chunks = jnp.array_split(observed_noise, 50, axis=0)
+        imag_chunks = jnp.array_split(observed_imags, 50, axis=0)
         p_list = []
 
         for c_chun, s_chun, i_chun in tqdm(zip(col_chunks, sig_chunks, imag_chunks, strict=True)):
