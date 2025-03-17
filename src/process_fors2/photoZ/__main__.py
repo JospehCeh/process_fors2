@@ -33,12 +33,43 @@ def main(args):
     """
     Main function to start an external call to the photoZ module. Arguments must be the JSON configuration file.
     """
+    from jaxlib.xla_extension import XlaRuntimeError
+
     from process_fors2.fetchData import json_to_inputs
     from process_fors2.photoZ import run_from_inputs
 
     conf_json = args[1] if len(args) > 1 else "./defaults.json"  # le premier argument de args est toujours `__main__.py` ; attention à la localisation du fichier !
     inputs = json_to_inputs(conf_json)
-    tree_of_results_dict = run_from_inputs(inputs)
+    try:
+        tree_of_results_dict = run_from_inputs(inputs)
+    except XlaRuntimeError:
+        import os
+
+        import pandas as pd
+        from jax import numpy as jnp
+        from tqdm import tqdm
+
+        filters_dict = inputs["photoZ"]["Filters"]
+        filters_names = [_f["name"] for _, _f in filters_dict.items()]
+        data_path = os.path.abspath(inputs["photoZ"]["Dataset"]["path"])
+        data_ismag = inputs["photoZ"]["Dataset"]["type"].lower() == "m"
+        if inputs["photoZ"]["Dataset"]["is_ascii"]:
+            from process_fors2.fetchData import catalog_ASCIItoHDF5
+
+            h5catpath = catalog_ASCIItoHDF5(data_path, data_ismag, filt_names=filters_names)
+        else:
+            h5catpath = data_path
+        cat_df = pd.read_hdf(h5catpath)
+
+        n_chunks = cat_df.shape[0] // 10000
+        l_last_chunk = cat_df.shape[0] % 10000
+
+        pz_dicts = []
+        for ichunk in tqdm(range(n_chunks)):
+            _bnds = (ichunk * 10000, (ichunk + 1) * 10000) if ichunk < n_chunks - 1 else (ichunk * 10000, ichunk * 10000 + l_last_chunk)
+            pz_dicts.append(run_from_inputs(inputs, bounds=_bnds))
+
+        tree_of_results_dict = {_key: jnp.array([_dict[_key] for _dict in pz_dicts]) for _key in pz_dicts[0]}
 
     if inputs["photoZ"]["save results"]:
         from process_fors2.fetchData import photoZtoHDF5

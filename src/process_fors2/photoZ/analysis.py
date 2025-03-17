@@ -64,11 +64,13 @@ DustLaw = namedtuple('DustLaw', ['name', 'EBV', 'transmission'])
 # conf_json = 'EmuLP/COSMOS2020-with-FORS2-HSC_only-jax-CC-togglePriorTrue-opa.json' # attention à la localisation du fichier !
 
 
-def load_data_for_run(inp_glob):
+def load_data_for_run(inp_glob, bounds=None):
     """load_data_for_run Generates input data from the inputs configuration dictionary
 
     :param inp_glob: input configuration and settings
     :type inp_glob: dict
+    :param bounds: index of first and last elements to load. If None, reads the whole catalog. Defaults to None.
+    :type bounds: 2-tuple of int or None
     :return: data for photo-z evaluation : redshift grid, templates dictionary and the arrays of processed observed data (input catalog) (i mags ; colors ; errors on colors ; spectro-z).
     :rtype: tuple of jax.ndarray
     """
@@ -148,7 +150,7 @@ def load_data_for_run(inp_glob):
     if inputs["Dataset"]["overwrite"] or not (os.path.isfile(clrh5file)):
         from process_fors2.fetchData import readCatalogHDF5
 
-        ab_mags, ab_mags_errs, z_specs = readCatalogHDF5(h5catpath, filt_names=filters_names)
+        ab_mags, ab_mags_errs, z_specs = readCatalogHDF5(h5catpath, filt_names=filters_names, bounds=bounds)
 
         from .galaxy import vmap_mags_to_i_and_colors, vmap_mags_to_i_and_icolors
 
@@ -158,11 +160,12 @@ def load_data_for_run(inp_glob):
 
         from process_fors2.fetchData import pzInputsToHDF5
 
-        _colrs_h5out = pzInputsToHDF5(clrh5file, ab_colors, ab_cols_errs, z_specs, i_mag_ab, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
+        if bounds is None:
+            _colrs_h5out = pzInputsToHDF5(clrh5file, ab_colors, ab_cols_errs, z_specs, i_mag_ab, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
     else:
         from process_fors2.fetchData import readPZinputsHDF5
 
-        i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(clrh5file, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"])
+        i_mag_ab, ab_colors, ab_cols_errs, z_specs = readPZinputsHDF5(clrh5file, filt_names=filters_names, i_colors=inputs["i_colors"], iband_num=inputs["i_band_num"], bounds=bounds)
 
     return z_grid, wl_grid, transm_arr, pars_arr, zref_arr, templ_classif, i_mag_ab, ab_colors, ab_cols_errs, z_specs, ssp_data
 
@@ -309,15 +312,16 @@ def extract_pdz_allseds(pdf_arr, zs, z_grid):
     return pdz_dict
 
 
-def run_from_inputs(inputs):
+def run_from_inputs(inputs, bounds=None):
     """run_from_inputs Run the photometric redshifts estimation with the given input settings.
 
     :param inputs: Input settings for the photoZ run. Can be loaded from a `JSON` file using `process_fors2.fetchData.json_to_inputs`.
     :type inputs: dict
+    :param bounds: index of first and last elements to load. If None, reads the whole catalog. Defaults to None.
+    :type bounds: 2-tuple of int or None
     :return: Photo-z estimation results. These are not written to disk within this function.
     :rtype: list (tree-like)
     """
-    from jaxlib.xla_extension import XlaRuntimeError
 
     from process_fors2.photoZ import (
         likelihood,
@@ -330,7 +334,7 @@ def run_from_inputs(inputs):
     )
     from process_fors2.stellarPopSynthesis import istuple
 
-    z_grid, wl_grid, transm_arr, templ_parsarr, templ_zref_arr, templ_classif, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs)
+    z_grid, wl_grid, transm_arr, templ_parsarr, templ_zref_arr, templ_classif, observed_imags, observed_colors, observed_noise, observed_zs, sspdata = load_data_for_run(inputs, bounds=bounds)
 
     print("Photometric redshift estimation (please be patient, this may take a some time on large datasets) :")
 
@@ -372,22 +376,23 @@ def run_from_inputs(inputs):
         else:
             templ_tuples = make_legacy_templates(templ_parsarr, templ_zref_arr, wl_grid, transm_arr, z_grid, av_arr, sspdata)
 
-    try:
-        if inputs["photoZ"]["prior"]:
-            probz_arr = jax.tree_util.tree_map(
-                lambda sed_tupl: posterior(sed_tupl[0], observed_colors, observed_noise, observed_imags, z_grid, sed_tupl[1]),
-                templ_tuples,
-                is_leaf=istuple,
-            )
-        else:
-            probz_arr = jax.tree_util.tree_map(
-                lambda sed_tupl: likelihood(sed_tupl[0], observed_colors, observed_noise),
-                templ_tuples,
-                is_leaf=istuple,
-            )
+    # try:
+    if inputs["photoZ"]["prior"]:
+        probz_arr = jax.tree_util.tree_map(
+            lambda sed_tupl: posterior(sed_tupl[0], observed_colors, observed_noise, observed_imags, z_grid, sed_tupl[1]),
+            templ_tuples,
+            is_leaf=istuple,
+        )
+    else:
+        probz_arr = jax.tree_util.tree_map(
+            lambda sed_tupl: likelihood(sed_tupl[0], observed_colors, observed_noise),
+            templ_tuples,
+            is_leaf=istuple,
+        )
 
-        probz_arr = jnp.array(probz_arr)
+    probz_arr = jnp.array(probz_arr)
 
+    """
     except XlaRuntimeError:
         print("Out of memory error during initial run : falls back to chunked run...")
         col_chunks = jnp.array_split(observed_colors, 50, axis=0)
@@ -418,6 +423,7 @@ def run_from_inputs(inputs):
             all_p_chunks.extend(_el)
 
         probz_arr = jnp.array(all_p_chunks)
+    """
 
     results_dict = extract_pdz(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     """

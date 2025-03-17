@@ -1317,7 +1317,7 @@ def readDSPSBootstrapHDF5(h5file):
     return out_dict
 
 
-def readCatalogHDF5(h5file, group="catalog", filt_names=None):
+def readCatalogHDF5(h5file, group="catalog", filt_names=None, bounds=None):
     """readCatalogHDF5 Reads the magnitudes and spectroscopic redshift (if available) from a dictionary-like catalog provided as an `HDF5` file.
     Preliminary step for the `process_fors2.photoZ` calculations.
 
@@ -1328,12 +1328,16 @@ def readCatalogHDF5(h5file, group="catalog", filt_names=None):
     :param filt_names: Names of filters to look for in the catalogs. Data recorded as `mag_[filter name]` and `mag_err_[filter name]` will be returned.
     If None, defaults to LSST filters. Defaults to None.
     :type filt_names: list of str, optional
+    :param bounds: index of first and last elements to load. If None, reads the whole catalog. Defaults to None.
+    :type bounds: 2-tuple of int or None
     :return: tuple containing AB magnitudes, corresponding errors and spectroscopic redshift as arrays.
     :rtype: tuple of arrays
     """
     if filt_names is None:
         filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
     df_cat = pd.read_hdf(os.path.abspath(h5file), key=group)
+    if bounds is not None:
+        df_cat = df_cat.iloc[bounds[0] : bounds[-1]]
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
     obs_mags = jnp.array(df_cat[magnames])
@@ -1429,7 +1433,7 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
     return respath
 
 
-def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3):
+def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3, bounds=None):
     """readPZinputsHDF5 Reads pre-existing photometry inputs for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
     Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
@@ -1442,6 +1446,8 @@ def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3):
     :type i_colors: bool, optional
     :param iband_num: The number (starting from 0) of the i-band in the list of `filt_names`. Defaults to 3.
     :type iband_num: int, optional
+    :param bounds: index of first and last elements to load. If None, reads the whole catalog. Defaults to None.
+    :type bounds: 2-tuple of int or None
     :return: 4-tuple of JAX arrays containing data to perform photo-z estimation (`jnp.nan` if missing) : mags in i-band ; color indices ; associated errors and spectro-z.
     :rtype: tuple(arrays)
     """
@@ -1457,6 +1463,8 @@ def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3):
         color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
     df_clrs = pd.read_hdf(os.path.abspath(h5file), key="pz_inputs")
+    if bounds is not None:
+        df_clrs = df_clrs.iloc[bounds[0] : bounds[-1]]
     colrs = jnp.array(df_clrs[color_names])
     colrs_errs = jnp.array(df_clrs[color_err_names])
     i_mags = jnp.array(df_clrs["i_mag"])
