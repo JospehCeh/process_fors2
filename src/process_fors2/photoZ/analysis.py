@@ -42,6 +42,7 @@ except ImportError:
     except ImportError:
         from jax.numpy import trapz as trapezoid
 
+
 from process_fors2.stellarPopSynthesis import SSPParametersFit
 
 _DUMMY_PARS = SSPParametersFit()
@@ -392,27 +393,31 @@ def run_from_inputs(inputs):
         col_chunks = jnp.array_split(observed_colors, 50, axis=0)
         sig_chunks = jnp.array_split(observed_noise, 50, axis=0)
         imag_chunks = jnp.array_split(observed_imags, 50, axis=0)
+
+        chunks_tupls = [*zip(col_chunks, sig_chunks, imag_chunks, strict=True)]
         p_list = []
 
-        for c_chun, s_chun, i_chun in tqdm(zip(col_chunks, sig_chunks, imag_chunks, strict=True)):
+        def _run(templates, cols, errs, imags):
+            if inputs["photoZ"]["prior"]:
+                probz_list = jax.tree_util.tree_map(
+                    lambda sed_tupl: posterior(sed_tupl[0], cols, errs, imags, z_grid, sed_tupl[1]),
+                    templates,
+                    is_leaf=istuple,
+                )
+            else:
+                probz_list = jax.tree_util.tree_map(
+                    lambda sed_tupl: likelihood(sed_tupl[0], cols, errs),
+                    templates,
+                    is_leaf=istuple,
+                )
+            return probz_list
 
-            def _run(templates, cols=c_chun, errs=s_chun, imags=i_chun):
-                if inputs["photoZ"]["prior"]:
-                    probz_list = jax.tree_util.tree_map(
-                        lambda sed_tupl: posterior(sed_tupl[0], cols, errs, imags, z_grid, sed_tupl[1]),
-                        templates,
-                        is_leaf=istuple,
-                    )
-                else:
-                    probz_list = jax.tree_util.tree_map(
-                        lambda sed_tupl: likelihood(sed_tupl[0], cols, errs),
-                        templates,
-                        is_leaf=istuple,
-                    )
-                return probz_list
+        p_list = jax.tree_util.tree_map(lambda chunks: _run(templ_tuples, chunks[0], chunks[1], chunks[2]), chunks_tupls, is_leaf=istuple)
+        all_p_chunks = []
+        for _el in p_list:
+            all_p_chunks.extend(_el)
 
-            p_list.extend(_run(templ_tuples))
-        probz_arr = jnp.array(p_list)
+        probz_arr = jnp.array(all_p_chunks)
 
     results_dict = extract_pdz(probz_arr, observed_zs, z_grid)  # extract_pdz_pars_z_anu(probz_arr, observed_zs, z_grid, anu_arr)
     """
