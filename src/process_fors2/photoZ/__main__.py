@@ -69,7 +69,10 @@ def main(args):
             _bnds = (ichunk * 10000, (ichunk + 1) * 10000) if ichunk < n_chunks - 1 else (ichunk * 10000, ichunk * 10000 + l_last_chunk)
             pz_dicts.append(run_from_inputs(inputs, bounds=_bnds))
 
-        tree_of_results_dict = {_key: jnp.concatenate([_dict[_key] for _dict in pz_dicts], axis=0) for _key in pz_dicts[0]}
+        # tree_of_results_dict = {_key: jnp.concatenate([_dict[_key] for _dict in pz_dicts], axis=0) for _key in pz_dicts[0]}
+        tree_of_results_dict = {"z_grid": pz_dicts[0]["z_grid"], "PDZ": jnp.concatenate([_dict["PDZ"] for _dict in pz_dicts], axis=1)}
+        for _key in ["z_spec", "z_ML", "z_mean", "z_med"]:
+            tree_of_results_dict.update({_key: jnp.concatenate([_dict[_key] for _dict in pz_dicts], axis=0)})
 
     if inputs["photoZ"]["save results"]:
         from process_fors2.fetchData import photoZtoHDF5
