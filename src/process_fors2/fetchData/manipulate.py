@@ -1337,7 +1337,7 @@ def readCatalogHDF5(h5file, group="catalog", filt_names=None, bounds=None):
         filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
     df_cat = pd.read_hdf(os.path.abspath(h5file), key=group)
     if bounds is not None:
-        df_cat = df_cat.iloc[bounds[0] : bounds[-1]]
+        df_cat = df_cat.iloc[bounds[0] : bounds[-1]].copy()
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
     obs_mags = jnp.array(df_cat[magnames])
@@ -1464,7 +1464,7 @@ def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3, bound
 
     df_clrs = pd.read_hdf(os.path.abspath(h5file), key="pz_inputs")
     if bounds is not None:
-        df_clrs = df_clrs.iloc[bounds[0] : bounds[-1]]
+        df_clrs = df_clrs.iloc[bounds[0] : bounds[-1]].copy()
     colrs = jnp.array(df_clrs[color_names])
     colrs_errs = jnp.array(df_clrs[color_err_names])
     i_mags = jnp.array(df_clrs["i_mag"])
