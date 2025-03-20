@@ -47,7 +47,6 @@ def main(args):
 
         import pandas as pd
         from jax import numpy as jnp
-        from tqdm import tqdm
 
         filters_dict = inputs["photoZ"]["Filters"]
         filters_names = [_f["name"] for _, _f in filters_dict.items()]
@@ -61,12 +60,13 @@ def main(args):
             h5catpath = data_path
         cat_df = pd.read_hdf(h5catpath)
 
-        n_chunks = cat_df.shape[0] // 10000
-        l_last_chunk = cat_df.shape[0] % 10000
+        n_chunks = (cat_df.shape[0] // 5000) + 1
+        l_last_chunk = cat_df.shape[0] % 5000
 
         pz_dicts = []
-        for ichunk in tqdm(range(n_chunks)):
-            _bnds = (ichunk * 10000, (ichunk + 1) * 10000) if ichunk < n_chunks - 1 else (ichunk * 10000, ichunk * 10000 + l_last_chunk)
+        for ichunk in range(n_chunks):
+            _bnds = (ichunk * 5000, (ichunk + 1) * 5000) if ichunk < n_chunks - 1 else (ichunk * 5000, ichunk * 5000 + l_last_chunk)
+            print(f"Running on chunk n. {ichunk+1}/{n_chunks} ; objects {_bnds[0]+1} to {_bnds[1]}...")
             pz_dicts.append(run_from_inputs(inputs, bounds=_bnds))
 
         # tree_of_results_dict = {_key: jnp.concatenate([_dict[_key] for _dict in pz_dicts], axis=0) for _key in pz_dicts[0]}
