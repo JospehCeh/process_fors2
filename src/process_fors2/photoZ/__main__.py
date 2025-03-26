@@ -43,6 +43,7 @@ def main(args):
     try:
         tree_of_results_dict = run_from_inputs(inputs)
     except XlaRuntimeError:
+        print("Dataset is too large for a single run (OOM error) - running on chunks instead :")
         import os
 
         import pandas as pd
@@ -71,7 +72,7 @@ def main(args):
 
         # tree_of_results_dict = {_key: jnp.concatenate([_dict[_key] for _dict in pz_dicts], axis=0) for _key in pz_dicts[0]}
         tree_of_results_dict = {"z_grid": pz_dicts[0]["z_grid"], "PDZ": jnp.concatenate([_dict["PDZ"] for _dict in pz_dicts], axis=1)}
-        for _key in ["z_spec", "z_ML", "z_mean", "z_med"]:
+        for _key in ["redshift", "z_ML", "z_mean", "z_med"]:
             tree_of_results_dict.update({_key: jnp.concatenate([_dict[_key] for _dict in pz_dicts], axis=0)})
 
     if inputs["photoZ"]["save results"]:

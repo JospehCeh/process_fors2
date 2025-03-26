@@ -1164,7 +1164,7 @@ def photoZ_listObsToHDF5(outfilename, pz_list):
         for i, posts_dic in enumerate(pz_list):
             groupout = h5out.create_group(f"{i}")
             groupout.create_dataset("PDZ", data=posts_dic.pop("PDZ"), compression="gzip", compression_opts=9)
-            groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
+            groupout.attrs["redshift"] = posts_dic.pop("redshift")
             groupout.attrs["z_ML"] = posts_dic.pop("z_ML")
             groupout.attrs["z_mean"] = posts_dic.pop("z_mean")
             groupout.attrs["z_med"] = posts_dic.pop("z_med")
@@ -1204,7 +1204,7 @@ def readPhotoZHDF5_fromListObs(h5file):
     out_list = []
     with h5py.File(filein, "r") as h5in:
         for key, grp in h5in.items():
-            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean"), "z_med": grp.attrs.get("z_med")}
+            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "redshift": grp.attrs.get("redshift"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean"), "z_med": grp.attrs.get("z_med")}
             for templ, grp_sed in grp.items():
                 if "SPEC" in templ:
                     obs_dict.update({templ: {_k: _att for _k, _att in grp_sed.attrs.items()}})
@@ -1317,13 +1317,13 @@ def readDSPSBootstrapHDF5(h5file):
     return out_dict
 
 
-def readCatalogHDF5(h5file, group="catalog", filt_names=None, bounds=None):
+def readCatalogHDF5(h5file, group="photometry", filt_names=None, bounds=None):
     """readCatalogHDF5 Reads the magnitudes and spectroscopic redshift (if available) from a dictionary-like catalog provided as an `HDF5` file.
     Preliminary step for the `process_fors2.photoZ` calculations.
 
     :param h5file: Path to the HDF5 catalog file.
     :type h5file: str or path-like
-    :param group: Identifier of the group to read within the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.read_hdf`. Defaults to 'catalog'.
+    :param group: Identifier of the group to read within the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.read_hdf`. Defaults to 'photometry'.
     :type group: str, optional
     :param filt_names: Names of filters to look for in the catalogs. Data recorded as `mag_[filter name]` and `mag_err_[filter name]` will be returned.
     If None, defaults to LSST filters. Defaults to None.
@@ -1334,7 +1334,7 @@ def readCatalogHDF5(h5file, group="catalog", filt_names=None, bounds=None):
     :rtype: tuple of arrays
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
     df_cat = pd.read_hdf(os.path.abspath(h5file), key=group)
     if bounds is not None:
         df_cat = df_cat[bounds[0] : bounds[-1]].copy()
@@ -1343,20 +1343,20 @@ def readCatalogHDF5(h5file, group="catalog", filt_names=None, bounds=None):
     obs_mags = jnp.array(df_cat[magnames])
     obs_mags_errs = jnp.array(df_cat[magerrs])
     try:
-        z_specs = jnp.array(df_cat["z_spec"])
+        z_specs = jnp.array(df_cat["redshift"])
     except IndexError:
         z_specs = jnp.full(obs_mags.shape[0], jnp.nan)
     return obs_mags, obs_mags_errs, z_specs
 
 
-def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None):
+def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="photometry", filt_names=None):
     """catalog_ASCIItoHDF5 Reads a catalog provided as an ASCII file (as in LEPHARE) containing either fluxes or magnitudes and saves it in an `HDF5` file containing AB-magnitudes.
 
     :param ascii_file: Path to the ASCII file containing catalog cata as an array that can be read with `numpy.loadtxt(ascii_file)`.
     :type ascii_file: str or path-like
     :param data_ismag: Whether the photometry in the file is given as AB-magnitudes or flux density (in erg/s/cm²/Hz). True for AB-magnitudes.
     :type data_ismag: bool
-    :param group: Name of the group to write in the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.to_hdf`. Defaults to 'catalog'.
+    :param group: Name of the group to write in the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.to_hdf`. Defaults to 'photometry'.
     :type group: str, optional
     :param filt_names: Names of filters to use as column names in the catalog. Data will be recored as `mag_[filter name]` and `mag_err_[filter name]`.
     If None, defaults to LSST filters. Defaults to None.
@@ -1365,14 +1365,14 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
     :rtype: str or path-like object
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
     N_FILT = len(filt_names)
     data_file_arr = np.loadtxt(os.path.abspath(ascii_file))
     has_zspec = data_file_arr.shape[1] == 1 + 2 * N_FILT + 1
     no_zspec = data_file_arr.shape[1] == 1 + 2 * N_FILT
-    assert has_zspec or no_zspec, "Number of column in data does not match one of 1 + 2*n_filts + 1 (id, photometry, z_spec) or 1 + 2*n_filts (id, photometry).\
+    assert has_zspec or no_zspec, "Number of column in data does not match one of 1 + 2*n_filts + 1 (id, photometry, redshift) or 1 + 2*n_filts (id, photometry).\
         \nReview data or filters list."
 
     from process_fors2.photoZ import vmap_load_magnitudes
@@ -1381,7 +1381,7 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
 
     all_zs = data_file_arr[:, -1] if has_zspec else jnp.full(all_mags.shape[0], jnp.nan)
 
-    df_mags = pd.DataFrame(columns=magnames + magerrs + ["z_spec"], data=jnp.column_stack((all_mags, all_mags_err, all_zs)))
+    df_mags = pd.DataFrame(columns=magnames + magerrs + ["redshift"], data=jnp.column_stack((all_mags, all_mags_err, all_zs)))
 
     hdf_name = f"{os.path.splitext(os.path.basename(ascii_file))[0]}.h5"
     outfilename = os.path.abspath(hdf_name)
@@ -1416,7 +1416,7 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
     :rtype: str or path-like object
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
 
     if i_colors:
         ifiltname = filt_names[iband_num]
@@ -1426,7 +1426,7 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
         color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
         color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
-    df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "z_spec"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
+    df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "redshift"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
     outfilename = os.path.abspath(h5file)
     df_clrs.to_hdf(outfilename, key="pz_inputs")
     respath = outfilename if os.path.isfile(outfilename) else f"Unable to write data to {outfilename}"
@@ -1452,7 +1452,7 @@ def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3, bound
     :rtype: tuple(arrays)
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
 
     if i_colors:
         ifiltname = filt_names[iband_num]
@@ -1468,5 +1468,5 @@ def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3, bound
     colrs = jnp.array(df_clrs[color_names])
     colrs_errs = jnp.array(df_clrs[color_err_names])
     i_mags = jnp.array(df_clrs["i_mag"])
-    z_specs = jnp.array(df_clrs["z_spec"])
+    z_specs = jnp.array(df_clrs["redshift"])
     return i_mags, colrs, colrs_errs, z_specs

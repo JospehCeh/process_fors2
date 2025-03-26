@@ -213,7 +213,7 @@ def extract_pdz(pdf_arr, zs, z_grid):
     z_means = vmap_mean(z_grid, pdz_arr)
     z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
     z_meds = vmap_median(z_grid, pdz_arr)
-    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
+    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "redshift": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
@@ -243,7 +243,7 @@ def extract_pdz_pars_z_anu(pdf_arr, zs, z_grid, anu_grid):
     z_means = vmap_mean(z_grid, pdz_arr)
     z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
     z_meds = vmap_median(z_grid, pdz_arr)
-    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
+    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "redshift": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
@@ -270,7 +270,7 @@ def extract_pdz_fromchi2(chi2_arr, zs, z_grid):
     z_means = vmap_mean(z_grid, pdz_arr)
     z_MLs = z_grid[jnp.nanargmax(pdz_arr, axis=0)]
     z_meds = vmap_median(z_grid, pdz_arr)
-    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "z_spec": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
+    pdz_dict = {"z_grid": z_grid, "PDZ": pdz_arr, "redshift": zs, "z_ML": z_MLs, "z_mean": z_means, "z_med": z_meds}
     return pdz_dict
 
 
@@ -301,7 +301,7 @@ def extract_pdz_allseds(pdf_arr, zs, z_grid):
         "z_grid": z_grid,
         "PDZ": pdz_arr,
         "p(z, sed)": pdf_arr,
-        "z_spec": zs,
+        "redshift": zs,
         "z_ML": z_MLs,
         "z_mean": z_means,
         "z_med": z_meds,
