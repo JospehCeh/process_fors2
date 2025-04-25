@@ -28,8 +28,8 @@ dependencies = [
     "tqdm",
     "ipympl",
     "seaborn",
-    "diffmah",
-    "diffstar",
+    "diffstar<=0.3.2",
+    "diffmah<=0.6.1",
     "jax",
     "jaxlib",
     "jaxopt",
@@ -40,7 +40,8 @@ dependencies = [
     "jax_cosmo",
     "tables",
     "astro-datalab",
-    "sparclclient"
+    "sparclclient",
+    "mpl-scatter-density"
 ]
 
 [project.urls]

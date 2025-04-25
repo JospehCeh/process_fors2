@@ -252,7 +252,8 @@ def likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs):
     :rtype: jax array
     """
     neglog_lik = vmap_neg_log_likelihood(sps_temp, obs_ab_colors, obs_ab_colerrs)
-    return jnp.nanmax(jnp.exp(-0.5 * neglog_lik), axis=1)
+    pz = jnp.exp(-0.5 * neglog_lik)
+    return jnp.nanmax(pz, axis=1)  # , or jnp.nanargmax(pz, axis=1) sps_temp[:, jnp.nanargmax(pz, axis=1), 0]
 
 
 @jit
