@@ -508,8 +508,8 @@ def calc_eqw(sur_wls, sur_spec, lin):
     """
     from process_fors2.analysis import C_KMS, lsunPerHz_to_flam_noU
 
-    line_wid = lin * 300 / C_KMS / 2
-    cont_wid = lin * 1500 / C_KMS / 2
+    line_wid = lin * 400 / C_KMS / 2
+    cont_wid = lin * 15000 / C_KMS / 2
     sur_flam = lsunPerHz_to_flam_noU(sur_wls, sur_spec, 0.001)
     nancont = jnp.where(jnp.logical_or(jnp.logical_and(sur_wls > lin - cont_wid, sur_wls < lin - line_wid), jnp.logical_and(sur_wls > lin + line_wid, sur_wls < lin + cont_wid)), sur_flam, jnp.nan)
     height = jnp.nanmean(nancont)
