@@ -773,7 +773,7 @@ def get_desiQSO_edr_table(outfile, min_coadd=3):
     df_sel.rename(columns={"z": "redshift", "targetid": "specid"}, inplace=True)
     df_sel["num"] = df_sel["specid"]
     outfile = os.path.abspath(outfile)
-    df_sel.to_hdf(outfile, key="desi")
+    df_sel.to_hdf(outfile, key="desi_qso")
     if os.path.isfile(outfile):
         print(f"File successfully written to {outfile}.")
         return outfile
