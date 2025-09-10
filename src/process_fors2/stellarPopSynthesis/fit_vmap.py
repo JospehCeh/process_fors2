@@ -1603,8 +1603,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
                     gnur[sel],
                     where=np.logical_and(wlr[sel] > _liwl - 0.5 * _gel_rew, wlr[sel] < _liwl + 0.5 * _gel_rew),
                     ec="pink",
-                    fc=None,
-                    alpha=0.4,
+                    fc=(0.0, 1.0, 0.0, 0.0),
+                    # alpha=0.4,
                     hatch="/",
                     label=r"REW-GELATO $=$" + f"{_gel_rew:.2f}" + r"$\mathrm{\AA}$",
                 )
