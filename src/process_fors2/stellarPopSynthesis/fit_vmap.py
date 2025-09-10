@@ -1532,7 +1532,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ymax = jnp.nanmax(fnur)
         ymin = jnp.nanmin(fnur)
         ylim_max = ymax * 1.2
-        ylim_min = ymin / 1.2
+        ylim_min = ymin - (0.2 * ymax)
 
         min_rew = jnp.nanmin(rews_arr[valid_rew]) - 3
         max_rew = jnp.nanmax(rews_arr[valid_rew]) + 3
@@ -1541,7 +1541,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
             ax_rews.text(
                 li_wls[valid_rew][ide],
-                min_rew * 0.9,  # (1 - ide % 2) + max_rew * (ide % 2),
+                min_rew * 0.5,  # (1 - ide % 2) + max_rew * (ide % 2),
                 _lnam,
                 fontsize=8,
                 fontweight="bold",
@@ -1557,7 +1557,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # ax_phot.legend()  # (loc="lower left", bbox_to_anchor=(1.1, 0.0))
 
         ax_rew.set_xlim(min(wlr) - 200.0, max(wlr) + 200.0)
-        # ax_rew.set_ylim(ylim_min, ylim_max)
+        ax_rew.set_ylim(ylim_min, ylim_max)
         ax_rews.set_ylim(min_rew, max_rew)
         # ax_rews.set_ylim(29, 18)
 
@@ -1570,12 +1570,12 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         for _il, (_ax, _liwl, _licont, _liwid, _liname) in enumerate(zip([ax_ha, ax_hb, ax_oiii], lines, cont_wids, line_wids, lines_names, strict=True)):
             sel = jnp.logical_and(wlr >= _liwl - 1.5 * _licont, wlr <= _liwl + 1.5 * _licont)
 
-            (lff,) = _ax.plot(wlr[sel], fnur[sel], "b-", lw=0.2, label="Obs. spectrum")
+            (lff,) = _ax.plot(wlr[sel], fnur[sel], "b-", lw=1, label="Obs. spectrum")
             # ax_rew.fill_between(wlr[sel], fnur[sel] - fnurerr[sel], fnur[sel] + fnurerr[sel], color="b", alpha=0.2)
 
             selx = jnp.logical_and(x >= _liwl - 1.5 * _licont, x <= _liwl + 1.5 * _licont)
-            (ldd,) = _ax.plot(x[selx], fnu_dsps[selx], "-", color="green", lw=1, label="DSPS output\nwith dust")
-            (lgg,) = _ax.plot(wlr[sel], gnur[sel], color="maroon", lw=1, alpha=0.7, label="GELATO model")
+            (ldd,) = _ax.plot(x[selx], fnu_dsps[selx], "-", color="green", lw=2, label="DSPS output\nwith dust")
+            (lgg,) = _ax.plot(wlr[sel], gnur[sel], color="maroon", lw=2, label="GELATO model")
 
             _mod_rew = calc_eqw(srwls, surspec, _liwl)
             idx_rew = np.argwhere(li_names == _liname)[0][0]
@@ -1586,14 +1586,14 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             _ax.axvline(_liwl + _licont, ls=":", color="orange")
             _ax.axvline(_liwl - _liwid, ls=":", color="r", label="Line bounds")
             _ax.axvline(_liwl + _liwid, ls=":", color="r")
-            _ax.axvline(_liwl, ls="-", color="g", label=_liname)
+            _ax.axvline(_liwl, ls="-", color="cyan", label=_liname)
 
             _ax.fill_between(
                 x[selx],
                 fnu_dsps[selx],
                 where=np.logical_and(x[selx] > _liwl - 0.5 * _mod_rew, x[selx] < _liwl + 0.5 * _mod_rew),
                 color="cyan",
-                alpha=0.3,
+                alpha=0.2,
                 label=r"REW-DSPS $=$" + f"{_mod_rew:.2f}" + r"$\mathrm{\AA}$",
             )
 
@@ -1611,7 +1611,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
             _ax.set_xlabel("$\\lambda\\ [\\AA]$")
             _ax.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
-            _ax.legend()
+            _ax.legend(loc="upper left", bbox_to_anchor=(1.1, 1.0))
             _ax.set_title(_liname)
 
         list_of_figs.append(copy.deepcopy(f))
