@@ -35,7 +35,7 @@ from jax import numpy as jnp
 from jax.scipy.optimize import minimize
 from jax.tree_util import tree_map
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.ticker import MultipleLocator, ScalarFormatter  # , LogLocator
+from matplotlib.ticker import LogLocator, ScalarFormatter
 from tqdm import tqdm
 
 from process_fors2.analysis import C_KMS, bpt_classif
@@ -1506,7 +1506,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_xlim(jnp.min(list_wlmean_f_sel[valid_phot]) * 0.9, jnp.max(list_wlmean_f_sel[valid_phot]) * 1.1)
         ax_spec.set_ylim(ylim_min, ylim_max)
 
-        ax_spec.xaxis.set_major_locator(MultipleLocator(base=2000))  # LogLocator(base=10, subs="all"))
+        ax_spec.xaxis.set_major_locator(LogLocator(base=10, subs="all"))
 
         m_min = min(mags_arr[valid_phot].min(), mags_predictions[valid_phot].min())
         m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
