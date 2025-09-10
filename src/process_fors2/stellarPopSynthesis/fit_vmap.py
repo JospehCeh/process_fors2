@@ -1577,7 +1577,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rews.grid(visible=True, axis="y")
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
-        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.2, 1.0))
 
         # Plot detailed lines
         for _il, (_ax, _liwl, _licont, _liwid, _liname) in enumerate(zip([ax_ha, ax_hb, ax_oiii], lines, cont_wids, line_wids, lines_names, strict=True)):
@@ -1615,7 +1615,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
                 where=np.logical_and(x[selx] > _liwl - 0.5 * _mod_rew, x[selx] < _liwl + 0.5 * _mod_rew),
                 color="cyan",
                 alpha=0.2,
-                label=r"REW-DSPS $=$" + f"{_mod_rew:.2f}" + r"$\mathrm{\AA}$",
+                label=r"REW-DSPS $=$" + f"\n{_mod_rew:.2f}" + r"$\mathrm{\AA}$",
             )
 
             if np.isfinite(_gel_rew):
@@ -1627,12 +1627,12 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
                     fc=(0.0, 1.0, 0.0, 0.0),
                     # alpha=0.4,
                     hatch="//",
-                    label=r"REW-GELATO $=$" + f"{_gel_rew:.2f}" + r"$\mathrm{\AA}$",
+                    label=r"REW-GELATO $=$" + f"\n{_gel_rew:.2f}" + r"$\mathrm{\AA}$",
                 )
 
             _ax.set_xlabel("$\\lambda\\ [\\AA]$")
             _ax.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
-            _ax.legend(loc="upper left", bbox_to_anchor=(1.1, 1.0))
+            _ax.legend(loc="upper left", bbox_to_anchor=(1.0, 1.0))
             _ax.set_title(_liname)
             _ax.grid(visible=True, which="major", axis="both")
             _ax.grid(visible=True, which="minor", axis="x")
