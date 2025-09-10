@@ -35,6 +35,7 @@ from jax import numpy as jnp
 from jax.scipy.optimize import minimize
 from jax.tree_util import tree_map
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.ticker import LogLocator
 from tqdm import tqdm
 
 from process_fors2.analysis import C_KMS, bpt_classif
@@ -1477,8 +1478,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # plot photometric data
         label = "Catalog\nphotometry"
         valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
-        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=20, label=label)
-        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], s=100, marker="s", c="orange", label="Modeled\nphotometry")
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=10, label=label)
+        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], s=25, marker="s", c="orange", label="Modeled\nphotometry")
 
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
@@ -1504,6 +1505,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         ax_spec.set_xlim(jnp.min(list_wlmean_f_sel[valid_phot]) * 0.9, jnp.max(list_wlmean_f_sel[valid_phot]) * 1.1)
         ax_spec.set_ylim(ylim_min, ylim_max)
+
+        ax_spec.xaxis.set_major_locator(LogLocator(base=10, subs="all"))
 
         m_min = min(mags_arr[valid_phot].min(), mags_predictions[valid_phot].min())
         m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
@@ -1531,8 +1534,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
 
         label = "Restframe\nEq. Widths"
-        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=20, label=label)
-        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], s=100, marker="s", c="orange", label="Modeled REWs")
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=10, label=label)
+        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], s=25, marker="s", c="orange", label="Modeled REWs")
 
         ymax = jnp.nanmax(fnur)
         ymin = jnp.nanmin(fnur)
@@ -1597,8 +1600,12 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             # _ax.axvline(_liwl - _liwid, ls=":", color="r", label="Line bounds")
             # _ax.axvline(_liwl + _liwid, ls=":", color="r")
             # _ax.axvline(_liwl, ls="-", lw=1, color="black", label=_liname)
-            _ax.set_xticks(np.array([_liwl - _licont, _liwl - _liwid, _liwl, _liwl + _liwid, _liwl + _licont]))
-            _ax.tick_params(axis="x", which="major", grid_linestyle=":", labelrotation=90.0, labelsize=8)
+            _ax.set_xticks(np.array([_liwl]), minor=False)
+            _ax.set_xticks(np.array([_liwl - _licont, _liwl - _liwid, _liwl + _liwid, _liwl + _licont]), minor=True)
+            _ax.tick_params(axis="x", which="major", grid_color="black", grid_linestyle="-", top=False, bottom=True, labeltop=False, labelbottom=True)
+            _ax.tick_params(
+                axis="x", which="minor", grid_color="black", grid_linestyle=":", labelrotation=90.0, labelsize=8, top=True, bottom=False, labeltop=True, labelbottom=False, direction="in", pad=-20
+            )
 
             _ax.fill_between(
                 x[selx],
