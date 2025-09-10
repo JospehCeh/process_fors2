@@ -1514,17 +1514,17 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         ax_spec.grid(visible=True, which="minor", axis="x")
         ax_phot.grid(visible=True, axis="y")
-        plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+        plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.15, 1.0))
 
         # Plot Equivalent widths + GELATO
         # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, alpha=0.5, label="Obs. spectrum")
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, label="Obs. spectrum")
         ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.1)
 
-        (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=2, label="DSPS output\nwith dust")
-        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=2, label="GELATO model")
+        (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
+        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=1, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
         surspec = interp1d(srwls, x, fnu_dsps, method="akima", extrap=False)
@@ -1577,7 +1577,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rews.grid(visible=True, axis="y")
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
-        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.2, 1.0))
+        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.15, 1.0))
 
         # Plot detailed lines
         for _il, (_ax, _liwl, _licont, _liwid, _liname) in enumerate(zip([ax_ha, ax_hb, ax_oiii], lines, cont_wids, line_wids, lines_names, strict=True)):
@@ -1606,7 +1606,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             _ax.set_xticks(minorticks, minor=True)
             _ax.tick_params(axis="x", which="major", grid_color="black", grid_linestyle="-", top=False, bottom=True, labeltop=False, labelbottom=True)
             _ax.tick_params(
-                axis="x", which="minor", grid_color="black", grid_linestyle=":", labelrotation=90.0, labelsize=8, top=True, bottom=False, labeltop=True, labelbottom=False, direction="in", pad=-15
+                axis="x", which="minor", grid_color="black", grid_linestyle=":", labelrotation=90.0, labelsize=8, top=True, bottom=False, labeltop=True, labelbottom=False, direction="in", pad=-35
             )
 
             _ax.fill_between(
