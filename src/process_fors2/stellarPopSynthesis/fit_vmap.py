@@ -1614,7 +1614,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
                 fnu_dsps[selx],
                 where=np.logical_and(x[selx] > _liwl - 0.5 * _mod_rew, x[selx] < _liwl + 0.5 * _mod_rew),
                 color="cyan",
-                alpha=0.2,
+                alpha=0.7,
                 label=r"REW-DSPS $=$" + f"\n{_mod_rew:.2f}" + r"$\mathrm{\AA}$",
             )
 
