@@ -1488,9 +1488,21 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ylim_min = ymin / 1.5
 
         filter_tags = [func_strip_name(n) for n, b in zip(list_name_f_sel, valid_phot, strict=True) if b]
-        for idf, ftag in enumerate(filter_tags):
-            ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
-            ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
+        ax_spec.set_xticks(list_wlmean_f_sel[valid_phot], labels=filter_tags, minor=True)
+        ax_spec.tick_params(
+            axis="x",
+            which="minor",
+            bottom=False,
+            top=True,
+            grid_color="tab:blue",
+            grid_linestyle=":",
+            colors="tab:blue",
+            length=4,
+        )
+
+        # for idf, ftag in enumerate(filter_tags):
+        #    ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+        #    ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
 
         ax_spec.set_xlabel("$\\lambda\\ [\\AA]$")
         # ax_spec.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
@@ -1505,7 +1517,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
         ax_phot.set_ylim(m_max + 1, m_min - 1)
 
-        ax_spec.grid()
+        # ax_spec.grid()
         plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         # Plot Equivalent widths + GELATO
@@ -1537,19 +1549,23 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         min_rew = jnp.nanmin(rews_arr[valid_rew]) - 3
         max_rew = jnp.nanmax(rews_arr[valid_rew]) + 3
 
-        for ide, etag in enumerate(li_names[valid_rew]):
-            _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
-            ax_rews.text(
-                li_wls[valid_rew][ide],
-                min_rew * 0.5,  # (1 - ide % 2) + max_rew * (ide % 2),
-                _lnam,
-                fontsize=8,
-                fontweight="bold",
-                horizontalalignment="right",
-                verticalalignment="center",
-                rotation="vertical",
-            )
-            ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
+        lnams = ["_".join(etag.split("_")[1:3]) for etag in li_names[valid_rew]]
+        ax_rew.set_xticks(li_wls[valid_rew], labels=lnams, minor=True)
+        ax_rew.tick_params(axis="x", which="minor", grid_color="tab:blue", grid_linestyle=":", colors="tab:blue", length=16, label_rotation=90.0)
+
+        # for ide, etag in enumerate(li_names[valid_rew]):
+        #    _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
+        #    ax_rews.text(
+        #        li_wls[valid_rew][ide],
+        #        min_rew * 0.5,  # (1 - ide % 2) + max_rew * (ide % 2),
+        #        _lnam,
+        #        fontsize=8,
+        #        fontweight="bold",
+        #        horizontalalignment="left",
+        #        verticalalignment="baseline",
+        #        rotation="vertical",
+        #    )
+        #    ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
 
         ax_rew.set_xlabel("$\\lambda\\ [\\AA]$")
         ax_rew.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
@@ -1561,19 +1577,19 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rews.set_ylim(min_rew, max_rew)
         # ax_rews.set_ylim(29, 18)
 
-        ax_rews.grid()
+        # ax_rews.grid()
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
         plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         # Plot detailed lines
         for _il, (_ax, _liwl, _licont, _liwid, _liname) in enumerate(zip([ax_ha, ax_hb, ax_oiii], lines, cont_wids, line_wids, lines_names, strict=True)):
-            sel = jnp.logical_and(wlr >= _liwl - 1.5 * _licont, wlr <= _liwl + 1.5 * _licont)
+            sel = jnp.logical_and(wlr >= _liwl - _licont - 1, wlr <= _liwl + _licont + 1)
 
-            (lff,) = _ax.plot(wlr[sel], fnur[sel], "b-", lw=1, label="Obs. spectrum")
+            (lff,) = _ax.plot(wlr[sel], fnur[sel], "b-", lw=0.5, label="Obs. spectrum")
             # ax_rew.fill_between(wlr[sel], fnur[sel] - fnurerr[sel], fnur[sel] + fnurerr[sel], color="b", alpha=0.2)
 
-            selx = jnp.logical_and(x >= _liwl - 1.5 * _licont, x <= _liwl + 1.5 * _licont)
+            selx = jnp.logical_and(x >= _liwl - _licont - 1, x <= _liwl + _licont + 1)
             (ldd,) = _ax.plot(x[selx], fnu_dsps[selx], "-", color="green", lw=2, label="DSPS output\nwith dust")
             (lgg,) = _ax.plot(wlr[sel], gnur[sel], color="maroon", lw=2, label="GELATO model")
 
@@ -1582,11 +1598,13 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
             _gel_rew = rews_arr[idx_rew]
 
-            _ax.axvline(_liwl - _licont, ls=":", color="orange", label="Continuum bounds")
-            _ax.axvline(_liwl + _licont, ls=":", color="orange")
-            _ax.axvline(_liwl - _liwid, ls=":", color="r", label="Line bounds")
-            _ax.axvline(_liwl + _liwid, ls=":", color="r")
-            _ax.axvline(_liwl, ls="-", color="cyan", label=_liname)
+            # _ax.axvline(_liwl - _licont, ls=":", color="orange", label="Continuum bounds")
+            # _ax.axvline(_liwl + _licont, ls=":", color="orange")
+            # _ax.axvline(_liwl - _liwid, ls=":", color="r", label="Line bounds")
+            # _ax.axvline(_liwl + _liwid, ls=":", color="r")
+            # _ax.axvline(_liwl, ls="-", lw=1, color="black", label=_liname)
+            _ax.set_xticks(np.array([_liwl - _licont, _liwl - _liwid, _liwl, _liwl + _liwid, _liwl + _licont]))
+            _ax.tick_params(axis="x", which="major", grid_linestyle=":", label_rotation=90.0)
 
             _ax.fill_between(
                 x[selx],
@@ -1602,10 +1620,10 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
                     wlr[sel],
                     gnur[sel],
                     where=np.logical_and(wlr[sel] > _liwl - 0.5 * _gel_rew, wlr[sel] < _liwl + 0.5 * _gel_rew),
-                    ec="pink",
+                    ec="maroon",
                     fc=(0.0, 1.0, 0.0, 0.0),
                     # alpha=0.4,
-                    hatch="/",
+                    hatch="//",
                     label=r"REW-GELATO $=$" + f"{_gel_rew:.2f}" + r"$\mathrm{\AA}$",
                 )
 
@@ -1613,6 +1631,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             _ax.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
             _ax.legend(loc="upper left", bbox_to_anchor=(1.1, 1.0))
             _ax.set_title(_liname)
+            _ax.grid()
 
         list_of_figs.append(copy.deepcopy(f))
     pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
