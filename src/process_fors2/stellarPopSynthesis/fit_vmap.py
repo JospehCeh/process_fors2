@@ -1445,6 +1445,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         a_sfh.plot(T_ARR, sfh_gal, "-k", lw=2)
         a_sfh.axvline(t_obs, color="red")
+        a_sfh.text(t_obs, sfh_gal.max(), f"z={z_obs:.3f}", color="red")
 
         sfr_max = sfh_gal.max() * 1.1
         sfr_min = 0.0
@@ -1494,6 +1495,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             which="minor",
             bottom=False,
             top=True,
+            labelbottom=False,
+            labeltop=True,
             grid_color="tab:blue",
             grid_linestyle=":",
             colors="tab:blue",
@@ -1517,7 +1520,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
         ax_phot.set_ylim(m_max + 1, m_min - 1)
 
-        # ax_spec.grid()
+        ax_spec.grid()
         plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         # Plot Equivalent widths + GELATO
@@ -1551,7 +1554,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
         lnams = ["_".join(etag.split("_")[1:3]) for etag in li_names[valid_rew]]
         ax_rew.set_xticks(li_wls[valid_rew], labels=lnams, minor=True)
-        ax_rew.tick_params(axis="x", which="minor", grid_color="tab:blue", grid_linestyle=":", colors="tab:blue", length=16, label_rotation=90.0)
+        ax_rew.tick_params(axis="x", which="minor", grid_color="tab:blue", grid_linestyle=":", colors="tab:blue", length=16, labelrotation=90.0)
 
         # for ide, etag in enumerate(li_names[valid_rew]):
         #    _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
@@ -1577,7 +1580,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rews.set_ylim(min_rew, max_rew)
         # ax_rews.set_ylim(29, 18)
 
-        # ax_rews.grid()
+        ax_rew.grid()
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
         plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
