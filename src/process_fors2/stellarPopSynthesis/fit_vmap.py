@@ -56,9 +56,9 @@ plt.style.use("default")
 plt.rcParams["figure.figsize"] = (9, 5)
 plt.rcParams["axes.labelsize"] = "x-large"
 plt.rcParams["axes.titlesize"] = "x-large"
-plt.rcParams["xtick.labelsize"] = "x-large"
-plt.rcParams["ytick.labelsize"] = "x-large"
-plt.rcParams["legend.fontsize"] = 12
+plt.rcParams["xtick.labelsize"] = "large"
+plt.rcParams["ytick.labelsize"] = "large"
+plt.rcParams["legend.fontsize"] = 10
 
 _DUMMY_P_ADQ = SSPParametersFit()
 PARS_DF = pd.DataFrame(index=_DUMMY_P_ADQ.PARAM_NAMES_FLAT, columns=["Init", "Min", "Max"])
@@ -1469,7 +1469,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_xscale("log")
 
         # plot Fors2 data
-        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, label="Obs.\nspectrum")
+        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, alpha=0.5, label="Obs.\nspectrum")
 
         # plot SED model
         (l0,) = ax_spec.plot(*convert_flux_toobsframe(x, fnu_dsps, z_obs), "-", color="green", lw=1, label="DSPS output\nwith dust")
@@ -1520,7 +1520,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, label="Obs. spectrum")
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, alpha=0.5, label="Obs. spectrum")
         ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.1)
 
         (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
