@@ -35,7 +35,7 @@ from jax import numpy as jnp
 from jax.scipy.optimize import minimize
 from jax.tree_util import tree_map
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.ticker import LogLocator
+from matplotlib.ticker import MultipleLocator, ScalarFormatter  # , LogLocator
 from tqdm import tqdm
 
 from process_fors2.analysis import C_KMS, bpt_classif
@@ -1506,7 +1506,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_xlim(jnp.min(list_wlmean_f_sel[valid_phot]) * 0.9, jnp.max(list_wlmean_f_sel[valid_phot]) * 1.1)
         ax_spec.set_ylim(ylim_min, ylim_max)
 
-        ax_spec.xaxis.set_major_locator(LogLocator(base=10, subs="all"))
+        ax_spec.xaxis.set_major_locator(MultipleLocator(base=2000))  # LogLocator(base=10, subs="all"))
 
         m_min = min(mags_arr[valid_phot].min(), mags_predictions[valid_phot].min())
         m_max = max(mags_arr[valid_phot].max(), mags_predictions[valid_phot].max())
@@ -1520,11 +1520,11 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, label="Obs. spectrum")
-        ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.2)
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, alpha=0.5, label="Obs. spectrum")
+        ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.1)
 
-        (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
-        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=1, alpha=0.7, label="GELATO model")
+        (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=2, label="DSPS output\nwith dust")
+        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=2, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
         surspec = interp1d(srwls, x, fnu_dsps, method="akima", extrap=False)
@@ -1601,10 +1601,12 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             # _ax.axvline(_liwl + _liwid, ls=":", color="r")
             # _ax.axvline(_liwl, ls="-", lw=1, color="black", label=_liname)
             _ax.set_xticks(np.array([_liwl]), minor=False)
-            _ax.set_xticks(np.array([_liwl - _licont, _liwl - _liwid, _liwl + _liwid, _liwl + _licont]), minor=True)
+            minorticks = np.array([_liwl - _licont, _liwl - _liwid, _liwl + _liwid, _liwl + _licont])
+            _ax.xaxis.set_minor_formatter(ScalarFormatter())
+            _ax.set_xticks(minorticks, minor=True)
             _ax.tick_params(axis="x", which="major", grid_color="black", grid_linestyle="-", top=False, bottom=True, labeltop=False, labelbottom=True)
             _ax.tick_params(
-                axis="x", which="minor", grid_color="black", grid_linestyle=":", labelrotation=90.0, labelsize=8, top=True, bottom=False, labeltop=True, labelbottom=False, direction="in", pad=-20
+                axis="x", which="minor", grid_color="black", grid_linestyle=":", labelrotation=90.0, labelsize=8, top=True, bottom=False, labeltop=True, labelbottom=False, direction="in", pad=-15
             )
 
             _ax.fill_between(
@@ -1633,6 +1635,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
             _ax.legend(loc="upper left", bbox_to_anchor=(1.1, 1.0))
             _ax.set_title(_liname)
             _ax.grid(visible=True, which="major", axis="both")
+            _ax.grid(visible=True, which="minor", axis="x")
 
         list_of_figs.append(copy.deepcopy(f))
     pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
