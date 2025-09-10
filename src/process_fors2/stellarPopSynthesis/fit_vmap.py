@@ -37,7 +37,7 @@ from jax.tree_util import tree_map
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
 
-from process_fors2.analysis import bpt_classif
+from process_fors2.analysis import C_KMS, bpt_classif
 from process_fors2.stellarPopSynthesis import SSPParametersFit
 from process_fors2.stellarPopSynthesis.met_weights_age_dep import calc_rest_sed_sfh_table_lognormal_mdf_agedep
 
@@ -1353,8 +1353,20 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
 
     rews_list = [col for col in list(sel_df.columns) if ("rew" in col.lower())]
     mags_list = [col for col in list(sel_df.columns) if ("mag" in col.lower() and "image" not in col.lower())]
+
+    # For all REWs
     li_names = np.unique([li.split("_REW")[0] for li in rews_list])
     li_wls = jnp.array([float(ln.split("_")[-1]) for ln in li_names])
+
+    # For selected lines
+    lines = jnp.array([6564.61, 4862.68, 5008.24])
+    lines_names = [
+        "Balmer_HI_6564.61",
+        "Balmer_HI_4862.68",
+        "AGN_[OIII]_5008.24",
+    ]
+    line_wids = lines * 400 / C_KMS / 2
+    cont_wids = lines * 15000 / C_KMS / 2
 
     if "fors2" in source.lower():
         from process_fors2.fetchData import load_filters_from_f2df
@@ -1369,7 +1381,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
     list_of_figs = []
 
     for _tag, row in tqdm(sel_df.iterrows(), total=sel_df.shape[0]):
-        f, (a_sfh, ax_spec, ax_rew) = plt.subplots(3, 1, figsize=(7, 10), constrained_layout=True)
+        f, (a_sfh, ax_spec, ax_rew, ax_ha, ax_hb, ax_oiii) = plt.subplots(3, 2, figsize=(15, 10), constrained_layout=True)
         z_obs = row["redshift"]
         if "fors2" in source.lower():
             tag = _tag
@@ -1496,7 +1508,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         # Plot Equivalent widths + GELATO
-        ax_rew.set_yscale("log")
+        # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
         (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, label="Obs. spectrum")
@@ -1552,6 +1564,52 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
         plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+
+        # Plot detailed lines
+        for _il, (_ax, _liwl, _licont, _liwid, _liname) in enumerate(zip([ax_ha, ax_hb, ax_oiii], lines, cont_wids, line_wids, lines_names, strict=True)):
+            sel = jnp.logical_and(wlr >= _liwl - 1.5 * _licont, wlr <= _liwl + 1.5 * _licont)
+
+            (lff,) = ax_rew.plot(wlr[sel], fnur[sel], "b-", lw=0.2, label="Obs. spectrum")
+            # ax_rew.fill_between(wlr[sel], fnur[sel] - fnurerr[sel], fnur[sel] + fnurerr[sel], color="b", alpha=0.2)
+
+            selx = jnp.logical_and(x >= _liwl - 1.5 * _licont, x <= _liwl + 1.5 * _licont)
+            (ldd,) = ax_rew.plot(x[selx], fnu_dsps[selx], "-", color="green", lw=1, label="DSPS output\nwith dust")
+            (lgg,) = ax_rew.plot(wlr[sel], gnur[sel], color="maroon", lw=1, alpha=0.7, label="GELATO model")
+
+            _mod_rew = calc_eqw(srwls, surspec, _liwl)
+            idx_rew = np.argwhere(li_names == _liname)[0][0]
+
+            _gel_rew = rews_arr[idx_rew]
+
+            _ax.axvline(_liwl - _licont, ls=":", color="orange", label="Continuum bounds")
+            _ax.axvline(_liwl + _licont, ls=":", color="orange")
+            _ax.axvline(_liwl - _liwid, ls=":", color="r", label="Line bounds")
+            _ax.axvline(_liwl + _liwid, ls=":", color="r")
+            _ax.axvline(_liwl, ls="-", color="g", label=_liname)
+
+            _ax.fill_between(
+                x[selx],
+                fnu_dsps[selx],
+                where=np.logical_and(x[selx] > _liwl - 0.5 * _mod_rew, x[selx] < _liwl + 0.5 * _mod_rew),
+                color="cyan",
+                alpha=0.3,
+                label=r"REW-DSPS $=$" + f"{_mod_rew:.2f}" + r"$\mathrm{\AA}$",
+            )
+            _ax.fill_between(
+                wlr[sel],
+                gnur[sel],
+                where=np.logical_and(wlr[sel] > _liwl - 0.5 * _gel_rew, wlr[sel] < _liwl + 0.5 * _gel_rew),
+                ec="pink",
+                fc=None,
+                alpha=0.4,
+                hatch="/",
+                label=r"REW-GELATO $=$" + f"{_gel_rew:.2f}" + r"$\mathrm{\AA}$",
+            )
+
+            _ax.set_xlabel(r"Restframe wavelength $\mathrm{[\AA]}$")
+            _ax.set_ylabel(r"Spectral Energy Density $\mathrm{[erg.s^{-1}.cm^{-2}.Hz^{-1}]}$")
+            _ax.legend()
+            _ax.set_title(f"Restframe Equivalent Width of {_liname} for template {tag} at " + r"$z=$" + f"{z_obs:.2f}")
 
         list_of_figs.append(copy.deepcopy(f))
     pdfoutputfilename = f"{source}_dsps_and_gelato_plots_valid_fits.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
