@@ -1824,6 +1824,8 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         #     ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
         #     ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
 
+        ax_spec.xaxis.set_major_locator(LogLocator(base=10, subs="all"))
+
         ax_spec.set_xlabel("$\\lambda\\ [\\AA]$")
         # ax_spec.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
         ax_spec.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
@@ -1837,8 +1839,9 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         m_max = max(mags_arr[valid_phot].max(), mags_means[valid_phot].max())
         ax_phot.set_ylim(m_max + 1, m_min - 1)
 
-        ax_spec.grid()
-        plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+        ax_spec.grid(visible=True, which="minor", axis="x")
+        ax_phot.grid(visible=True, axis="y")
+        plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.15, 1.0))
 
         # Plot Equivalent widths + GELATO
         # ax_rew.set_yscale("log")
@@ -1905,7 +1908,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         ax_rews.grid(visible=True, axis="y")
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
-        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
+        plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.15, 1.0))
 
         list_of_figs.append(copy.deepcopy(f))
     pdfoutputfilename = f"BOOTSTRAP-{source}_dsps_and_gelato_plots.pdf" if outpdf is None else os.path.abspath(".".join([os.path.splitext(outpdf)[0], "pdf"]))
