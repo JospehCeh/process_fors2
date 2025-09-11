@@ -1788,7 +1788,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         ax_spec.set_xscale("log")
 
         # plot Fors2 data
-        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, label="Obs.\nspectrum")
+        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.1, label="Obs.\nspectrum")
 
         # plot SED model
         xplot, fnuobs = convert_flux_toobsframe(x, fnu_dsps, z_obs)
@@ -1806,7 +1806,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         # plot photometric data
         label = "Catalog\nphotometry"
         valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
-        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=20, label=label)
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=10, label=label)
         l4 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_means[valid_phot], mags_std[valid_phot], fmt="s", markersize=7, color="orange", ecolor="orange", label="Modeled\nphotometry")
 
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
@@ -1818,9 +1818,11 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         ylim_min = ymin / 1.5
 
         filter_tags = [func_strip_name(n) for n, b in zip(list_name_f_sel, valid_phot, strict=True) if b]
-        for idf, ftag in enumerate(filter_tags):
-            ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
-            ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
+        ax_spec.set_xticks(list_wlmean_f_sel[valid_phot], labels=filter_tags, minor=True)
+        ax_spec.tick_params(axis="x", which="minor", bottom=False, top=True, labelbottom=False, labeltop=True, grid_color="tab:blue", grid_linestyle=":", colors="tab:blue", length=4, labelsize=8)
+        # for idf, ftag in enumerate(filter_tags):
+        #     ax_spec.text(list_wlmean_f_sel[valid_phot][idf], 2.0 * ymax - (idf % 2) * 0.5 * ymax, ftag, fontsize=10, fontweight="bold", horizontalalignment="center", verticalalignment="center")
+        #     ax_spec.axvline(list_wlmean_f_sel[valid_phot][idf], linestyle=":")
 
         ax_spec.set_xlabel("$\\lambda\\ [\\AA]$")
         # ax_spec.set_ylabel("$L_\\nu(\\lambda)\\ [\\mathrm{L_{\\odot} . Hz^{-1}}]$")
@@ -1839,14 +1841,14 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         plt.legend(handles=[l0, l1, l2, l3, l4], loc="upper left", bbox_to_anchor=(1.1, 1.0))
 
         # Plot Equivalent widths + GELATO
-        ax_rew.set_yscale("log")
+        # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, label="Obs. spectrum")
-        ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.2)
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, alpha=0.5, label="Obs. spectrum")
+        ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.1)
 
         (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
-        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=1, alpha=0.7, label="GELATO model")
+        (lg,) = ax_rew.plot(wlr, gnur, color="maroon", lw=1, label="GELATO model")
 
         srwls = jnp.arange(1300.0, 8000.1, 0.1)
 
@@ -1860,30 +1862,34 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
 
         label = "Restframe\nEq. Widths"
-        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=20, label=label)
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=10, label=label)
         lrd = ax_rews.errorbar(li_wls[valid_rew], rews_means[valid_rew], yerr=rews_std[valid_rew], fmt="s", markersize=7, color="orange", ecolor="orange", label="Modeled REWs")
 
         ymax = jnp.nanmax(fnur)
         ymin = jnp.nanmin(fnur)
         ylim_max = ymax * 1.2
-        ylim_min = ymin / 1.2
+        ylim_min = ymin - (0.2 * ymax)
 
         min_rew = jnp.nanmin(rews_means[valid_rew]) - 3
         max_rew = jnp.nanmax(rews_means[valid_rew]) + 3
 
-        for ide, etag in enumerate(li_names[valid_rew]):
-            _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
-            ax_rews.text(
-                li_wls[valid_rew][ide],
-                min_rew * (1 - ide % 2) + max_rew * (ide % 2),
-                _lnam,
-                fontsize=8,
-                fontweight="bold",
-                horizontalalignment="center",
-                verticalalignment="center",
-                rotation="vertical",
-            )
-            ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
+        lnams = ["_".join([etag.split("_")[1], etag.split("_")[-1]]) for etag in li_names[valid_rew]]
+        ax_rew.set_xticks(li_wls[valid_rew], labels=lnams, minor=True)
+        ax_rew.tick_params(axis="x", which="minor", grid_color="tab:blue", grid_linestyle=":", colors="tab:blue", length=16, labelrotation=90.0, labelsize=8)
+
+        # for ide, etag in enumerate(li_names[valid_rew]):
+        #     _lnam = "_".join(etag.split("_")[:2])  # f"${li_wls[ide]:.2f}\ \AA$"
+        #     ax_rews.text(
+        #         li_wls[valid_rew][ide],
+        #         min_rew * (1 - ide % 2) + max_rew * (ide % 2),
+        #         _lnam,
+        #         fontsize=8,
+        #         fontweight="bold",
+        #         horizontalalignment="center",
+        #         verticalalignment="center",
+        #         rotation="vertical",
+        #     )
+        #     ax_rews.axvline(li_wls[valid_rew][ide], linestyle=":")
 
         ax_rew.set_xlabel("$\\lambda\\ [\\AA]$")
         ax_rew.set_ylabel("$F_\\nu\\ [\\mathrm{erg . s^{-1} . cm^{-2} . Hz^{-1}}]$")
@@ -1895,7 +1901,8 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         ax_rews.set_ylim(min_rew, max_rew)
         # ax_rews.set_ylim(29, 18)
 
-        ax_rews.grid()
+        ax_rew.grid(visible=True, which="minor", axis="x")
+        ax_rews.grid(visible=True, axis="y")
         ax_rew.set_title(rf"GELATO fit (restframe) - $\chi^2=${rchi2:.2f}")
         f.suptitle(title_spec)
         plt.legend(handles=[lg, lrg, lrd], loc="upper left", bbox_to_anchor=(1.1, 1.0))
