@@ -1761,7 +1761,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         a_sfh.plot(T_ARR, sfh_mean, "-k", lw=2)
         a_sfh.fill_between(T_ARR, sfh_mean - sfh_std, sfh_mean + sfh_std, alpha=0.3, color="gray")
         a_sfh.axvline(t_obs, color="red")
-        a_sfh.text(t_obs + 0.05, sfh_gal.max(), f"z={z_obs:.3f}", color="red")
+        a_sfh.text(t_obs + 0.05, sfh_mean.max(), f"z={z_obs:.3f}", color="red")
 
         sfr_max = sfh_mean.max() * 1.1
         sfr_min = 0.0
