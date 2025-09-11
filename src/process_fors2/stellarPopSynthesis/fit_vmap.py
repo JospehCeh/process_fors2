@@ -1684,7 +1684,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
     vrews = vmap(vmap_calc_eqw, in_axes=(None, 0, None))
     v_spec = vmap(ssp_spectrum_fromparam, in_axes=(0, None, None))
 
-    for _tag, row in sel_df.iterrows():
+    for _tag, row in tqdm(sel_df.iterrows(), total=sel_df.shape[0]):
         f, (a_sfh, ax_spec, ax_rew) = plt.subplots(3, 1, figsize=(7, 10), constrained_layout=True)
         z_obs = row["redshift"]
         if "fors2" in source.lower():
