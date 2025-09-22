@@ -509,7 +509,7 @@ def calc_eqw(sur_wls, sur_spec, lin):
     """
     from process_fors2.analysis import C_KMS, lsunPerHz_to_flam_noU
 
-    line_wid = lin * 400 / C_KMS / 2
+    line_wid = lin * 1000 / C_KMS / 2
     cont_wid = lin * 15000 / C_KMS / 2
     sur_flam = lsunPerHz_to_flam_noU(sur_wls, sur_spec, 0.001)
     nancont = jnp.where(jnp.logical_or(jnp.logical_and(sur_wls > lin - cont_wid, sur_wls < lin - line_wid), jnp.logical_and(sur_wls > lin + line_wid, sur_wls < lin + cont_wid)), sur_flam, jnp.nan)
@@ -1469,7 +1469,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         ax_spec.set_xscale("log")
 
         # plot Fors2 data
-        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, alpha=0.5, label="Obs.\nspectrum")
+        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.3, alpha=0.5, label="Obs.\nspectrum")
 
         # plot SED model
         (l0,) = ax_spec.plot(*convert_flux_toobsframe(x, fnu_dsps, z_obs), "-", color="green", lw=1, label="DSPS output\nwith dust")
@@ -1478,8 +1478,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # plot photometric data
         label = "Catalog\nphotometry"
         valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
-        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=10, label=label)
-        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], s=25, marker="s", c="orange", label="Modeled\nphotometry")
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=13, label=label)
+        l4 = ax_phot.scatter(list_wlmean_f_sel[valid_phot], mags_predictions[valid_phot], s=30, marker="s", c="orange", label="Modeled\nphotometry")
 
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
@@ -1520,7 +1520,7 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, alpha=0.5, label="Obs. spectrum")
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, alpha=0.5, label="Obs. spectrum")
         ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.1)
 
         (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
@@ -1534,8 +1534,8 @@ def make_vmapfit_plots(sel_df, gelato_h5, wls_arr, ssp_data, source="FORS2", out
         valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
 
         label = "Restframe\nEq. Widths"
-        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=10, label=label)
-        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], s=25, marker="s", c="orange", label="Modeled REWs")
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=13, label=label)
+        lrd = ax_rews.scatter(li_wls[valid_rew], mod_rews[valid_rew], s=30, marker="s", c="orange", label="Modeled REWs")
 
         ymax = jnp.nanmax(fnur)
         ymin = jnp.nanmin(fnur)
@@ -1788,7 +1788,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         ax_spec.set_xscale("log")
 
         # plot Fors2 data
-        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.1, label="Obs.\nspectrum")
+        (l2,) = ax_spec.plot(wlo, fnuo, "b-", lw=0.2, label="Obs.\nspectrum")
 
         # plot SED model
         xplot, fnuobs = convert_flux_toobsframe(x, fnu_dsps, z_obs)
@@ -1806,8 +1806,8 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         # plot photometric data
         label = "Catalog\nphotometry"
         valid_phot = jnp.logical_and(jnp.isfinite(mags_arr), jnp.isfinite(magerrs_arr))
-        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=10, label=label)
-        l4 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_means[valid_phot], mags_std[valid_phot], fmt="s", markersize=7, color="orange", ecolor="orange", label="Modeled\nphotometry")
+        l3 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_arr[valid_phot], yerr=magerrs_arr[valid_phot], fmt=".", color="black", ecolor="black", markersize=13, label=label)
+        l4 = ax_phot.errorbar(list_wlmean_f_sel[valid_phot], mags_means[valid_phot], mags_std[valid_phot], fmt="s", markersize=10, color="orange", ecolor="orange", label="Modeled\nphotometry")
 
         ax_spec.set_title(rf"DSPS fit (obs. frame) - $\chi^2=${row['fun_val']:.2f}")
         # ax.legend()  # (loc="upper left", bbox_to_anchor=(1.1, 1.0))
@@ -1847,7 +1847,7 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         # ax_rew.set_yscale("log")
         # ax_rew.set_xscale("log")
 
-        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.1, alpha=0.5, label="Obs. spectrum")
+        (lf,) = ax_rew.plot(wlr, fnur, "b-", lw=0.2, alpha=0.5, label="Obs. spectrum")
         ax_rew.fill_between(wlr, fnur - fnurerr, fnur + fnurerr, color="b", alpha=0.1)
 
         (ld,) = ax_rew.plot(x, fnu_dsps, "-", color="green", lw=1, label="DSPS output\nwith dust")
@@ -1865,8 +1865,8 @@ def make_bootstrap_plots(sel_df, params_dict, gelato_h5, wls_arr, ssp_data, sour
         valid_rew = jnp.logical_and(jnp.isfinite(rews_arr), jnp.isfinite(rewerrs_arr))
 
         label = "Restframe\nEq. Widths"
-        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=10, label=label)
-        lrd = ax_rews.errorbar(li_wls[valid_rew], rews_means[valid_rew], yerr=rews_std[valid_rew], fmt="s", markersize=7, color="orange", ecolor="orange", label="Modeled REWs")
+        lrg = ax_rews.errorbar(li_wls[valid_rew], rews_arr[valid_rew], yerr=rewerrs_arr[valid_rew], fmt=".", color="black", ecolor="black", markersize=13, label=label)
+        lrd = ax_rews.errorbar(li_wls[valid_rew], rews_means[valid_rew], yerr=rews_std[valid_rew], fmt="s", markersize=10, color="orange", ecolor="orange", label="Modeled REWs")
 
         ymax = jnp.nanmax(fnur)
         ymin = jnp.nanmin(fnur)

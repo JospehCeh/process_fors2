@@ -3,7 +3,7 @@
         "OutFolder": "./resultsGELATO",
     "VacuumWav": true,
     "RandomSeed": 1,
-    "LineRegion": 400,
+    "LineRegion": 1000,
     "ContinuumRegion": 15000,
     "NBoot": 0,
     "FThresh": 0.95,

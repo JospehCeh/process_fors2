@@ -289,12 +289,12 @@ def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False,
     for x, y in zip(res_table["log([NII]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_nii.append("NC")
-        elif y < Ka03_nii(x):
-            cat_nii.append("Star-forming")
-        elif y < Ke01_nii(x):
+        elif y >= Ke01_nii(x) or x >= 0.47:
+            cat_nii.append("AGN")
+        elif y >= Ka03_nii(x) or x >= 0.05:
             cat_nii.append("Composite")
         else:
-            cat_nii.append("AGN")
+            cat_nii.append("Star-forming")
 
     res_table["CAT_NII"] = np.array(cat_nii)
 
@@ -302,12 +302,12 @@ def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False,
     for x, y in zip(res_table["log([SII]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_sii.append("NC")
-        elif y < Ke01_sii(x):
-            cat_sii.append("Star-forming")
-        elif y < Ke06_sii(x):
+        elif y >= Ke06_sii(x):
+            cat_sii.append("Seyferts")
+        elif y >= Ke01_sii(x) or x >= 0.32:
             cat_sii.append("LINER")
         else:
-            cat_sii.append("Seyferts")
+            cat_sii.append("Star-forming")
 
     res_table["CAT_SII"] = np.array(cat_sii)
 
@@ -315,12 +315,12 @@ def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False,
     for x, y in zip(res_table["log([OI]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_oi.append("NC")
-        elif y < Ke01_oi(x):
-            cat_oi.append("Star-forming")
-        elif y < Ke06_oi(x):
+        elif y >= Ke06_oi(x):
+            cat_oi.append("Seyferts")
+        elif y >= Ke01_oi(x) or x >= -0.59:
             cat_oi.append("LINER")
         else:
-            cat_oi.append("Seyferts")
+            cat_oi.append("Star-forming")
 
     res_table["CAT_OI"] = np.array(cat_oi)
 
@@ -328,12 +328,12 @@ def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False,
     for x, y in zip(res_table["log([OI]/[Ha])"], res_table["log([OIII]/[OII])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_oii.append("NC")
-        elif y < lim_HII_comp(x):
-            cat_oii.append("SF / composite")
-        elif y < lim_seyf_liner(x):
+        elif y >= lim_seyf_liner(x):
+            cat_oii.append("Seyferts")
+        elif y >= lim_HII_comp(x):
             cat_oii.append("LINER")
         else:
-            cat_oii.append("Seyferts")
+            cat_oii.append("SF / composite")
 
     res_table["CAT_OIII/OIIvsOI"] = np.array(cat_oii)
 
