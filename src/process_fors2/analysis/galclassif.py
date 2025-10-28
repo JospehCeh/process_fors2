@@ -211,7 +211,7 @@ def Ke06_oi(log_oi_ha):
     return 1.18 * log_oi_ha + 1.30
 
 
-def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
+def bpt_classif(gelatoh5, xmatchh5, source="FORS2", selsplit=None, use_nc=False, return_dict=False):
     """
     Use Restframe Equivalent Widths from GELATO outputs to provide an rudimentary classification of galaxies, using BPT diagrams as described in
     [Kewley et al., 2006](https://ui.adsabs.harvard.edu/abs/2006MNRAS.372..961K/abstract).
@@ -222,23 +222,42 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
         Name or path to the `HDF5` file that contains GELATO outputs.
     xmatchh5 : str or path
         Name or path to the `HDF5` file that contains cross-matched data.
+    source : str, optional
+        Origin of the data : "FORS2", "GOGREEN" or "DESI". The default is "FORS2".
+    selsplit : str, optional
+        Whether to deal with the crossmatch input as a splitted entry between 'valid' and 'invalid' data.
+        If None, the default behaviour is not to look for splitted data in the file. The default is None.
     use_nc : bool, optional
         Whether to use the 'NC' value for amibuous classifications instead of the highest score. The default is False.
     return_dict : bool, optional
         Whether to return the results as a dictionary (similar to `process_fors2.fetchData.gelato_xmatch_todict`) or a DataFrame. The default is False.
-
     Returns
     -------
     Object
         Return the merged outputs of DSPS and GELATO + classification info. As a dictionary if `return_dict` is `True`, otherwise as a Pandas DataFrame.
     """
-    from process_fors2.fetchData import readH5FileAttributes
+    from process_fors2.fetchData import readH5FileAttributes, rename_f2_photom
 
     gelatout = readH5FileAttributes(gelatoh5)
-    xmatchout = readH5FileAttributes(xmatchh5)
-    res_table = xmatchout.merge(right=gelatout, how="outer", on=["name", "num"])
-    res_table["u-g"] = res_table["MAG_GAAP_u"] - res_table["MAG_GAAP_g"]
-    res_table["r-i"] = res_table["MAG_GAAP_r"] - res_table["MAG_GAAP_i"]
+    if "fors2" in source.lower():
+        xmatchout = rename_f2_photom(readH5FileAttributes(xmatchh5)) if selsplit is None else pd.read_hdf(xmatchh5, key=f"{selsplit.lower()}_data")
+    else:
+        xmatchout = pd.read_hdf(xmatchh5, key=f"{source.lower().split('_sm')[0]}" if selsplit is None else f"{selsplit.lower()}_data")
+        xmatchout = xmatchout.sort_values(by="num", ascending=True)
+        df_info_num = xmatchout["num"].values
+        key_tags = [f"SPEC{num}" for num in df_info_num]
+        xmatchout["name"] = key_tags
+        xmatchout.reset_index(drop=True, inplace=True)
+    res_table = xmatchout.merge(right=gelatout, how="inner", on=["name", "num"])
+    if "fors2" in source.lower():
+        res_table["u-g"] = res_table["mag_sdss_u0"] - res_table["mag_sdss_g0"]
+        res_table["r-i"] = res_table["mag_sdss_r0"] - res_table["mag_sdss_i0"]
+    elif "gogreen" in source.lower():
+        res_table["u-g"] = res_table["mag_cfht_megacam_us_9301"] - res_table["mag_hsc_g"]
+        res_table["r-i"] = res_table["mag_hsc_r"] - res_table["mag_hsc_i"]
+    elif "desi" in source.lower():
+        res_table["g-r"] = res_table["mag_decam_g"] - res_table["mag_decam_r"]
+        res_table["r-z"] = res_table["mag_decam_r"] - res_table["mag_decam_z"]
 
     # _sel_oiii = np.logical_and(res_table["AGN_[OIII]_5008.24_REW"] > 0., res_table["Balmer_HI_4862.68_REW"] > 0.)
     # _sel_nii = np.logical_and(res_table["AGN_[NII]_6585.27_REW"] > 0., res_table["Balmer_HI_6564.61_REW"] > 0.)
@@ -270,12 +289,12 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
     for x, y in zip(res_table["log([NII]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_nii.append("NC")
-        elif y < Ka03_nii(x):
-            cat_nii.append("Star-forming")
-        elif y < Ke01_nii(x):
+        elif y >= Ke01_nii(x) or x >= 0.47:
+            cat_nii.append("AGN")
+        elif y >= Ka03_nii(x) or x >= 0.05:
             cat_nii.append("Composite")
         else:
-            cat_nii.append("AGN")
+            cat_nii.append("Star-forming")
 
     res_table["CAT_NII"] = np.array(cat_nii)
 
@@ -283,12 +302,12 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
     for x, y in zip(res_table["log([SII]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_sii.append("NC")
-        elif y < Ke01_sii(x):
-            cat_sii.append("Star-forming")
-        elif y < Ke06_sii(x):
+        elif y >= Ke06_sii(x):
+            cat_sii.append("Seyferts")
+        elif y >= Ke01_sii(x) or x >= 0.32:
             cat_sii.append("LINER")
         else:
-            cat_sii.append("Seyferts")
+            cat_sii.append("Star-forming")
 
     res_table["CAT_SII"] = np.array(cat_sii)
 
@@ -296,12 +315,12 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
     for x, y in zip(res_table["log([OI]/[Ha])"], res_table["log([OIII]/[Hb])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_oi.append("NC")
-        elif y < Ke01_oi(x):
-            cat_oi.append("Star-forming")
-        elif y < Ke06_oi(x):
+        elif y >= Ke06_oi(x):
+            cat_oi.append("Seyferts")
+        elif y >= Ke01_oi(x) or x >= -0.59:
             cat_oi.append("LINER")
         else:
-            cat_oi.append("Seyferts")
+            cat_oi.append("Star-forming")
 
     res_table["CAT_OI"] = np.array(cat_oi)
 
@@ -309,12 +328,12 @@ def bpt_classif(gelatoh5, xmatchh5, use_nc=False, return_dict=False):
     for x, y in zip(res_table["log([OI]/[Ha])"], res_table["log([OIII]/[OII])"], strict=False):
         if not (np.isfinite(x) and np.isfinite(y)):
             cat_oii.append("NC")
-        elif y < lim_HII_comp(x):
-            cat_oii.append("SF / composite")
-        elif y < lim_seyf_liner(x):
+        elif y >= lim_seyf_liner(x):
+            cat_oii.append("Seyferts")
+        elif y >= lim_HII_comp(x):
             cat_oii.append("LINER")
         else:
-            cat_oii.append("Seyferts")
+            cat_oii.append("SF / composite")
 
     res_table["CAT_OIII/OIIvsOI"] = np.array(cat_oii)
 

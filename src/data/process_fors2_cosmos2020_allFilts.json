@@ -3,7 +3,7 @@
         "OutFolder": "./resultsGELATO",
     "VacuumWav": true,
     "RandomSeed": 1,
-    "LineRegion": 300,
+    "LineRegion": 1000,
     "ContinuumRegion": 15000,
     "NBoot": 0,
     "FThresh": 0.95,
@@ -168,11 +168,14 @@
         "first_spec": 0,
         "last_spec": -1,
         "fit_type": "mags+rews",
+        "data_origin": "FORS2",
+        "data_selection": null,
+        "bounded_fit": true,
         "use_clean": true,
         "weight_mag": 0.8,
         "ssp_file": "default",
-        "remove_galex": true,
-        "remove_fuv": true,
+        "remove_galex": false,
+        "remove_fuv": false,
         "remove_visible": false,
         "bootstrap": false,
         "bootstrap_id": ["SPEC33", "SPEC36"],
@@ -184,17 +187,18 @@
         "Z_GRID": {
             "z_min": 0.01,
             "z_max": 6.1,
-            "z_step": 0.01
+            "z_step": 0.02
         },
         "WL_GRID": {
             "lambda_min": 100.0,
-            "lambda_max": 25100.0,
-            "lambda_step": 1.0
+            "lambda_max": 100100.0,
+            "lambda_step": 10.0
         },
         "Templates": {
             "input": "$HOME/runProcessFors2/DSPS_hdf5_fit_mags+rews/fitparams_mags+rews_1_to_37.h5",
             "output": "SEDtempl_SPS_mags+rews_1_to_37.h5",
-            "overwrite": true
+            "overwrite": true,
+            "as_array": true
         },
         "Mode": "SPS",
         "Filters": {
@@ -352,13 +356,15 @@
         "Dataset": {
             "path": "COSMOS2020_emu_CC.inp",
             "type": "F",
-            "format": "ASCII",
+            "is_ascii": true,
             "overwrite": true
         },
         "Opacity": "opa/OPACITY.dat",
         "Estimator": "chi2",
+        "fit_dust": true,
         "prior": false,
         "use_colors": true,
+        "i_colors": false,
         "Evidence analysis": false,
         "z_spec analysis": false,
         "NMOD": 5,

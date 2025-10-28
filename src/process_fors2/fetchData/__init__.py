@@ -25,11 +25,27 @@ from .manipulate import (
     readPhotoZHDF5_fromListObs,
     readPZinputsHDF5,
     readTemplatesHDF5,
+    smoothe_gelato,
     starlightToH5,
     tableForGelato,
     templatesToHDF5,
 )
-from .queries import _getTargetCoordinates, getFors2FitsTable, json_to_inputs, queryGalexMast, queryTargetInSimbad, readKids
+from .queries import (
+    _getTargetCoordinates,
+    desi_to_gelato,
+    get_desi_edr_table,
+    get_desiQSO_edr_table,
+    get_gogreen_merged_table,
+    getFors2FitsTable,
+    gogreen_to_gelato,
+    json_to_inputs,
+    load_filters_from_f2df,
+    load_filters_from_ggdf,
+    queryGalexMast,
+    queryTargetInSimbad,
+    readKids,
+    rename_f2_photom,
+)
 
 __all__ = [
     "queryTargetInSimbad",
@@ -67,4 +83,13 @@ __all__ = [
     "readDSPSBootstrapHDF5",
     "readDSPSHDF5",
     "readPZinputsHDF5",
+    "get_gogreen_merged_table",
+    "gogreen_to_gelato",
+    "load_filters_from_ggdf",
+    "load_filters_from_f2df",
+    "rename_f2_photom",
+    "get_desi_edr_table",
+    "get_desiQSO_edr_table",
+    "desi_to_gelato",
+    "smoothe_gelato",
 ]

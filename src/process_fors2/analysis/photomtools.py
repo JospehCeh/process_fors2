@@ -35,6 +35,9 @@ jy_to_lsun = (1 * u.Jy).to(U_LSUNperm2perHz)
 U_FNU = u.def_unit("erg . cm^{-2} . s^{-1} . Hz^{-1}", u.erg / (u.cm**2 * u.s * u.Hz))
 U_FL = u.def_unit("erg . cm^{-2} . s^{-1} . AA^{-1}", u.erg / (u.cm**2 * u.s * u.AA))
 
+MPC_TO_M = (1 * u.Mpc).to(u.m).value
+LSUN_TO_FNU = (1 * U_LSUNperHz / (u.m * u.m)).to(U_FNU).value
+
 
 def convert_flux_torestframe(wl, fl, redshift=0.0):
     """
@@ -55,7 +58,7 @@ def convert_flux_torestframe(wl, fl, redshift=0.0):
         The spectrum blueshifted to restframe wavelengths.
     """
     factor = 1.0 + redshift
-    return wl / factor, fl  # * factor
+    return wl / factor, fl * factor
 
 
 def convert_flux_toobsframe(wl, fl, redshift=0.0):
@@ -77,7 +80,7 @@ def convert_flux_toobsframe(wl, fl, redshift=0.0):
         The spectrum redshifted to observed wavelengths.
     """
     factor = 1.0 + redshift
-    return wl * factor, fl  # / factor
+    return wl * factor, fl / factor
 
 
 def convertFlambdaToFnu(wl, flambda):
@@ -97,7 +100,7 @@ def convertFlambdaToFnu(wl, flambda):
     Compute Fnu = wl**2/c Flambda
     check the conversion units with astropy units and constants
     """
-    fnu = (flambda * U_FL * (wl * u.AA) ** 2 / const.c).to(U_FNU) / (1 * U_FNU)
+    fnu = (flambda * U_FL * (wl * u.AA) ** 2 / const.c).to(U_FNU).value  # / (1 * U_FNU)
     return fnu
 
 
@@ -118,7 +121,7 @@ def convertFnuToFlambda(wl, fnu):
     Compute Flambda = Fnu / (wl**2/c)
     check the conversion units with astropy units and constants
     """
-    flambda = (fnu * U_FNU * const.c / ((wl * u.AA) ** 2)).to(U_FL) / (1 * U_FL)
+    flambda = (fnu * U_FNU * const.c / ((wl * u.AA) ** 2)).to(U_FL).value  # / (1 * U_FL)
     return flambda
 
 
@@ -274,6 +277,107 @@ def estimateErrors(wl, fl, mask=None, nsigma=1, makeplots=True):
     return fl_mean, fl_std
 
 
+def lsunPerHz_to_fnu(fsun, zob):
+    """lsunPerHz_to_fnu _summary_
+
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
+    dist_fact = 4 * jnp.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
+    fnu = (fsun * U_LSUNperHz / dist_fact).to(U_FNU).value  # .to(u.Jy).to(U_FNU).value
+    return fnu
+
+
+def lsunPerHz_to_fnu_noU(fsun, zob):
+    """lsunPerHz_to_fnu _summary_
+
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY)  # in Mpc
+    dist_fact = 4 * jnp.pi * jnp.power(dl * MPC_TO_M, 2)  # * (1 + zob)
+    fnu = fsun * LSUN_TO_FNU / dist_fact
+    return fnu
+
+
+def fnu_to_lsunPerHz(fnu, zob):
+    """fnu_to_lsunPerHz _summary_
+
+    :param wl: _description_
+    :type wl: _type_
+    :param fnu: _description_
+    :type fnu: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
+    dist_fact = 4 * np.pi * (dl.to(u.m) ** 2)  # * (1 + zob)
+    fsun = (fnu * U_FNU * dist_fact).to(U_LSUNperHz).value
+    return fsun
+
+
+def lsunPerHz_to_flam(wl, fsun, zob):
+    """lsunPerHz_to_flam _summary_
+
+    :param wl: _description_
+    :type wl: _type_
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fnu = lsunPerHz_to_fnu(fsun, zob)
+    flam = convertFnuToFlambda(wl, fnu)
+    return flam
+
+
+def lsunPerHz_to_flam_noU(wl, fsun, zob):
+    """lsunPerHz_to_flam _summary_
+
+    :param wl: _description_
+    :type wl: _type_
+    :param fsun: _description_
+    :type fsun: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fnu = lsunPerHz_to_fnu_noU(fsun, zob)
+    flam = convertFnuToFlambda_noU(wl, fnu)
+    return flam
+
+
+def flam_to_lsunPerHz(wl, flam, zob):
+    """flam_to_lsunPerHz _summary_
+
+    :param wl: _description_
+    :type wl: _type_
+    :param flam: _description_
+    :type flam: _type_
+    :param zob: _description_
+    :type zob: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    fnu = convertFlambdaToFnu(wl, flam)
+    fsun = fnu_to_lsunPerHz(fnu, zob)
+    return fsun
+
+
 def get_fnu_clean(gelatoh5, tag, zob=None, nsigs=8):
     """
     Computes the clean spectrum in appropriate units for SPS-fitting with DSPS.
@@ -303,9 +407,9 @@ def get_fnu_clean(gelatoh5, tag, zob=None, nsigs=8):
         flamerr = np.array(group.get("flam_err"))
         if zob is None:
             zob = group.attrs.get("SSP_Redshift") / C_KMS
-        dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
-        fnu = ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
-        fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        # dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
+        fnu = flam_to_lsunPerHz(wls, flam, zob)  # ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        fnuerr = flam_to_lsunPerHz(wls, flamerr, zob)  # ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
         # gpr.fit(wls.reshape(-1, 1), fnu)
         # sm_fnu = gpr.predict(wls.reshape(-1, 1), return_std=False)
         sm_fnu = gaussian_filter1d(fnu, sigma=nsigs)
@@ -348,12 +452,37 @@ def get_fnu(gelatoh5, tag, zob=None):
         flamerr = np.array(group.get("flam_err"))
         if zob is None:
             zob = group.attrs.get("SSP_Redshift") / C_KMS
-        dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in meters
-        fnu = ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
-        fnuerr = ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        # dl = luminosity_distance_to_z(zob, *DEFAULT_COSMOLOGY) * u.Mpc  # in Mpc
+        fnu = flam_to_lsunPerHz(wls, flam, zob)  # ((convertFlambdaToFnu(wls, flam) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        fnuerr = flam_to_lsunPerHz(wls, flamerr, zob)  # ((convertFlambdaToFnu(wls, flamerr) * U_FNU).to(u.Jy) * 4 * np.pi * (dl.to(u.m) ** 2) / (1 + zob)).to(U_LSUNperHz).value
+        # gpr.fit(wls.reshape(-1, 1), fnu)
+        # sm_fnu = gpr.predict(wls.reshape(-1, 1), return_std=False)
         spec_dict["wl"] = wls
         spec_dict["fnu"] = fnu
         spec_dict["fnuerr"] = fnuerr
+    return spec_dict
+
+
+def get_flam(gelatoh5, tag):
+    """get_flam _summary_
+
+    :param gelatoh5: _description_
+    :type gelatoh5: _type_
+    :param tag: _description_
+    :type tag: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+    gelatoh5file = os.path.abspath(gelatoh5)
+    spec_dict = {}
+    with h5py.File(gelatoh5file, "r") as gel5:
+        group = gel5.get(tag)
+        wls = np.array(group.get("wl_ang"))
+        flam = np.array(group.get("flam"))
+        flamerr = np.array(group.get("flam_err"))
+        spec_dict["wl"] = wls
+        spec_dict["flam"] = flam
+        spec_dict["flamerr"] = flamerr
     return spec_dict
 
 

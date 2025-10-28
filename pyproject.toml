@@ -28,8 +28,8 @@ dependencies = [
     "tqdm",
     "ipympl",
     "seaborn",
-    "diffmah",
-    "diffstar",
+    "diffstar<=0.3.2",
+    "diffmah<=0.6.1",
     "jax",
     "jaxlib",
     "jaxopt",
@@ -37,7 +37,11 @@ dependencies = [
     "dsps",
     "interpax",
     "arviz",
-    "jax_cosmo"
+    "jax_cosmo",
+    "tables",
+    "astro-datalab",
+    "sparclclient",
+    "mpl-scatter-density"
 ]
 
 [project.urls]
@@ -132,6 +136,7 @@ ignore = [
     "N806",
     "N802",
     "N803",
+    "N813", # Allow Camelcase imported as lowercase
     "B007",
     "D417",
     "SIM118",

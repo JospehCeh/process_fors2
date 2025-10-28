@@ -10,11 +10,34 @@ Created on Thu Mar 14 14:14:14 2024
 
 # Packages
 import copy
+import json
 import os
 
 # GELATO
 import gelato
 from gelato import ConstructParams, Utility
+
+
+def construct(path):
+    """construct _summary_
+
+    :param path: _description_
+    :type path: _type_
+    :return: _description_
+    :rtype: _type_
+    """
+
+    # Open file
+    with open(path, "r") as file:
+        _p = json.load(file)
+    p = _p["gelato"]
+
+    # Verify
+    if not ConstructParams.verify(p):
+        print("Parameters file is not correct, exiting.")
+        sys.exit(1)
+
+    return p
 
 
 def run_gelato_single(pars, spec, z):
@@ -38,7 +61,7 @@ def run_gelato_single(pars, spec, z):
     # Parameters
     _pars = os.path.abspath(pars)
     _spec = os.path.abspath(spec)
-    p = ConstructParams.construct(_pars)
+    p = construct(_pars)
 
     ## Create Directory for Output
     outpath = os.path.abspath(p["OutFolder"])
@@ -49,7 +72,7 @@ def run_gelato_single(pars, spec, z):
         now = Utility.header()
 
     # Single Mode
-    gelato.gelato(_pars, _spec, z)
+    gelato.gelato(p, _spec, z)
 
     if p["Verbose"]:
         Utility.footer(now)
@@ -73,8 +96,8 @@ def run_gelato():
     args = Utility.parseArgs()
 
     # Parameters
-    _p = ConstructParams.construct(args.Parameters)
-    p = _p["gelato"]  # To account for the multilayer JSON configuration file
+    p = construct(args.Parameters)
+    # p = _p["gelato"]  # To account for the multilayer JSON configuration file
 
     ## Create Directory for Output
     outpath = os.path.abspath(p["OutFolder"])
@@ -86,7 +109,7 @@ def run_gelato():
 
     # Single Mode
     if args.single:
-        gelato.gelato(args.Parameters, args.Spectrum, args.Redshift)
+        gelato.gelato(p, args.Spectrum, args.Redshift)
 
     # Multi Mode
     else:
@@ -98,13 +121,13 @@ def run_gelato():
             import multiprocessing as mp
 
             pool = mp.Pool(processes=p["NProcess"])
-            inputs = [(copy.deepcopy(args.Parameters), o["Path"], o["z"]) for o in objects]
+            inputs = [(copy.deepcopy(p), o["Path"], o["z"]) for o in objects]
             pool.starmap(gelato.gelato, inputs)
             pool.close()
             pool.join()
         else:  # Single Thread
             for o in objects:
-                gelato.gelato(copy.deepcopy(args.Parameters), o["Path"], o["z"])
+                gelato.gelato(copy.deepcopy(p), o["Path"], o["z"])
 
         # Concatenate Results
         if p["Concatenate"]:

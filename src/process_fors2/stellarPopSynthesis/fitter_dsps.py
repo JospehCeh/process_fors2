@@ -12,7 +12,7 @@ import jax
 from diffmah.defaults import DiffmahParams
 from diffstar import calc_sfh_singlegal  # sfh_singlegal
 from diffstar.defaults import DiffstarUParams  # , DEFAULT_Q_PARAMS
-from dsps import calc_obs_mag, load_ssp_templates
+from dsps import calc_obs_mag
 from dsps.cosmology import DEFAULT_COSMOLOGY, age_at_z
 from dsps.dust.att_curves import _frac_transmission_from_k_lambda, sbl18_k_lambda
 from interpax import interp1d
@@ -43,24 +43,6 @@ def _get_package_dir() -> str:
 _DUMMY_P_ADQ = SSPParametersFit()
 TODAY_GYR = 13.8
 T_ARR = jnp.linspace(0.1, TODAY_GYR, 100)
-
-
-def load_ssp(ssp_file=None):
-    """load_ssp _summary_
-
-    :param ssp_file: _description_, defaults to None
-    :type ssp_file: _type_, optional
-    :return: _description_
-    :rtype: _type_
-    """
-    if ssp_file == "" or ssp_file is None or "default" in ssp_file.lower():
-        from process_fors2.fetchData import DEFAULTS_DICT
-
-        fullfilename_ssp_data = DEFAULTS_DICT["DSPS HDF5"]
-    else:
-        fullfilename_ssp_data = os.path.abspath(ssp_file)
-    ssp_data = load_ssp_templates(fn=fullfilename_ssp_data)
-    return ssp_data
 
 
 @jit

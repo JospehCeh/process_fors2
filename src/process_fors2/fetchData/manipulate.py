@@ -23,6 +23,7 @@ import pandas as pd
 from astropy.table import Table
 from dsps.cosmology import DEFAULT_COSMOLOGY, luminosity_distance_to_z  # in Mpc
 from jax import numpy as jnp
+from scipy.interpolate import Akima1DInterpolator
 from scipy.ndimage import gaussian_filter1d
 from sedpy import observate
 from tqdm import tqdm
@@ -204,12 +205,12 @@ def GetColumnHfData(hff, list_of_keys, nameval):
     Extracts the values of one attribute for all listed keys.
 
     parameters
-      hff           : descriptor of h5 file
-      list_of_keys  : list of exposures
-      nameval       : name of the attribute
+        hff           : descriptor of h5 file
+        list_of_keys  : list of exposures
+        nameval       : name of the attribute
 
     return
-       The array of values in the order of appearance.
+        The array of values in the order of appearance.
     """
     all_data = []
     for key in list_of_keys:
@@ -618,7 +619,7 @@ def cleanGalexData(input_file, asep_galex):
     return readH5FileAttributes(outpath)
 
 
-def gelato_xmatch_todict(gelatoh5, xmatchh5):
+def gelato_xmatch_todict(gelatoh5, xmatchh5, source="FORS2"):
     """
     Merges attributes from cross-matched data and GELATO output.
 
@@ -628,7 +629,8 @@ def gelato_xmatch_todict(gelatoh5, xmatchh5):
         Name or path to the `HDF5` file that contains GELATO outputs.
     xmatchh5 : str or path
         Name or path to the `HDF5` file that contains cross-matched data.
-
+    source : str, optional
+        Origin of the data : "FORS2", "GOGREEN" or "DESI". The default is "FORS2".
     Returns
     -------
     dict
@@ -637,7 +639,15 @@ def gelato_xmatch_todict(gelatoh5, xmatchh5):
     gelatofile = os.path.abspath(gelatoh5)
     xmatchfile = os.path.abspath(xmatchh5)
     gelatout = readH5FileAttributes(gelatofile)
-    xmatchout = readH5FileAttributes(xmatchfile)
+    if "fors2" in source.lower():
+        xmatchout = readH5FileAttributes(xmatchfile)
+    else:
+        xmatchout = pd.read_hdf(xmatchfile)
+        xmatchout = xmatchout.sort_values(by="num", ascending=True)
+        df_info_num = xmatchout["num"].values
+        key_tags = [f"SPEC{num}" for num in df_info_num]
+        xmatchout["name"] = key_tags
+        xmatchout.reset_index(drop=True, inplace=True)
     merged_df = xmatchout.merge(right=gelatout, how="outer", on=["name", "num"])
     merged_df.set_index("name", drop=False, inplace=True)
     merged_df.sort_values("num", inplace=True)
@@ -681,7 +691,7 @@ def dsps_to_gelato(wls_ang, params_dict, z_obs=0.0, ssp_file=None):
     return t_gel
 
 
-def tableForGelato(wl, fl, std, mask=None):
+def tableForGelato(wl, fl, std, mask=None, interp_step=None):
     r"""
     Returns a table that contains spectral data formatted for GELATO, *i.e* the log10 of the wavelength in Angstroms,
     the spectral flux density per unit wavelength (flam) and the inverse variance of the fluxes, in corresponding units.
@@ -696,6 +706,8 @@ def tableForGelato(wl, fl, std, mask=None):
         Spectral flux errors (as standard deviation, or $\sigma$) in units $erg . cm^{-2} . s^{-1} . \AA^{-1}$.
     mask : array, optional
         Where the spectral flux is masked. 0 or False = valid flux. The default is None.
+    interp_step : float, optional
+        The interpolation step in angstroms. The default is None.
 
     Returns
     -------
@@ -707,24 +719,42 @@ def tableForGelato(wl, fl, std, mask=None):
     """
     # Manage mask
     if mask is None:
-        mask = np.zeros_like(fl)
-    nomask = np.where(mask > 0, False, True)
-    sel = np.logical_and(nomask, np.isfinite(fl))
-    sel = np.logical_and(sel, fl > 0.0)
-    sel = np.logical_and(sel, np.isfinite(std))
-    sel = np.logical_and(sel, std > 0.0)
+        mask = np.full_like(wl, False)
+    nomask = np.where(mask, False, True)
+    sel = np.logical_and(nomask, np.logical_and(np.isfinite(fl), np.isfinite(std)))
 
-    # Transform data
-    wl_gel = np.log10(wl[sel])
-    flam_gel = fl[sel]
-    inv_var = np.power(std[sel], -2)
+    if interp_step is not None:
+        # Identify interpolation points - assume wavelengths are finite and sorted...
+        wls_interp = np.arange(wl[0], wl[-1] + interp_step, interp_step)
+
+        # Interpolate the mask
+        nmask_interp = np.full_like(wls_interp, True, dtype=bool)
+        for ii, _wl in enumerate(zip(wl[:-1], wl[1:], strict=True)):
+            nmask_interp = np.where(np.logical_and(_wl[0] <= wls_interp, wls_interp < _wl[1]), nomask[ii], nmask_interp)
+        nmask_interp[-1] = nomask[-1]  # ensure the last point is consistant, otherwise the 'and' above skips it.
+
+        # Interpolate data to ensure enoough points for REW calcs by GELATO
+        flam_interp = Akima1DInterpolator(wl[sel], fl[sel])(wls_interp)
+        std_interp = Akima1DInterpolator(wl[sel], std[sel])(wls_interp)
+
+        sel_interp = np.logical_and(nmask_interp, np.logical_and(np.isfinite(flam_interp), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_interp > 0.0, std_interp > 0.0))))
+
+        # Convert data
+        wl_gel = np.log10(wls_interp[sel_interp])
+        inv_var = np.power(std_interp[sel_interp], -2)
+        flam_gel = flam_interp[sel_interp]
+    else:
+        selsup0 = np.logical_and(sel, np.logical_and(fl > 0.0, std > 0.0))
+        wl_gel = np.log10(wl[selsup0])
+        inv_var = np.power(std[selsup0], -2)
+        flam_gel = fl[selsup0]
 
     # Create table
     t = Table([wl_gel, flam_gel, inv_var], names=["loglam", "flux", "ivar"])
     return t
 
 
-def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
+def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3, interp_step=None):
     """
     Reads data from input file, makes it compatible with GELATO and writes necessary files.
 
@@ -739,12 +769,16 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
     nsigma : int, optional
         Number of sigma to use at smoothing during noise estimation.\
         If `smoothe` is `True`, this also impacts the spectrum that is exported for GELATO. The default is 3.
+    interp_step : float, optional
+        The interpolation step in angstroms ; if None, no interpolation is performed. The default is None.
 
     Returns
     -------
     tuple(Table, path)
         Astropy Table of the list of objects to be passed to GELATO. It is also saved in `output_dir`.
     """
+    from scipy.ndimage import gaussian_filter1d
+
     xmatchfile = os.path.abspath(input_file)
     if not os.path.isfile(xmatchfile):
         print(f"ABORTED : {xmatchfile} is a not valid HDF5 file.")
@@ -815,10 +849,10 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
 
         # Eyeball estimate of noise in flux data
         fl_signal, fl_noise = estimateErrors(wlf2, scaled_flux, mask=maskf2, nsigma=nsigma, makeplots=False)
-        sm_noise = gaussian_filter1d(fl_noise, 5)  # smoothing of the noise, just because.
+        sm_noise = gaussian_filter1d(fl_noise, nsigma)  # smoothing of the noise, just because.
 
         # Conversion to GELATO format
-        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2) if smoothe else tableForGelato(wlf2, scaled_flux, sm_noise, mask=maskf2)
+        t = tableForGelato(wlf2, fl_signal, sm_noise, mask=maskf2, interp_step=interp_step) if smoothe else tableForGelato(wlf2, scaled_flux, fl_noise, mask=maskf2, interp_step=interp_step)
 
         # Write data
         outdir = os.path.abspath(output_dir)
@@ -840,7 +874,76 @@ def crossmatchToGelato(input_file, output_dir, smoothe=False, nsigma=3):
     return objlist, writepath
 
 
-def gelatoToH5(outfilename, gelato_run_dir):
+def smoothe_gelato(input_dir, output_dir, nsigma=3, interp_step=None):
+    """smoothe_gelato _summary_
+
+    :param input_dir: _description_
+    :type input_dir: _type_
+    :param output_dir: _description_
+    :type output_dir: _type_
+    :param nsigma: _description_, defaults to 3
+    :type nsigma: int, optional
+    :param interp_step: _description_, defaults to None
+    :type interp_step: int, optional
+    :return: _description_
+    :rtype: _type_
+    """
+    input_tabf = os.path.abspath(os.path.join(input_dir, "specs_for_GELATO.fits"))
+    input_tab = Table.read(input_tabf)
+    input_df = input_tab.to_pandas()
+    outdirspecs = os.path.abspath(os.path.join(output_dir, "SPECS"))
+    os.makedirs(outdirspecs, exist_ok=True)
+    input_df["Path"] = np.array([n.decode("UTF-8") for n in input_df["Path"]])
+    all_paths = []
+    all_zs = []
+    for ii, row in tqdm(input_df.iterrows(), total=input_df.shape[0]):
+        datapath = os.path.abspath(row["Path"])
+        spec_data = Table.read(datapath, format="fits")
+
+        fl_smooth = gaussian_filter1d(spec_data["flux"], nsigma)
+        std_smooth = gaussian_filter1d(np.power(spec_data["ivar"], -0.5), nsigma)
+        wls = np.power(10, spec_data["loglam"])
+
+        t = tableForGelato(wls, fl_smooth, std_smooth, interp_step=interp_step)
+
+        """
+        if interp_step is not None:
+            # Identify interpolation points - assume wavelengths are finite and sorted...
+            wls = np.power(10, spec_data["loglam"])
+            wls_interp = np.arange(wls[0], wls[-1] + interp_step, interp_step)
+
+            # Interpolate data to ensure enoough points for REW calcs by GELATO
+            flam_interp = Akima1DInterpolator(wls, fl_smooth)(wls_interp)
+            std_interp = Akima1DInterpolator(wls, std_smooth)(wls_interp)
+
+            sel_interp = np.logical_and(np.isfinite(flam_interp), np.logical_and(np.isfinite(std_interp), np.logical_and(flam_interp > 0.0, std_interp > 0.0)))
+
+            # Convert data
+            wl_gel = np.log10(wls_interp[sel_interp])
+            inv_var = np.power(std_interp[sel_interp], -2)
+            fl_gel = flam_interp[sel_interp]
+        else:
+            sel = np.logical_and(np.isfinite(fl_smooth), np.logical_and(np.isfinite(std_smooth), np.logical_and(fl_smooth > 0.0, std_smooth > 0.0)))
+            wl_gel = spec_data["loglam"][sel]
+            fl_gel = fl_smooth[sel]
+            inv_var = np.power(std_smooth[sel], -2)
+        """
+
+        outf = os.path.join(outdirspecs, os.path.basename(datapath))
+        t.write(outf, format="fits", overwrite=True)
+        all_paths.append(outf)
+        all_zs.append(row["z"])
+
+    # Create list of objects
+    objlist = Table([all_paths, all_zs], names=["Path", "z"])
+    writepath = os.path.join(os.path.abspath(output_dir), "specs_for_GELATO.fits")
+    objlist.write(writepath, format="fits", overwrite=True)
+    print(f"Done ! List of objects written in {writepath}.")
+
+    return objlist, writepath
+
+
+def gelatoToH5(outfilename, gelato_run_dir, source="FORS2"):
     """
     Gathers data from GELATO inputs and outputs and writes them to a HDF5 file to be used as input for Stellar Population Synthesis.
 
@@ -850,6 +953,8 @@ def gelatoToH5(outfilename, gelato_run_dir):
         Name of the `HDF5` file that will be written.
     gelato_run_dir : str or path
         Path to the output directory of the GELATO run to consider.
+    source : str, optional
+        The source of the data : "FORS2", "DESI" or "GOGREEN". Matters for the naming convention. The default is "FORS2".
 
     Returns
     -------
@@ -864,9 +969,12 @@ def gelatoToH5(outfilename, gelato_run_dir):
         res_table = Table.read(res_tab_path)
         res_df = res_table.to_pandas()
         res_df["FITS"] = np.array([n.decode("UTF-8") for n in res_df["Name"]])
-        # res_df["name"] = np.array([n.split('_')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
-        specs = np.array([n.split("_")[0] for n in res_df["FITS"]])
-        nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
+        # res_df["name"] = np.array([n.split('_z')[0] for n in res_df["FITS"]]) -- Added in the readH5FileAttributes function
+        specs = np.array([n.split("_z")[0] for n in res_df["FITS"]])
+        if "fors2" in source.lower():  # noqa: SIM108
+            nums = np.array([int(s.split("SPEC")[-1]) for s in specs], dtype=int)
+        else:  # elif "gogreen" in source.lower():
+            nums = np.array([int(s.split("_")[-1]) for s in specs], dtype=int)
         res_df["num"] = nums
         res_df.drop(columns="Name", inplace=True)
         for col in res_df.columns:
@@ -875,10 +983,10 @@ def gelatoToH5(outfilename, gelato_run_dir):
             except ValueError:
                 pass
         with h5py.File(fileout, "w") as h5out:
-            for i, row in res_df.iterrows():
+            for i, row in tqdm(res_df.iterrows(), total=res_df.shape[0]):
                 specin = row["FITS"]
                 fn, ext = os.path.splitext(specin)
-                specn = fn.split("_")[0]
+                specn = fn.split("_z")[0]
                 spec_path = os.path.join(gelatout, f"{fn}-results{ext}")
                 spec_tab = Table.read(spec_path)
                 wlang = np.power(10, spec_tab["loglam"])
@@ -890,9 +998,18 @@ def gelatoToH5(outfilename, gelato_run_dir):
                 groupout.create_dataset("wl_ang", data=wlang, compression="gzip", compression_opts=9)
                 groupout.create_dataset("flam", data=flam, compression="gzip", compression_opts=9)
                 groupout.create_dataset("flam_err", data=flamerr, compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_mod", data=np.array(spec_tab["MODEL"]), compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
-                groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
+                try:
+                    groupout.create_dataset("gelato_mod", data=np.array(spec_tab["MODEL"]), compression="gzip", compression_opts=9)
+                except KeyError:
+                    groupout.create_dataset("gelato_mod", data=np.full_like(wlang, np.nan), compression="gzip", compression_opts=9)
+                try:
+                    groupout.create_dataset("gelato_ssp", data=np.array(spec_tab["SSP"]), compression="gzip", compression_opts=9)
+                except KeyError:
+                    groupout.create_dataset("gelato_ssp", data=np.full_like(wlang, np.nan), compression="gzip", compression_opts=9)
+                try:
+                    groupout.create_dataset("gelato_line", data=np.array(spec_tab["LINE"]), compression="gzip", compression_opts=9)
+                except KeyError:
+                    groupout.create_dataset("gelato_line", data=np.full_like(wlang, np.nan), compression="gzip", compression_opts=9)
 
     ret = fileout if os.path.isfile(fileout) else f"Unable to write data to {outfilename}"
     return ret
@@ -1047,7 +1164,7 @@ def photoZ_listObsToHDF5(outfilename, pz_list):
         for i, posts_dic in enumerate(pz_list):
             groupout = h5out.create_group(f"{i}")
             groupout.create_dataset("PDZ", data=posts_dic.pop("PDZ"), compression="gzip", compression_opts=9)
-            groupout.attrs["z_spec"] = posts_dic.pop("z_spec")
+            groupout.attrs["redshift"] = posts_dic.pop("redshift")
             groupout.attrs["z_ML"] = posts_dic.pop("z_ML")
             groupout.attrs["z_mean"] = posts_dic.pop("z_mean")
             groupout.attrs["z_med"] = posts_dic.pop("z_med")
@@ -1087,7 +1204,7 @@ def readPhotoZHDF5_fromListObs(h5file):
     out_list = []
     with h5py.File(filein, "r") as h5in:
         for key, grp in h5in.items():
-            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "z_spec": grp.attrs.get("z_spec"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean"), "z_med": grp.attrs.get("z_med")}
+            obs_dict = {"PDZ": jnp.array(grp.get("PDZ")), "redshift": grp.attrs.get("redshift"), "z_ML": grp.attrs.get("z_ML"), "z_mean": grp.attrs.get("z_mean"), "z_med": grp.attrs.get("z_med")}
             for templ, grp_sed in grp.items():
                 if "SPEC" in templ:
                     obs_dict.update({templ: {_k: _att for _k, _att in grp_sed.attrs.items()}})
@@ -1200,42 +1317,46 @@ def readDSPSBootstrapHDF5(h5file):
     return out_dict
 
 
-def readCatalogHDF5(h5file, group="catalog", filt_names=None):
+def readCatalogHDF5(h5file, group="photometry", filt_names=None, bounds=None):
     """readCatalogHDF5 Reads the magnitudes and spectroscopic redshift (if available) from a dictionary-like catalog provided as an `HDF5` file.
     Preliminary step for the `process_fors2.photoZ` calculations.
 
     :param h5file: Path to the HDF5 catalog file.
     :type h5file: str or path-like
-    :param group: Identifier of the group to read within the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.read_hdf`. Defaults to 'catalog'.
+    :param group: Identifier of the group to read within the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.read_hdf`. Defaults to 'photometry'.
     :type group: str, optional
     :param filt_names: Names of filters to look for in the catalogs. Data recorded as `mag_[filter name]` and `mag_err_[filter name]` will be returned.
     If None, defaults to LSST filters. Defaults to None.
     :type filt_names: list of str, optional
+    :param bounds: index of first and last elements to load. If None, reads the whole catalog. Defaults to None.
+    :type bounds: 2-tuple of int or None
     :return: tuple containing AB magnitudes, corresponding errors and spectroscopic redshift as arrays.
     :rtype: tuple of arrays
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
     df_cat = pd.read_hdf(os.path.abspath(h5file), key=group)
+    if bounds is not None:
+        df_cat = df_cat[bounds[0] : bounds[-1]].copy()
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
     obs_mags = jnp.array(df_cat[magnames])
     obs_mags_errs = jnp.array(df_cat[magerrs])
     try:
-        z_specs = jnp.array(df_cat["z_spec"])
+        z_specs = jnp.array(df_cat["redshift"])
     except IndexError:
         z_specs = jnp.full(obs_mags.shape[0], jnp.nan)
     return obs_mags, obs_mags_errs, z_specs
 
 
-def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None):
+def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="photometry", filt_names=None):
     """catalog_ASCIItoHDF5 Reads a catalog provided as an ASCII file (as in LEPHARE) containing either fluxes or magnitudes and saves it in an `HDF5` file containing AB-magnitudes.
 
     :param ascii_file: Path to the ASCII file containing catalog cata as an array that can be read with `numpy.loadtxt(ascii_file)`.
     :type ascii_file: str or path-like
     :param data_ismag: Whether the photometry in the file is given as AB-magnitudes or flux density (in erg/s/cm²/Hz). True for AB-magnitudes.
     :type data_ismag: bool
-    :param group: Name of the group to write in the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.to_hdf`. Defaults to 'catalog'.
+    :param group: Name of the group to write in the `HDF5` file. This argument is passed to the `key` argument of `pandas.DataFrame.to_hdf`. Defaults to 'photometry'.
     :type group: str, optional
     :param filt_names: Names of filters to use as column names in the catalog. Data will be recored as `mag_[filter name]` and `mag_err_[filter name]`.
     If None, defaults to LSST filters. Defaults to None.
@@ -1244,14 +1365,14 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
     :rtype: str or path-like object
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
     magnames = [f"mag_{filt}" for filt in filt_names]
     magerrs = [f"mag_err_{filt}" for filt in filt_names]
     N_FILT = len(filt_names)
     data_file_arr = np.loadtxt(os.path.abspath(ascii_file))
     has_zspec = data_file_arr.shape[1] == 1 + 2 * N_FILT + 1
     no_zspec = data_file_arr.shape[1] == 1 + 2 * N_FILT
-    assert has_zspec or no_zspec, "Number of column in data does not match one of 1 + 2*n_filts + 1 (id, photometry, z_spec) or 1 + 2*n_filts (id, photometry).\
+    assert has_zspec or no_zspec, "Number of column in data does not match one of 1 + 2*n_filts + 1 (id, photometry, redshift) or 1 + 2*n_filts (id, photometry).\
         \nReview data or filters list."
 
     from process_fors2.photoZ import vmap_load_magnitudes
@@ -1260,7 +1381,7 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
 
     all_zs = data_file_arr[:, -1] if has_zspec else jnp.full(all_mags.shape[0], jnp.nan)
 
-    df_mags = pd.DataFrame(columns=magnames + magerrs + ["z_spec"], data=jnp.column_stack((all_mags, all_mags_err, all_zs)))
+    df_mags = pd.DataFrame(columns=magnames + magerrs + ["redshift"], data=jnp.column_stack((all_mags, all_mags_err, all_zs)))
 
     hdf_name = f"{os.path.splitext(os.path.basename(ascii_file))[0]}.h5"
     outfilename = os.path.abspath(hdf_name)
@@ -1269,7 +1390,7 @@ def catalog_ASCIItoHDF5(ascii_file, data_ismag, group="catalog", filt_names=None
     return respath
 
 
-def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=None):
+def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=None, i_colors=False, iband_num=3):
     """pzInputsToHDF5 Saves the photometry inputs as processed for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
     Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
@@ -1288,23 +1409,31 @@ def pzInputsToHDF5(h5file, clrs_ind, clrs_ind_errs, z_specs, i_mags, filt_names=
     If None, defaults to LSST filters. Defaults to None.
     :type filt_names: list of str, optional
     :return: Absolute path to the written file - if successful.
+    :param i_colors: Whether color indices are given relative to i-band (True) or to the adjacent filter (False). Defaults to False.
+    :type i_colors: bool, optional
+    :param iband_num: The number (starting from 0) of the i-band in the list of `filt_names`. Defaults to 3.
+    :type iband_num: int, optional
     :rtype: str or path-like object
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
 
-    color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+    if i_colors:
+        ifiltname = filt_names[iband_num]
+        color_names = [f"{_f}-{ifiltname}" for _f in filt_names]
+        color_err_names = [f"{_f}-{ifiltname}_err" for _f in filt_names]
+    else:
+        color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+        color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
-    color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
-
-    df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "z_spec"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
+    df_clrs = pd.DataFrame(columns=color_names + color_err_names + ["i_mag", "redshift"], data=jnp.column_stack((clrs_ind, clrs_ind_errs, i_mags, z_specs)))
     outfilename = os.path.abspath(h5file)
-    df_clrs.to_hdf(outfilename, "pz_inputs")
+    df_clrs.to_hdf(outfilename, key="pz_inputs")
     respath = outfilename if os.path.isfile(outfilename) else f"Unable to write data to {outfilename}"
     return respath
 
 
-def readPZinputsHDF5(h5file, filt_names=None):
+def readPZinputsHDF5(h5file, filt_names=None, i_colors=False, iband_num=3, bounds=None):
     """readPZinputsHDF5 Reads pre-existing photometry inputs for the `process_fors2.photoZ` module, *i.e.* color indices, associated errors and spectro-z if available.
     Filter names must match those used for the photo-z estimation. Allows not to reprocess the catalog everytime the code is used on a similar dataset.
 
@@ -1313,19 +1442,31 @@ def readPZinputsHDF5(h5file, filt_names=None):
     :param filt_names: Names of filters to look for in the catalogs. Color indices `[filter name i]-[filter name i+1]` and `[filter name i]-[filter name i+1]_err` will be returned.
     If None, defaults to LSST filters. Defaults to None.
     :type filt_names: list of str, optional
+    :param i_colors: Whether color indices are given relative to i-band (True) or to the adjacent filter (False). Defaults to False.
+    :type i_colors: bool, optional
+    :param iband_num: The number (starting from 0) of the i-band in the list of `filt_names`. Defaults to 3.
+    :type iband_num: int, optional
+    :param bounds: index of first and last elements to load. If None, reads the whole catalog. Defaults to None.
+    :type bounds: 2-tuple of int or None
     :return: 4-tuple of JAX arrays containing data to perform photo-z estimation (`jnp.nan` if missing) : mags in i-band ; color indices ; associated errors and spectro-z.
     :rtype: tuple(arrays)
     """
     if filt_names is None:
-        filt_names = ["lsst_u", "lsst_g", "lsst_r", "lsst_i", "lsst_z", "lsst_y"]
+        filt_names = ["u_lsst", "g_lsst", "r_lsst", "i_lsst", "z_lsst", "y_lsst"]
 
-    color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
-
-    color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+    if i_colors:
+        ifiltname = filt_names[iband_num]
+        color_names = [f"{_f}-{ifiltname}" for _f in filt_names]
+        color_err_names = [f"{_f}-{ifiltname}_err" for _f in filt_names]
+    else:
+        color_names = [f"{n1}-{n2}" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
+        color_err_names = [f"{n1}-{n2}_err" for (n1, n2) in zip(filt_names[:-1], filt_names[1:], strict=True)]
 
     df_clrs = pd.read_hdf(os.path.abspath(h5file), key="pz_inputs")
+    if bounds is not None:
+        df_clrs = df_clrs[bounds[0] : bounds[-1]].copy()
     colrs = jnp.array(df_clrs[color_names])
     colrs_errs = jnp.array(df_clrs[color_err_names])
     i_mags = jnp.array(df_clrs["i_mag"])
-    z_specs = jnp.array(df_clrs["z_spec"])
+    z_specs = jnp.array(df_clrs["redshift"])
     return i_mags, colrs, colrs_errs, z_specs

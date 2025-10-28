@@ -3,7 +3,7 @@
         "OutFolder": "./resultsGELATO",
         "VacuumWav": true,
         "RandomSeed": 1,
-        "LineRegion": 300,
+        "LineRegion": 1000,
         "ContinuumRegion": 15000,
         "NBoot": 10,
         "FThresh": 0.95,
@@ -172,11 +172,14 @@
         "first_spec": 0,
         "last_spec": 10,
         "fit_type": "mags+rews",
+        "data_origin": "FORS2",
+        "data_selection": null,
+        "bounded_fit": true,
         "use_clean": false,
-        "weight_mag": 0.9,
+        "weight_mag": 0.8,
         "ssp_file": "default",
-        "remove_galex": true,
-        "remove_fuv": true,
+        "remove_galex": false,
+        "remove_fuv": false,
         "remove_visible": false,
         "bootstrap": false,
         "bootstrap_id": "",
@@ -188,17 +191,18 @@
         "Z_GRID": {
             "z_min": 0.01,
             "z_max": 2.1,
-            "z_step": 0.1
+            "z_step": 0.02
         },
         "WL_GRID": {
             "lambda_min": 100.0,
             "lambda_max": 25100.0,
-            "lambda_step": 1.0
+            "lambda_step": 10.0
         },
         "Templates": {
             "input": "../../src/data/photoz/fitparams_mags+rews_1_to_10.h5",
             "output": "SEDtempl_SPS_mags+rews_1_to_10.h5",
-            "overwrite": true
+            "overwrite": true,
+            "as_array": true
         },
         "Mode": "SPS",
         "Filters": {
@@ -237,13 +241,15 @@
         "Dataset": {
             "path": "../../src/data/photoz/COSMOS2020_emu_hscOnly_CC_allzinf3.inp",
             "type": "F",
-            "format": "ASCII",
+            "is_ascii": true,
             "overwrite": true
         },
         "Opacity": "opa/OPACITY.dat",
         "Estimator": "chi2",
+        "fit_dust": true,
         "prior": false,
         "use_colors": true,
+        "i_colors": false,
         "Evidence analysis": false,
         "z_spec analysis": false,
         "NMOD": 5,
