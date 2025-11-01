@@ -29,7 +29,7 @@ dependencies = [
     "ipympl",
     "seaborn",
     "diffstar<=0.3.2",
-    "diffmah<=0.6.1",
+    "diffmah<=0.6.2",
     "jax",
     "jaxlib",
     "jaxopt",
